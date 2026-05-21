@@ -4,9 +4,24 @@ import { adminDb, admin } from '@/lib/firebase/admin';
 
 // Helper to verify GitHub signature
 function verifySignature(payload: string, signature: string, secret: string) {
-  const hmac = crypto.createHmac('sha256', secret);
-  const digest = 'sha256=' + hmac.update(payload).digest('hex');
-  return crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(digest));
+  try {
+    const hmac = crypto.createHmac('sha256', secret);
+    const digest = 'sha256=' + hmac.update(payload).digest('hex');
+    
+    const sigBuffer = Buffer.from(signature);
+    const digestBuffer = Buffer.from(digest);
+    
+    if (sigBuffer.length !== digestBuffer.length) {
+      return { isValid: false, digest };
+    }
+    
+    return { 
+      isValid: crypto.timingSafeEqual(sigBuffer, digestBuffer), 
+      digest 
+    };
+  } catch (error) {
+    return { isValid: false, digest: 'error' };
+  }
 }
 
 export async function POST(req: NextRequest) {
@@ -29,8 +44,19 @@ export async function POST(req: NextRequest) {
     }
 
     const rawBody = await req.text();
-    if (!verifySignature(rawBody, signature, secret)) {
-      return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
+    const verification = verifySignature(rawBody, signature, secret);
+    
+    if (!verification.isValid) {
+      // Adding debug info to see exactly what Vercel is seeing
+      return NextResponse.json({ 
+        error: 'Invalid signature',
+        debug: {
+          receivedSignature: signature,
+          computedDigest: verification.digest,
+          secretLength: secret.length,
+          hasSecret: !!secret
+        }
+      }, { status: 401 });
     }
 
     const payload = JSON.parse(rawBody);
