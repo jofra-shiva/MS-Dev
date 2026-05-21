@@ -190,24 +190,19 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
                     style={{ justifyContent: 'flex-start', padding: '7px 12px', marginBottom: 1 }}
                     title={p.name}
                   >
-                    <div style={{
-                      width: 22,
-                      height: 22,
-                      borderRadius: 6,
-                      background: `linear-gradient(135deg, ${p.color || 'var(--accent)'}, #818cf8)`,
-                      color: '#fff',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontSize: 12,
-                      fontWeight: 800,
-                      flexShrink: 0,
-                      boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.2), 0 2px 4px rgba(0,0,0,0.3)',
-                      textShadow: '0 1px 2px rgba(0,0,0,0.3)',
-                      border: '1px solid rgba(0,0,0,0.2)'
-                    }}>
-                      {p.name.charAt(0).toUpperCase()}
-                    </div>
+                    <img
+                      src={`https://api.dicebear.com/9.x/glass/svg?seed=${p.id}&backgroundColor=0a0f1e`}
+                      alt=""
+                      style={{
+                        width: 24,
+                        height: 24,
+                        borderRadius: 6,
+                        objectFit: 'cover',
+                        flexShrink: 0,
+                        border: '1px solid var(--border)',
+                        background: 'var(--bg-elevated)'
+                      }}
+                    />
                     <span className="nav-label truncate-1" style={{ fontSize: 13 }}>{p.name}</span>
                   </Link>
                 );

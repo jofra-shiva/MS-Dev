@@ -50,18 +50,17 @@ function ProjectSwitcher({ projects, currentProjectId, router }: { projects: Pro
         onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-elevated)'}
         onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
       >
-        <div style={{ 
-          width: 22, height: 22, borderRadius: 6, 
-          background: `linear-gradient(135deg, ${current.color || 'var(--accent)'}, #818cf8)`,
-          display: 'flex', alignItems: 'center', justifyContent: 'center', 
-          color: '#fff', fontSize: 12, fontWeight: 800,
-          boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.2), 0 2px 4px rgba(0,0,0,0.3)',
-          textShadow: '0 1px 2px rgba(0,0,0,0.3)',
-          border: '1px solid rgba(0,0,0,0.2)',
-          flexShrink: 0
-        }}>
-          {current.name.charAt(0).toUpperCase()}
-        </div>
+        <img
+          src={`https://api.dicebear.com/9.x/glass/svg?seed=${current.id}&backgroundColor=0a0f1e`}
+          alt=""
+          style={{
+            width: 26, height: 26, borderRadius: 6,
+            objectFit: 'cover',
+            border: '1px solid var(--border)',
+            background: 'var(--bg-elevated)',
+            boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+          }}
+        />
         <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-1)' }}>{current.name}</span>
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-3)" strokeWidth="2.5" style={{ transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}>
           <polyline points="6 9 12 15 18 9"></polyline>
@@ -92,17 +91,15 @@ function ProjectSwitcher({ projects, currentProjectId, router }: { projects: Pro
                 onMouseEnter={e => { if(p.id !== currentProjectId) e.currentTarget.style.background = 'var(--bg-elevated)' }}
                 onMouseLeave={e => { if(p.id !== currentProjectId) e.currentTarget.style.background = 'transparent' }}
               >
-                <div style={{ 
-                  width: 18, height: 18, borderRadius: 5, 
-                  background: `linear-gradient(135deg, ${p.color || 'var(--accent)'}, #818cf8)`,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', 
-                  color: '#fff', fontSize: 10, fontWeight: 800, flexShrink: 0,
-                  boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.2), 0 1px 2px rgba(0,0,0,0.2)',
-                  textShadow: '0 1px 2px rgba(0,0,0,0.3)',
-                  border: '1px solid rgba(0,0,0,0.2)'
-                }}>
-                  {p.name.charAt(0).toUpperCase()}
-                </div>
+                <img
+                  src={`https://api.dicebear.com/9.x/glass/svg?seed=${p.id}&backgroundColor=0a0f1e`}
+                  alt=""
+                  style={{
+                    width: 24, height: 24, borderRadius: 6,
+                    objectFit: 'cover', flexShrink: 0,
+                    border: '1px solid var(--border)', background: 'var(--bg-elevated)'
+                  }}
+                />
                 <span style={{ fontSize: 13, fontWeight: p.id === currentProjectId ? 700 : 500, color: p.id === currentProjectId ? 'var(--text-1)' : 'var(--text-2)', flex: 1 }} className="truncate-1">
                   {p.name}
                 </span>

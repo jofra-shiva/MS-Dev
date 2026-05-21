@@ -40,7 +40,7 @@ export default function LoginPage() {
           Welcome back
         </h1>
         <p style={{ fontSize: 14, color: 'var(--text-2)', marginBottom: 40, lineHeight: 1.6 }}>
-          Sign in to MSDEV to access your workspace,<br />projects, and real-time trackers.
+          Sign in to access your workspaces and projects.
         </p>
 
         <button

@@ -71,8 +71,42 @@ export default function TrackerPage() {
     } catch { toast.error('Save failed'); e.node.setDataValue(field, e.oldValue); }
   }, [projectId, user]);
 
+  const handleExport = () => {
+    const headers = ['Task Title', 'Type', 'Status', 'Priority', 'Module', 'Assignee', 'Progress', 'Due Date'];
+    const rows = tasks.map(t => [
+      t.title || '',
+      t.type || '',
+      t.status || '',
+      t.priority || '',
+      t.module || '',
+      t.assigneeName || '',
+      t.progress || 0,
+      t.dueDate ? format(t.dueDate.toDate?.() || new Date(t.dueDate), 'yyyy-MM-dd') : ''
+    ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(','));
+
+    const csv = [headers.map(v => `"${v}"`).join(','), ...rows].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `${project?.name || 'Project'}_Tasks.csv`;
+    link.click();
+  };
+
+  const handleShare = () => {
+    navigator.clipboard.writeText(window.location.href);
+    toast.success('Live link copied to clipboard!');
+  };
+
+  const getRowStyle = useCallback((params: any) => {
+    if (params.data?.status === 'completed') return { background: 'rgba(16, 185, 129, 0.08)' }; // light green
+    if (params.data?.status === 'in_progress') return { background: 'rgba(245, 158, 11, 0.08)' }; // light yellow/orange
+    if (params.data?.status === 'testing') return { background: 'rgba(59, 130, 246, 0.08)' }; // light blue
+    return undefined;
+  }, []);
+
   const colDefs: ColDef[] = [
-    { field: 'title', headerName: 'Task Title', flex: 2, minWidth: 200, editable: true, cellStyle: { fontWeight: 600 } },
+    { headerName: 'S.No', valueGetter: 'node.rowIndex + 1', width: 70, editable: false, pinned: 'left', cellStyle: { color: 'var(--text-3)', fontWeight: 700, fontSize: 12 } },
+    { field: 'title', headerName: 'Task Title', flex: 2, minWidth: 200, editable: true, cellStyle: (p: any) => ({ fontWeight: 600, textDecoration: p.data?.status === 'completed' ? 'line-through' : 'none', opacity: p.data?.status === 'completed' ? 0.6 : 1 }) },
     { field: 'type', headerName: 'Type', width: 110, editable: true, cellRenderer: (p: any) => {
         const icons: Record<string, string> = { bug: '🐛 Bug', feature: '✨ Feature', improvement: '🛠️ Imp.' };
         return <span style={{ fontSize: 12 }}>{icons[p.value] || 'Task'}</span>;
@@ -98,6 +132,12 @@ export default function TrackerPage() {
           </div>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
+          <button className="btn btn-secondary btn-sm" onClick={handleShare}>
+            🔗 Share Live
+          </button>
+          <button className="btn btn-secondary btn-sm" onClick={handleExport}>
+            📥 Download Excel
+          </button>
           <button id="tracker-create-task" className="btn btn-primary btn-sm" onClick={() => setShowCreate(true)}>
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
             Add Task
@@ -132,6 +172,7 @@ export default function TrackerPage() {
           theme="legacy"
           rowData={activeTab === 'all' ? tasks : tasks.filter(t => t.type === activeTab)}
           columnDefs={colDefs}
+          getRowStyle={getRowStyle}
           onCellValueChanged={handleCellChanged}
           rowSelection="multiple"
           animateRows

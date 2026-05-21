@@ -4,14 +4,13 @@ import { AuthProvider } from '@/lib/hooks/useAuth';
 import { Toaster } from 'react-hot-toast';
 
 export const metadata: Metadata = {
-  title: 'MSDEV — Collaborative Project Management',
-  description:
-    'A professional SaaS platform for developer teams — Kanban boards, GitHub integration, real-time collaboration, and spreadsheet-style tracking, all powered by Firebase.',
+  title: 'MSDEV — Project Management for Teams',
+  description: 'Developer-focused project management platform with Kanban, issue tracking, and GitHub integration.',
   keywords: 'project management, kanban, github integration, developer productivity, team collaboration',
   authors: [{ name: 'MSDEV Team' }],
   openGraph: {
     title: 'MSDEV',
-    description: 'Intelligent developer project management platform',
+    description: 'Project Management for Teams',
     type: 'website',
   },
 };
