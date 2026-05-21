@@ -119,9 +119,9 @@ export default function TaskDetailModal({ task, projectId, onClose }: Props) {
                 <div style={{ marginBottom: 18 }}>
                   <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-3)', textTransform: 'uppercase', marginBottom: 12 }}>Screenshots</div>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 12 }}>
-                    {task.attachments.map((url, idx) => (
-                      <a key={idx} href={url} target="_blank" rel="noreferrer" style={{ display: 'block', borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border-subtle)', aspectRatio: '16/9', background: 'var(--bg-elevated)', cursor: 'zoom-in' }}>
-                        <img src={url} alt={`Screenshot ${idx + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    {task.attachments.map((attachment, idx) => (
+                      <a key={idx} href={attachment.url} target="_blank" rel="noreferrer" style={{ display: 'block', borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border-subtle)', aspectRatio: '16/9', background: 'var(--bg-elevated)', cursor: 'zoom-in' }}>
+                        <img src={attachment.url} alt={`Screenshot ${idx + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                       </a>
                     ))}
                   </div>
