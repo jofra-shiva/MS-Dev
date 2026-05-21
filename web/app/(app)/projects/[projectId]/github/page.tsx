@@ -106,28 +106,28 @@ export default function GitHubPage() {
 
         {/* Webhook Setup */}
         <div className="card">
-          <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 14 }}>Webhook Setup</h3>
-          <div style={{ fontSize: 13, color: 'var(--text-2)', marginBottom: 14, lineHeight: 1.6 }}>
-            Add this webhook URL to your GitHub repository settings to enable automatic task updates:
+          <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 14 }}>Webhook Setup Guide</h3>
+          
+          <div style={{ fontSize: 13, color: 'var(--text-2)', marginBottom: 16 }}>
+            Follow these steps to connect your GitHub repository with this project:
           </div>
+          
+          <ol style={{ fontSize: 13, color: 'var(--text-2)', paddingLeft: 20, marginBottom: 20, lineHeight: 1.6 }}>
+            <li>Go to your repository on <strong>GitHub</strong>.</li>
+            <li>Navigate to <strong>Settings</strong> {'>'} <strong>Webhooks</strong> {'>'} <strong>Add webhook</strong>.</li>
+            <li>Paste the <strong>Webhook URL</strong> below into the <strong>Payload URL</strong> field.</li>
+            <li>Select <strong>application/json</strong> for the Content type.</li>
+            <li>Under "Which events would you like to trigger this webhook?", choose <strong>Let me select individual events</strong>.</li>
+            <li>Check <strong>Pushes</strong> and <strong>Pull requests</strong>, then click <strong>Add webhook</strong>.</li>
+          </ol>
+
           <div style={{ marginBottom: 16 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', marginBottom: 6 }}>Webhook URL</div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', marginBottom: 6 }}>Your Webhook URL</div>
             <div style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 8, padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 8 }}>
               <code className="mono" style={{ fontSize: 11, color: 'var(--accent)', flex: 1, overflowX: 'auto', whiteSpace: 'nowrap' }}>{webhookUrl}</code>
               <button className="btn btn-secondary btn-sm" onClick={() => { navigator.clipboard.writeText(webhookUrl); toast.success('Copied!'); }}>Copy</button>
             </div>
           </div>
-          <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 10 }}>Commit Message Format:</div>
-          {[
-            { msg: 'TASK-12 completed login module', result: 'Marks TASK-12 as ✅ Completed' },
-            { msg: 'TASK-15 started dashboard', result: 'Marks TASK-15 as 🔄 In Progress' },
-            { msg: 'TASK-7 testing auth flow', result: 'Marks TASK-7 as 🧪 Testing' },
-          ].map(ex => (
-            <div key={ex.msg} style={{ marginBottom: 10, padding: '8px 12px', background: 'var(--bg-elevated)', borderRadius: 8 }}>
-              <code className="mono" style={{ fontSize: 11, color: 'var(--success)' }}>git commit -m "{ex.msg}"</code>
-              <div style={{ fontSize: 11.5, color: 'var(--text-2)', marginTop: 4 }}>→ {ex.result}</div>
-            </div>
-          ))}
         </div>
       </div>
 
