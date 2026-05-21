@@ -62,6 +62,12 @@ export const updateProject = async (projectId: string, data: Partial<Project>) =
   });
 };
 
+export const addCustomModule = async (projectId: string, moduleName: string) => {
+  await updateDoc(doc(db, 'projects', projectId), {
+    customModules: arrayUnion(moduleName),
+  });
+};
+
 export const subscribeToProject = (
   projectId: string,
   callback: (project: Project) => void

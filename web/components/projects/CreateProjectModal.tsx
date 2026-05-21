@@ -90,7 +90,7 @@ export default function CreateProjectModal({ onClose }: Props) {
             <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
               <button type="button" className="btn btn-secondary" style={{ flex: 1 }} onClick={onClose}>Cancel</button>
               <button id="create-project-submit" type="submit" className="btn btn-primary" style={{ flex: 1 }} disabled={loading || !name.trim()}>
-                {loading ? <span className="animate-spin" style={{ width: 16, height: 16, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: 'white', borderRadius: '50%', display: 'inline-block' }} /> : '✨ Create Project'}
+                {loading ? <span className="animate-spin" style={{ width: 16, height: 16, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: 'white', borderRadius: '50%', display: 'inline-block' }} /> : 'Create Project'}
               </button>
             </div>
           </form>

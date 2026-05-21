@@ -1,7 +1,9 @@
 'use client';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { use } from 'react';
+import { useState, useEffect, use } from 'react';
+import { subscribeToProject } from '@/lib/firebase/firestore';
+import { Project } from '@/types';
 
 const PROJECT_TABS = [
   { key: 'overview', label: 'Overview', icon: '📊', path: '' },
@@ -22,16 +24,25 @@ export default function ProjectLayout({
 }) {
   const pathname = usePathname();
   
-  // Unwrap params depending on Next.js version (Next.js 15+ passes a Promise)
   const resolvedParams = 'then' in params ? use(params) : params;
   const projectId = resolvedParams.projectId;
+
+  const [project, setProject] = useState<Project | null>(null);
+
+  useEffect(() => {
+    return subscribeToProject(projectId, setProject);
+  }, [projectId]);
 
   const basePath = `/projects/${projectId}`;
 
   return (
     <div className="animate-fadeIn">
       {/* Sub-nav tabs - Persistent across all project pages */}
-      <div style={{ display:'flex', gap:2, marginBottom:24, borderBottom:'1px solid var(--border-subtle)', paddingBottom:0, overflowX: 'auto' }}>
+      <div style={{ 
+        display:'flex', gap:2, marginBottom:24, borderBottom:'1px solid var(--border-subtle)', paddingBottom:0, overflowX: 'auto',
+        position: 'sticky', top: 60, zIndex: 20, background: 'var(--bg-primary)',
+        paddingTop: 20, margin: '-28px -28px 24px -28px', paddingLeft: 28, paddingRight: 28
+      }}>
         {PROJECT_TABS.map(tab => {
           const href = `${basePath}${tab.path}`;
           const isActive = pathname === href || (tab.path !== '' && pathname.startsWith(href));
@@ -47,6 +58,26 @@ export default function ProjectLayout({
             </Link>
           )
         })}
+        {project?.liveUrl && (
+          <a
+            href={project.liveUrl}
+            target="_blank"
+            rel="noreferrer"
+            style={{ 
+              marginLeft: 'auto',
+              padding:'6px 14px', borderRadius:'8px', fontSize:12, fontWeight:700, textDecoration:'none', textTransform: 'uppercase',
+              background: 'rgba(56, 189, 248, 0.1)', color: '#38bdf8',
+              border: '1px solid rgba(56, 189, 248, 0.2)',
+              display:'flex', alignItems:'center', gap:6, transition: 'all 0.2s', whiteSpace: 'nowrap',
+              marginBottom: 4, height: 32, alignSelf: 'center'
+            }}
+            onMouseEnter={e => e.currentTarget.style.background = 'rgba(56, 189, 248, 0.15)'}
+            onMouseLeave={e => e.currentTarget.style.background = 'rgba(56, 189, 248, 0.1)'}
+            title="Open Live Project"
+          >
+            <span style={{ fontSize: 13 }}>🌐</span> Live Preview
+          </a>
+        )}
       </div>
 
       {/* Page Content */}

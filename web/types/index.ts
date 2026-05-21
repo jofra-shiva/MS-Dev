@@ -88,6 +88,8 @@ export interface Project {
   github: GitHubIntegration;
   stats: ProjectStats;
   color: string; // hex color for project card
+  liveUrl?: string;
+  customModules?: string[];
   createdAt: Date;
   updatedAt: Date;
 }

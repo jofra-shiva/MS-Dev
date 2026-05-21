@@ -38,7 +38,7 @@ export default function TaskCard({ task, projectId, isDragging }: Props) {
         {/* Priority + Module */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            {task.type === 'bug' ? <span title="Bug" style={{ fontSize: 13 }}>🐛</span> : task.type === 'feature' ? <span title="Feature" style={{ fontSize: 13 }}>✨</span> : <span title="Improvement" style={{ fontSize: 13 }}>🛠️</span>}
+            {task.type === 'bug' ? <span title="Bug" style={{ fontSize: 13 }}>Bug</span> : task.type === 'feature' ? <span title="Feature" style={{ fontSize: 13 }}>Feat</span> : <span title="Improvement" style={{ fontSize: 13 }}>Imp</span>}
             <div style={{ width: 7, height: 7, borderRadius: '50%', background: PRIORITY_DOT[task.priority] }} />
             <span style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{task.priority}</span>
           </div>

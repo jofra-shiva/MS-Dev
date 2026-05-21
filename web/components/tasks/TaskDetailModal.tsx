@@ -18,6 +18,7 @@ export default function TaskDetailModal({ task, projectId, onClose }: Props) {
   const [saving, setSaving] = useState(false);
   const [commenting, setCommenting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
 
   useEffect(() => {
     return subscribeToComments(projectId, task.id, setComments);
@@ -72,9 +73,9 @@ export default function TaskDetailModal({ task, projectId, onClose }: Props) {
               <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
                 <span className={`badge badge-${task.status}`}>{task.status.replace('_', ' ')}</span>
                 <span className={`badge badge-${task.priority}`}>{task.priority}</span>
-                <span style={{ fontSize: 11, background: 'var(--bg-elevated)', color: 'var(--text-1)', padding: '3px 9px', borderRadius: 99 }}>{task.type === 'bug' ? '🐛 Bug' : task.type === 'feature' ? '✨ Feature' : '🛠️ Improvement'}</span>
-                {task.module && <span style={{ fontSize: 11, background: 'var(--bg-elevated)', color: 'var(--text-2)', padding: '3px 9px', borderRadius: 99 }}>📦 {task.module}</span>}
-                {task.githubRef?.lastCommitSha && <span style={{ fontSize: 11, background: 'rgba(16,185,129,0.12)', color: 'var(--success)', padding: '3px 9px', borderRadius: 99 }} className="mono">⚡ {task.githubRef.lastCommitSha.slice(0, 7)}</span>}
+                <span style={{ fontSize: 11, background: 'var(--bg-elevated)', color: 'var(--text-1)', padding: '3px 9px', borderRadius: 99 }}>{task.type === 'bug' ? 'Bug' : task.type === 'feature' ? 'Feature' : 'Improvement'}</span>
+                {task.module && <span style={{ fontSize: 11, background: 'var(--bg-elevated)', color: 'var(--text-2)', padding: '3px 9px', borderRadius: 99 }}>Module: {task.module}</span>}
+                {task.githubRef?.lastCommitSha && <span style={{ fontSize: 11, background: 'rgba(16,185,129,0.12)', color: 'var(--success)', padding: '3px 9px', borderRadius: 99 }} className="mono">Commit: {task.githubRef.lastCommitSha.slice(0, 7)}</span>}
               </div>
             </div>
             <div style={{ display: 'flex', gap: 6 }}>
@@ -84,8 +85,8 @@ export default function TaskDetailModal({ task, projectId, onClose }: Props) {
                     <button className="btn btn-secondary btn-sm" onClick={() => setEditing(false)}>Cancel</button>
                   </>
                 : <>
-                    <button className="btn btn-secondary btn-sm" onClick={() => setEditing(true)}>✏️ Edit</button>
-                    <button className="btn btn-danger btn-sm" onClick={() => setShowDeleteConfirm(true)}>🗑️</button>
+                    <button className="btn btn-secondary btn-sm" onClick={() => setEditing(true)}>Edit</button>
+                    <button className="btn btn-danger btn-sm" onClick={() => setShowDeleteConfirm(true)}>Delete</button>
                   </>
               }
               <button className="btn-icon btn-ghost" onClick={onClose}>✕</button>
@@ -128,9 +129,9 @@ export default function TaskDetailModal({ task, projectId, onClose }: Props) {
                   <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-3)', textTransform: 'uppercase', marginBottom: 12 }}>Screenshots</div>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 12 }}>
                     {task.attachments.map((attachment, idx) => (
-                      <a key={idx} href={attachment.url} target="_blank" rel="noreferrer" style={{ display: 'block', borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border-subtle)', aspectRatio: '16/9', background: 'var(--bg-elevated)', cursor: 'zoom-in' }}>
+                      <div key={idx} onClick={() => setPreviewImage(attachment.url)} style={{ display: 'block', borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border-subtle)', aspectRatio: '16/9', background: 'var(--bg-elevated)', cursor: 'zoom-in' }}>
                         <img src={attachment.url} alt={`Screenshot ${idx + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                      </a>
+                      </div>
                     ))}
                   </div>
                 </div>
@@ -187,9 +188,9 @@ export default function TaskDetailModal({ task, projectId, onClose }: Props) {
                   <div>
                     <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', marginBottom: 5 }}>Type</div>
                     <select className="input" value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value as any }))}>
-                      <option value="bug">🐛 Bug</option>
-                      <option value="feature">✨ Feature</option>
-                      <option value="improvement">🛠️ Improvement</option>
+                      <option value="bug">Bug</option>
+                      <option value="feature">Feature</option>
+                      <option value="improvement">Improvement</option>
                     </select>
                   </div>
                   <div>
@@ -241,6 +242,22 @@ export default function TaskDetailModal({ task, projectId, onClose }: Props) {
               <button className="btn btn-danger" onClick={handleDelete}>Delete Task</button>
             </div>
           </motion.div>
+        </div>
+      )}
+
+      {/* Image Preview Lightbox */}
+      {previewImage && (
+        <div key="image-preview" style={{ position: 'fixed', inset: 0, zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(4px)' }} onClick={() => setPreviewImage(null)}>
+          <button style={{ position: 'absolute', top: 20, right: 20, background: 'rgba(0,0,0,0.5)', border: 'none', color: '#fff', width: 40, height: 40, borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setPreviewImage(null)}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+          <motion.img 
+            initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }}
+            src={previewImage} 
+            alt="Preview" 
+            style={{ maxWidth: '90vw', maxHeight: '90vh', objectFit: 'contain', borderRadius: 8, boxShadow: '0 20px 40px rgba(0,0,0,0.5)' }} 
+            onClick={e => e.stopPropagation()} 
+          />
         </div>
       )}
     </AnimatePresence>

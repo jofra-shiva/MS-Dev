@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/hooks/useAuth';
-import { createTask, logActivity, getProjectModules } from '@/lib/firebase/firestore';
+import { createTask, logActivity, getProjectModules, addCustomModule } from '@/lib/firebase/firestore';
 import { Project, TaskPriority, TaskStatus, TaskType, TaskAttachment } from '@/types';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
@@ -171,9 +171,9 @@ export default function CreateTaskModal({ projectId, project, onClose }: Props) 
               {/* Task Type Selection */}
               <div className="radio-group">
                 {[
-                  { id: 'bug', label: '🐛 Bug' },
-                  { id: 'feature', label: '✨ Feature' },
-                  { id: 'improvement', label: '🛠️ Improvement' }
+                  { id: 'bug', label: 'Bug' },
+                  { id: 'feature', label: 'Feature' },
+                  { id: 'improvement', label: 'Improvement' }
                 ].map(t => (
                   <label key={t.id} style={{
                     flex: 1, padding: '10px', textAlign: 'center', borderRadius: 8, cursor: 'pointer',
@@ -197,6 +197,20 @@ export default function CreateTaskModal({ projectId, project, onClose }: Props) 
                   onChange={e => set('module', e.target.value)}
                   onFocus={() => setModuleFocused(true)}
                   onBlur={() => setTimeout(() => setModuleFocused(false), 200)}
+                  onKeyDown={async e => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      const val = form.module.trim();
+                      if (val) {
+                        setModuleFocused(false);
+                        try {
+                          await addCustomModule(projectId, val);
+                          toast.success(`Module "${val}" saved for future use!`);
+                          document.getElementById('task-title-input')?.focus();
+                        } catch (err) { toast.error('Failed to save module'); }
+                      }
+                    }
+                  }}
                   autoComplete="off"
                 />
                 {moduleFocused && (
@@ -206,7 +220,7 @@ export default function CreateTaskModal({ projectId, project, onClose }: Props) 
                     borderRadius: 8, zIndex: 50, maxHeight: 200, overflowY: 'auto',
                     boxShadow: 'var(--shadow-card)', padding: 4
                   }}>
-                    {Array.from(new Set([...githubModules, ...projectModules]))
+                    {Array.from(new Set([...githubModules, ...projectModules, ...((project as any)?.customModules || [])]))
                       .sort()
                       .filter(m => m.toLowerCase().includes(form.module.toLowerCase()))
                       .map((m, i) => (
@@ -225,9 +239,9 @@ export default function CreateTaskModal({ projectId, project, onClose }: Props) 
                           {m}
                         </div>
                       ))}
-                    {Array.from(new Set([...githubModules, ...projectModules])).filter(m => m.toLowerCase().includes(form.module.toLowerCase())).length === 0 && (
+                    {Array.from(new Set([...githubModules, ...projectModules, ...((project as any)?.customModules || [])])).filter(m => m.toLowerCase().includes(form.module.toLowerCase())).length === 0 && (
                       <div style={{ padding: '10px 12px', fontSize: 13, color: 'var(--text-3)', fontStyle: 'italic' }}>
-                        Press enter or submit to save "{form.module}" as a new module
+                        Press enter to save "{form.module}" as a new module
                       </div>
                     )}
                   </div>
@@ -245,19 +259,19 @@ export default function CreateTaskModal({ projectId, project, onClose }: Props) 
               <div className="input-group">
                 <label className="input-label">Priority</label>
                 <select className="input" value={form.priority} onChange={e => set('priority', e.target.value)}>
-                  <option value="low">🔵 Low</option>
-                  <option value="medium">🟡 Medium</option>
-                  <option value="high">🟠 High</option>
-                  <option value="urgent">🔴 Urgent</option>
+                  <option value="low">Low</option>
+                  <option value="medium">Medium</option>
+                  <option value="high">High</option>
+                  <option value="urgent">Urgent</option>
                 </select>
               </div>
               <div className="input-group">
                 <label className="input-label">Status</label>
                 <select className="input" value={form.status} onChange={e => set('status', e.target.value)}>
-                  <option value="pending">📌 Pending</option>
-                  <option value="in_progress">🔄 In Progress</option>
-                  <option value="testing">🧪 Testing</option>
-                  <option value="completed">✅ Completed</option>
+                  <option value="pending">Pending</option>
+                  <option value="in_progress">In Progress</option>
+                  <option value="testing">Testing</option>
+                  <option value="completed">Completed</option>
                 </select>
               </div>
 
@@ -371,7 +385,7 @@ export default function CreateTaskModal({ projectId, project, onClose }: Props) 
               <button id="create-task-submit" type="submit" className="btn btn-primary" style={{ flex: 1 }} disabled={loading || !form.title.trim()}>
                 {loading
                   ? <span className="animate-spin" style={{ width: 16, height: 16, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: 'white', borderRadius: '50%', display: 'inline-block' }} />
-                  : '✨ Create Task'}
+                  : 'Create Task'}
               </button>
             </div>
           </form>

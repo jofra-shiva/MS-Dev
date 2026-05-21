@@ -81,7 +81,7 @@ export default function TrackerPage() {
       t.module || '',
       t.assigneeName || '',
       t.progress || 0,
-      t.dueDate ? format(t.dueDate.toDate?.() || new Date(t.dueDate), 'yyyy-MM-dd') : ''
+      t.dueDate ? format((t.dueDate as any).toDate?.() || new Date(t.dueDate as any), 'yyyy-MM-dd') : ''
     ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(','));
 
     const csv = [headers.map(v => `"${v}"`).join(','), ...rows].join('\n');
@@ -108,7 +108,7 @@ export default function TrackerPage() {
     { headerName: 'S.No', valueGetter: 'node.rowIndex + 1', width: 70, editable: false, pinned: 'left', cellStyle: { color: 'var(--text-3)', fontWeight: 700, fontSize: 12 } },
     { field: 'title', headerName: 'Task Title', flex: 2, minWidth: 200, editable: true, cellStyle: (p: any) => ({ fontWeight: 600, textDecoration: p.data?.status === 'completed' ? 'line-through' : 'none', opacity: p.data?.status === 'completed' ? 0.6 : 1 }) },
     { field: 'type', headerName: 'Type', width: 110, editable: true, cellRenderer: (p: any) => {
-        const icons: Record<string, string> = { bug: '🐛 Bug', feature: '✨ Feature', improvement: '🛠️ Imp.' };
+        const icons: Record<string, string> = { bug: 'Bug', feature: 'Feature', improvement: 'Imp.' };
         return <span style={{ fontSize: 12 }}>{icons[p.value] || 'Task'}</span>;
       }, cellEditor: 'agSelectCellEditor', cellEditorParams: { values: ['bug', 'feature', 'improvement'] } },
     { field: 'status', headerName: 'Status', width: 140, editable: true, cellRenderer: StatusRenderer, cellEditor: 'agSelectCellEditor', cellEditorParams: { values: ['pending', 'in_progress', 'testing', 'completed'] } },
@@ -148,9 +148,9 @@ export default function TrackerPage() {
       <div style={{ display: 'flex', gap: 12, marginBottom: 16, borderBottom: '1px solid var(--border)', paddingBottom: 12 }}>
         {[
           { id: 'all', label: 'All Tasks' },
-          { id: 'bug', label: '🐛 Bugs' },
-          { id: 'feature', label: '✨ Features' },
-          { id: 'improvement', label: '🛠️ Improvements' }
+          { id: 'bug', label: 'Bugs' },
+          { id: 'feature', label: 'Features' },
+          { id: 'improvement', label: 'Improvements' }
         ].map(tab => (
           <button
             key={tab.id}
