@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
         // Find tasks mentioned in the commit message: e.g. TASK-12 or AVSECO-001
         // Matches the prefix, followed by a dash, followed by numbers
         const regex = new RegExp(`\\b${taskPrefix}-(\\d+)\\b`, 'gi');
-        const matches = Array.from(message.matchAll(regex));
+        const matches = Array.from(message.matchAll(regex)) as RegExpMatchArray[];
         
         const taskRefs: string[] = [];
 
