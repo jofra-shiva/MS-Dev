@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/lib/hooks/useAuth';
-import { subscribeToNotifications, markNotificationRead } from '@/lib/firebase/firestore';
+import { subscribeToNotifications, markNotificationRead, subscribeToMyInvitations, acceptInvitation, declineInvitation } from '@/lib/firebase/firestore';
 import { motion } from 'framer-motion';
 import { formatDistanceToNow } from 'date-fns';
 import { writeBatch, collection, getDocs, query } from 'firebase/firestore';
@@ -17,11 +17,43 @@ export default function NotificationsPage() {
   const { user } = useAuth();
   const [notifs, setNotifs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [invitations, setInvitations] = useState<any[]>([]);
 
   useEffect(() => {
-    if (!user) return;
-    return subscribeToNotifications(user.uid, (n) => { setNotifs(n as any[]); setLoading(false); });
+    if (!user || !user.email) return;
+    
+    // Subscribe to standard notifications
+    const unsubNotifs = subscribeToNotifications(user.uid, (n) => { setNotifs(n as any[]); setLoading(false); });
+    
+    // Subscribe to pending project invitations
+    const unsubInvites = subscribeToMyInvitations(user.email, (inv) => { setInvitations(inv); });
+    
+    return () => {
+      unsubNotifs();
+      unsubInvites();
+    };
   }, [user]);
+
+  const handleAccept = async (inv: any) => {
+    if (!user || !user.email) return;
+    try {
+      await acceptInvitation(inv.id, user.uid, user.displayName || 'User', user.photoURL || '', user.email);
+      toast.success(`Joined ${inv.projectName}!`);
+    } catch (e: any) {
+      toast.error('Failed to accept invitation');
+      console.error(e);
+    }
+  };
+
+  const handleDecline = async (inv: any) => {
+    try {
+      await declineInvitation(inv.id);
+      toast.success(`Declined invitation to ${inv.projectName}`);
+    } catch (e: any) {
+      toast.error('Failed to decline invitation');
+      console.error(e);
+    }
+  };
 
   const markAllRead = async () => {
     if (!user) return;
@@ -33,7 +65,7 @@ export default function NotificationsPage() {
     toast.success('All marked as read');
   };
 
-  const unread = notifs.filter(n => !n.read).length;
+  const unread = notifs.filter(n => !n.read).length + invitations.length;
 
   return (
     <div className="animate-fadeIn" style={{ maxWidth: 680 }}>
@@ -55,7 +87,7 @@ export default function NotificationsPage() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {[1,2,3,4,5].map(i => <div key={i} className="skeleton" style={{ height: 72, borderRadius: 10 }} />)}
         </div>
-      ) : notifs.length === 0 ? (
+      ) : notifs.length === 0 && invitations.length === 0 ? (
         <div style={{ textAlign: 'center', padding: 60, background: 'var(--bg-card)', borderRadius: 12, border: '1px solid var(--border-subtle)' }}>
           <div style={{ fontSize: 48, marginBottom: 12 }}>🔔</div>
           <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 6 }}>No notifications yet</div>
@@ -63,8 +95,35 @@ export default function NotificationsPage() {
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {/* Render pending invitations first */}
+          {invitations.map((inv: any, i) => (
+            <motion.div key={inv.id} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.03 }}
+              style={{ display: 'flex', alignItems: 'flex-start', gap: 14, padding: '14px 16px', background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.3)', borderRadius: 10 }}>
+              <div style={{ width: 40, height: 40, borderRadius: 10, background: 'rgba(99,102,241,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>
+                🤝
+              </div>
+              <div style={{ flex: 1, overflow: 'hidden' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+                  <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text-1)' }}>Project Invitation: {inv.projectName}</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                    <div style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--accent)' }} />
+                    <span style={{ fontSize: 11, color: 'var(--text-3)' }}>{inv.createdAt?.toDate ? formatDistanceToNow(inv.createdAt.toDate(), { addSuffix: true }) : ''}</span>
+                  </div>
+                </div>
+                <div style={{ fontSize: 12.5, color: 'var(--text-2)', marginTop: 3 }}>
+                  <strong>{inv.invitedByName}</strong> invited you to join the project as a {inv.role}.
+                </div>
+                <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+                  <button className="btn btn-primary btn-sm" onClick={() => handleAccept(inv)}>Accept Invitation</button>
+                  <button className="btn btn-secondary btn-sm" onClick={() => handleDecline(inv)}>Decline</button>
+                </div>
+              </div>
+            </motion.div>
+          ))}
+          
+          {/* Render standard notifications */}
           {notifs.map((n: any, i) => (
-            <motion.div key={n.id} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.03 }}
+            <motion.div key={n.id} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: (i + invitations.length) * 0.03 }}
               onClick={() => !n.read && markNotificationRead(user!.uid, n.id)}
               style={{ display: 'flex', alignItems: 'flex-start', gap: 14, padding: '14px 16px', background: n.read ? 'var(--bg-card)' : 'rgba(99,102,241,0.06)', border: `1px solid ${n.read ? 'var(--border-subtle)' : 'rgba(99,102,241,0.2)'}`, borderRadius: 10, cursor: n.read ? 'default' : 'pointer', transition: 'all 0.15s' }}>
               <div style={{ width: 40, height: 40, borderRadius: 10, background: n.read ? 'var(--bg-elevated)' : 'rgba(99,102,241,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>

@@ -60,6 +60,7 @@ export default function SettingsPage() {
               <h2>Project Invitation</h2>
               <p><strong>${user.displayName || 'Someone'}</strong> has invited you to join the project <strong>${project?.name || ''}</strong>.</p>
               <p>Please log in to the application with this email address to accept or decline the invitation.</p>
+              <a href="${window.location.origin}/login" style="display: inline-block; padding: 10px 20px; margin-top: 15px; background: #6366f1; color: white; text-decoration: none; border-radius: 6px; font-weight: bold;">Login to Accept Invitation</a>
             </div>
           `
         })

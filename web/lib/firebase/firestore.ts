@@ -261,6 +261,20 @@ export const inviteMember = async (
   });
 };
 
+export const subscribeToMyInvitations = (
+  email: string,
+  callback: (invitations: unknown[]) => void
+): Unsubscribe => {
+  const q = query(
+    collection(db, 'invitations'),
+    where('invitedEmail', '==', email),
+    where('status', '==', 'pending')
+  );
+  return onSnapshot(q, (snap) => {
+    callback(snap.docs.map((d) => ({ ...d.data(), id: d.id })));
+  });
+};
+
 export const getPendingInvitations = async (email: string) => {
   const q = query(
     collection(db, 'invitations'),
@@ -305,4 +319,8 @@ export const acceptInvitation = async (
   batch.update(doc(db, 'invitations', invitationId), { status: 'accepted' });
 
   await batch.commit();
+};
+
+export const declineInvitation = async (invitationId: string) => {
+  await updateDoc(doc(db, 'invitations', invitationId), { status: 'declined' });
 };
