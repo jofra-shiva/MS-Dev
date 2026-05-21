@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { createTask, logActivity } from '@/lib/firebase/firestore';
-import { Project, TaskPriority, TaskStatus, TaskType } from '@/types';
+import { Project, TaskPriority, TaskStatus, TaskType, TaskAttachment } from '@/types';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
 
@@ -45,7 +45,7 @@ export default function CreateTaskModal({ projectId, project, onClose }: Props) 
       const taskCount = (project?.stats?.totalTasks || 0) + 1;
       
       // Handle multiple optional screenshot uploads via ImgBB
-      const attachmentUrls: string[] = [];
+      const attachmentUrls: TaskAttachment[] = [];
       if (screenshots.length > 0) {
         const apiKey = process.env.NEXT_PUBLIC_IMGBB_API_KEY;
         if (!apiKey) {
@@ -61,7 +61,15 @@ export default function CreateTaskModal({ projectId, project, onClose }: Props) 
               });
               const data = await res.json();
               if (data.success) {
-                attachmentUrls.push(data.data.url);
+                attachmentUrls.push({
+                  id: `att_${Date.now()}_${Math.random().toString(36).substring(2,7)}`,
+                  name: file.name,
+                  url: data.data.url,
+                  size: file.size,
+                  type: file.type,
+                  uploadedBy: user.uid,
+                  uploadedAt: new Date()
+                });
               } else {
                 console.error('ImgBB Upload Error:', data);
                 toast.error(`Failed to upload ${file.name}`);
