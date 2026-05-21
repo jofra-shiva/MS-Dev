@@ -133,6 +133,12 @@ export interface Task {
   createdAt: Date;
   updatedAt: Date;
   completedAt: Date | null;
+  lastMovedBy?: {
+    uid: string;
+    name: string;
+    photo: string;
+    date: Date;
+  } | null;
 }
 
 // ─────────────────────────────────────────────

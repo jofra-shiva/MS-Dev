@@ -26,7 +26,16 @@ export default function KanbanPage() {
     try {
       const task = tasks.find(t => t.id === taskId);
       if (!task) return;
-      await updateTask(projectId, taskId, { status: newStatus, progress: newStatus === 'completed' ? 100 : newStatus === 'testing' ? 75 : newStatus === 'in_progress' ? 30 : 0 });
+      await updateTask(projectId, taskId, { 
+        status: newStatus, 
+        progress: newStatus === 'completed' ? 100 : newStatus === 'testing' ? 75 : newStatus === 'in_progress' ? 30 : 0,
+        lastMovedBy: {
+          uid: user!.uid,
+          name: user!.displayName || 'Unknown User',
+          photo: user!.photoURL || '',
+          date: new Date()
+        }
+      });
       await logActivity(projectId, {
         type: newStatus === 'completed' ? 'task_completed' : 'task_updated',
         userId: user!.uid, userName: user!.displayName||'',

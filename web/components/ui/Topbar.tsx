@@ -50,7 +50,16 @@ function ProjectSwitcher({ projects, currentProjectId, router }: { projects: Pro
         onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-elevated)'}
         onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
       >
-        <div style={{ width: 16, height: 16, borderRadius: 4, background: current.color || 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 10, fontWeight: 800 }}>
+        <div style={{ 
+          width: 22, height: 22, borderRadius: 6, 
+          background: `linear-gradient(135deg, ${current.color || 'var(--accent)'}, #818cf8)`,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', 
+          color: '#fff', fontSize: 12, fontWeight: 800,
+          boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.2), 0 2px 4px rgba(0,0,0,0.3)',
+          textShadow: '0 1px 2px rgba(0,0,0,0.3)',
+          border: '1px solid rgba(0,0,0,0.2)',
+          flexShrink: 0
+        }}>
           {current.name.charAt(0).toUpperCase()}
         </div>
         <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-1)' }}>{current.name}</span>
@@ -83,7 +92,15 @@ function ProjectSwitcher({ projects, currentProjectId, router }: { projects: Pro
                 onMouseEnter={e => { if(p.id !== currentProjectId) e.currentTarget.style.background = 'var(--bg-elevated)' }}
                 onMouseLeave={e => { if(p.id !== currentProjectId) e.currentTarget.style.background = 'transparent' }}
               >
-                <div style={{ width: 16, height: 16, borderRadius: 4, background: p.color || 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 10, fontWeight: 800, flexShrink: 0 }}>
+                <div style={{ 
+                  width: 18, height: 18, borderRadius: 5, 
+                  background: `linear-gradient(135deg, ${p.color || 'var(--accent)'}, #818cf8)`,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', 
+                  color: '#fff', fontSize: 10, fontWeight: 800, flexShrink: 0,
+                  boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.2), 0 1px 2px rgba(0,0,0,0.2)',
+                  textShadow: '0 1px 2px rgba(0,0,0,0.3)',
+                  border: '1px solid rgba(0,0,0,0.2)'
+                }}>
                   {p.name.charAt(0).toUpperCase()}
                 </div>
                 <span style={{ fontSize: 13, fontWeight: p.id === currentProjectId ? 700 : 500, color: p.id === currentProjectId ? 'var(--text-1)' : 'var(--text-2)', flex: 1 }} className="truncate-1">

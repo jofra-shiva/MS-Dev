@@ -53,14 +53,23 @@ export default function TrackerPage() {
   }, [projectId]);
 
   const handleCellChanged = useCallback(async (e: CellValueChangedEvent) => {
+    if (!user) return;
     const task = e.data as Task;
     const field = e.colDef.field as string;
     const newValue = e.newValue;
     try {
-      await updateTask(projectId, task.id, { [field]: newValue });
+      await updateTask(projectId, task.id, { 
+        [field]: newValue,
+        lastMovedBy: {
+          uid: user.uid,
+          name: user.displayName || 'Unknown User',
+          photo: user.photoURL || '',
+          date: new Date()
+        }
+      });
       toast.success('✓ Saved', { duration: 1200 });
     } catch { toast.error('Save failed'); e.node.setDataValue(field, e.oldValue); }
-  }, [projectId]);
+  }, [projectId, user]);
 
   const colDefs: ColDef[] = [
     { field: 'title', headerName: 'Task Title', flex: 2, minWidth: 200, editable: true, cellStyle: { fontWeight: 600 } },

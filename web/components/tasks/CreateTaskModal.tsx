@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/hooks/useAuth';
-import { createTask, logActivity } from '@/lib/firebase/firestore';
+import { createTask, logActivity, getProjectModules } from '@/lib/firebase/firestore';
 import { Project, TaskPriority, TaskStatus, TaskType, TaskAttachment } from '@/types';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
@@ -11,15 +11,20 @@ interface Props { projectId: string; project: Project | null; onClose: () => voi
 export default function CreateTaskModal({ projectId, project, onClose }: Props) {
   const { user } = useAuth();
   const [form, setForm] = useState({
-    title: '', description: '', type: 'feature' as TaskType, priority: 'medium' as TaskPriority,
+    title: '', description: '', type: 'bug' as TaskType, priority: 'medium' as TaskPriority,
     status: 'pending' as TaskStatus, module: '', tags: '',
     assigneeId: '', assigneeName: '', assigneePhoto: '', progress: 0, dueDate: '',
   });
   const [screenshots, setScreenshots] = useState<File[]>([]);
   const [loading, setLoading] = useState(false);
   const [githubModules, setGithubModules] = useState<string[]>([]);
+  const [projectModules, setProjectModules] = useState<string[]>([]);
+  const [moduleFocused, setModuleFocused] = useState(false);
 
   useEffect(() => {
+    // Fetch unique modules from existing tasks in the project
+    getProjectModules(projectId).then(setProjectModules).catch(console.error);
+
     if (project?.github?.connected && project.github.repoOwner && project.github.repoName) {
       fetch(`https://api.github.com/repos/${project.github.repoOwner}/${project.github.repoName}/contents`)
         .then(res => res.json())
@@ -183,6 +188,52 @@ export default function CreateTaskModal({ projectId, project, onClose }: Props) 
                 ))}
               </div>
 
+              <div className="input-group" style={{ gridColumn: '1/-1', position: 'relative' }}>
+                <label className="input-label">Module / Category</label>
+                <input 
+                  className="input" 
+                  placeholder="e.g. Authentication (Select or type a new one)" 
+                  value={form.module} 
+                  onChange={e => set('module', e.target.value)}
+                  onFocus={() => setModuleFocused(true)}
+                  onBlur={() => setTimeout(() => setModuleFocused(false), 200)}
+                  autoComplete="off"
+                />
+                {moduleFocused && (
+                  <div style={{
+                    position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 4,
+                    background: 'var(--bg-elevated)', border: '1px solid var(--border)', 
+                    borderRadius: 8, zIndex: 50, maxHeight: 200, overflowY: 'auto',
+                    boxShadow: 'var(--shadow-card)', padding: 4
+                  }}>
+                    {Array.from(new Set([...githubModules, ...projectModules]))
+                      .sort()
+                      .filter(m => m.toLowerCase().includes(form.module.toLowerCase()))
+                      .map((m, i) => (
+                        <div 
+                          key={m} 
+                          style={{ 
+                            padding: '10px 12px', cursor: 'pointer', fontSize: 13, 
+                            borderRadius: 6, color: 'var(--text-1)', transition: 'background 0.2s',
+                            display: 'flex', alignItems: 'center', gap: 8
+                          }}
+                          onMouseDown={() => { set('module', m); setModuleFocused(false); }}
+                          onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg-hover)'}
+                          onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                        >
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-3)" strokeWidth="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                          {m}
+                        </div>
+                      ))}
+                    {Array.from(new Set([...githubModules, ...projectModules])).filter(m => m.toLowerCase().includes(form.module.toLowerCase())).length === 0 && (
+                      <div style={{ padding: '10px 12px', fontSize: 13, color: 'var(--text-3)', fontStyle: 'italic' }}>
+                        Press enter or submit to save "{form.module}" as a new module
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
               <div className="input-group" style={{ gridColumn: '1/-1' }}>
                 <label className="input-label">Task Title *</label>
                 <input id="task-title-input" className="input" placeholder="e.g. Implement user authentication" value={form.title} onChange={e => set('title', e.target.value)} required />
@@ -209,13 +260,7 @@ export default function CreateTaskModal({ projectId, project, onClose }: Props) 
                   <option value="completed">✅ Completed</option>
                 </select>
               </div>
-              <div className="input-group">
-                <label className="input-label">Module / Category</label>
-                <input className="input" list="github-modules" placeholder="e.g. Authentication" value={form.module} onChange={e => set('module', e.target.value)} />
-                <datalist id="github-modules">
-                  {githubModules.map(m => <option key={m} value={m} />)}
-                </datalist>
-              </div>
+
               <div className="input-group">
                 <label className="input-label">Due Date</label>
                 <input className="input" type="date" min={new Date().toISOString().split('T')[0]} value={form.dueDate} onChange={e => set('dueDate', e.target.value)} />

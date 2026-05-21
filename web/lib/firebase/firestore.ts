@@ -149,6 +149,16 @@ export const subscribeToTasks = (
   });
 };
 
+export const getProjectModules = async (projectId: string): Promise<string[]> => {
+  const snap = await getDocs(collection(db, `projects/${projectId}/tasks`));
+  const modules = new Set<string>();
+  snap.forEach((d) => {
+    const m = d.data().module;
+    if (m && typeof m === 'string' && m.trim()) modules.add(m.trim());
+  });
+  return Array.from(modules);
+};
+
 // ─────────────────────────────────────────────
 // COMMENTS
 // ─────────────────────────────────────────────

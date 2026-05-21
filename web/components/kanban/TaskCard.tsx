@@ -93,6 +93,21 @@ export default function TaskCard({ task, projectId, isDragging }: Props) {
             )}
           </div>
         </div>
+
+        {/* Last Moved By Indicator */}
+        {task.lastMovedBy && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 10, paddingTop: 8, borderTop: '1px dashed var(--border-subtle)', fontSize: 10, color: 'var(--text-3)' }}>
+            <span style={{ fontStyle: 'italic' }}>Updated by:</span>
+            {task.lastMovedBy.photo ? (
+              <img src={task.lastMovedBy.photo} style={{ width: 14, height: 14, borderRadius: '50%' }} alt="" title={task.lastMovedBy.name} />
+            ) : (
+              <div className="avatar-placeholder" style={{ width: 14, height: 14, fontSize: 6 }} title={task.lastMovedBy.name}>
+                {task.lastMovedBy.name.slice(0, 2).toUpperCase()}
+              </div>
+            )}
+            <span style={{ fontWeight: 500, color: 'var(--text-2)' }}>{task.lastMovedBy.name}</span>
+          </div>
+        )}
       </div>
       {showDetail && <TaskDetailModal task={task} projectId={projectId} onClose={() => setShowDetail(false)} />}
     </>
