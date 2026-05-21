@@ -1,0 +1,105 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Helper Functions ──────────────────────────────────────
+    function isAuthed() { return request.auth != null; }
+    function isOwner(uid) { return request.auth.uid == uid; }
+    function getProject(pid) {
+      return get(/databases/$(database)/documents/projects/$(pid)).data;
+    }
+    function isMember(pid) {
+      return request.auth.uid in getProject(pid).members;
+    }
+    function getRole(pid) {
+      return getProject(pid).members[request.auth.uid].role;
+    }
+    function isAdmin(pid) { return getRole(pid) == 'admin'; }
+    function isMemberOrAbove(pid) { return getRole(pid) in ['admin', 'member']; }
+    function isAnyRole(pid) { return getRole(pid) in ['admin', 'member', 'viewer']; }
+    function isAssignee(task, pid) {
+      return task.assigneeId == request.auth.uid && isMemberOrAbove(pid);
+    }
+
+    // ── Users ─────────────────────────────────────────────────
+    match /users/{userId} {
+      allow read: if isAuthed();
+      allow write: if isOwner(userId);
+    }
+
+    // ── Projects ──────────────────────────────────────────────
+    match /projects/{projectId} {
+      // Read: must be a member
+      allow read: if isAuthed() && isMember(projectId);
+
+      // Create: any authenticated user
+      allow create: if isAuthed() && request.resource.data.ownerId == request.auth.uid;
+
+      // Update: admins only (or own project owner)
+      allow update: if isAuthed() && isAdmin(projectId);
+
+      // Delete: admins only
+      allow delete: if isAuthed() && isAdmin(projectId);
+
+      // ── Tasks ──────────────────────────────────────────────
+      match /tasks/{taskId} {
+        allow read: if isAuthed() && isAnyRole(projectId);
+        allow create: if isAuthed() && isMemberOrAbove(projectId);
+        allow update: if isAuthed() && (
+          isAdmin(projectId) ||
+          isAssignee(resource.data, projectId)
+        );
+        allow delete: if isAuthed() && isAdmin(projectId);
+
+        // ── Comments ──────────────────────────────────────────
+        match /comments/{commentId} {
+          allow read: if isAuthed() && isAnyRole(projectId);
+          allow create: if isAuthed() && isMemberOrAbove(projectId)
+            && request.resource.data.authorId == request.auth.uid;
+          allow update: if false; // Immutable
+          allow delete: if isAuthed() && (
+            isAdmin(projectId) ||
+            resource.data.authorId == request.auth.uid
+          );
+        }
+      }
+
+      // ── Activity Logs ──────────────────────────────────────
+      match /activity/{activityId} {
+        allow read: if isAuthed() && isAnyRole(projectId);
+        allow create: if isAuthed() && isMemberOrAbove(projectId);
+        allow update, delete: if false; // Immutable audit log
+      }
+
+      // ── GitHub Events ──────────────────────────────────────
+      match /github_events/{eventId} {
+        allow read: if isAuthed() && isAnyRole(projectId);
+        allow write: if false; // Cloud Functions only
+      }
+    }
+
+    // ── Notifications ─────────────────────────────────────────
+    match /notifications/{userId}/items/{notifId} {
+      allow read: if isAuthed() && isOwner(userId);
+      allow update: if isAuthed() && isOwner(userId) // mark as read
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
+      allow create: if false; // Cloud Functions only
+      allow delete: if isAuthed() && isOwner(userId);
+    }
+
+    // ── Invitations ───────────────────────────────────────────
+    match /invitations/{invitationId} {
+      allow read: if isAuthed() && (
+        resource.data.invitedEmail == request.auth.token.email ||
+        resource.data.invitedBy == request.auth.uid
+      );
+      allow create: if isAuthed()
+        && request.resource.data.invitedBy == request.auth.uid;
+      allow update: if isAuthed()
+        && resource.data.invitedEmail == request.auth.token.email
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']);
+      allow delete: if isAuthed()
+        && resource.data.invitedBy == request.auth.uid;
+    }
+  }
+}

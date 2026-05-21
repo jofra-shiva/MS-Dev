@@ -1,0 +1,23 @@
+{
+  "name": "msdev-functions",
+  "version": "1.0.0",
+  "description": "MSDEV Firebase Cloud Functions",
+  "main": "lib/index.js",
+  "scripts": {
+    "build": "tsc",
+    "build:watch": "tsc --watch",
+    "serve": "npm run build && firebase emulators:start --only functions",
+    "deploy": "firebase deploy --only functions",
+    "logs": "firebase functions:log"
+  },
+  "engines": { "node": "18" },
+  "dependencies": {
+    "firebase-admin": "^11.11.0",
+    "firebase-functions": "^4.5.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.1.6",
+    "@types/node": "^18.17.5"
+  },
+  "private": true
+}
