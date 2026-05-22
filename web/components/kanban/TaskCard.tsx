@@ -80,6 +80,9 @@ export default function TaskCard({ task, projectId, isDragging }: Props) {
             )}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            {task.meetingId && (
+              <span title="Linked to Meeting" style={{ fontSize: 11 }}>📅</span>
+            )}
             {task.githubRef?.lastCommitSha && (
               <span title="Has commit" style={{ color: 'var(--success)', fontSize: 11 }}>⚡</span>
             )}

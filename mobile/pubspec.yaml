@@ -16,7 +16,7 @@ dependencies:
   cloud_firestore: ^4.13.6
   firebase_storage: ^11.5.6
   firebase_messaging: ^14.7.10
-  google_sign_in: ^6.2.1
+  google_sign_in: 6.2.1
   # UI
   cupertino_icons: ^1.0.6
   google_fonts: ^6.1.0
@@ -31,14 +31,21 @@ dependencies:
   share_plus: ^7.2.1
   image_picker: ^1.0.4
   go_router: ^12.1.3
+  curved_navigation_bar: ^1.0.6
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^3.0.1
+  flutter_launcher_icons: ^0.13.1
 
 flutter:
   uses-material-design: true
   assets:
     - assets/images/
-    - assets/icons/
+
+flutter_launcher_icons:
+  android: "ic_launcher"
+  ios: true
+  image_path: "assets/images/MSDEV.png"
+  min_sdk_android: 21

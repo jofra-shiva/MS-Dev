@@ -94,33 +94,33 @@ export const subscribeToUserProjects = (
 // TASKS
 // ─────────────────────────────────────────────
 
-export const createTask = async (
-  projectId: string,
-  data: Omit<Task, 'id' | 'projectId' | 'createdAt' | 'updatedAt' | 'completedAt'>,
-  taskNumber: number
-) => {
-  const batch = writeBatch(db);
-  const taskRef = doc(collection(db, `projects/${projectId}/tasks`));
-
-  batch.set(taskRef, {
+export async function createTask(projectId: string, data: Omit<Task, 'id' | 'projectId' | 'createdAt' | 'updatedAt' | 'completedAt'>, currentCount: number) {
+  const prefix = (await getDoc(doc(db, 'projects', projectId))).data()?.prefix || 'TASK';
+  const taskId = `${prefix}-${currentCount}`;
+  const ref = doc(db, 'projects', projectId, 'tasks', taskId);
+  
+  await setDoc(ref, {
     ...data,
-    id: taskRef.id,
+    id: taskId,
     projectId,
+    meetingId: data.meetingId || null,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
-    completedAt: null,
+    completedAt: null
   });
-
-  // Increment project task stats
-  batch.update(doc(db, 'projects', projectId), {
+  
+  // Also increment project task count
+  await updateDoc(doc(db, 'projects', projectId), {
     'stats.totalTasks': increment(1),
-    'stats.pendingTasks': increment(1),
-    updatedAt: serverTimestamp(),
+    'stats.pendingTasks': increment(data.status === 'pending' ? 1 : 0),
+    'stats.inProgressTasks': increment(data.status === 'in_progress' ? 1 : 0),
+    'stats.testingTasks': increment(data.status === 'testing' ? 1 : 0),
+    'stats.completedTasks': increment(data.status === 'completed' ? 1 : 0),
+    updatedAt: serverTimestamp()
   });
-
-  await batch.commit();
-  return taskRef.id;
-};
+  
+  return taskId;
+}
 
 export const updateTask = async (
   projectId: string,
@@ -340,3 +340,48 @@ export const acceptInvitation = async (
 export const declineInvitation = async (invitationId: string) => {
   await updateDoc(doc(db, 'invitations', invitationId), { status: 'declined' });
 };
+
+// ============================================================
+// Meetings (Subcollection under Project)
+// ============================================================
+
+export async function createMeeting(projectId: string, data: Omit<import('@/types').Meeting, 'id' | 'projectId' | 'createdAt' | 'updatedAt'>) {
+  const ref = doc(collection(db, 'projects', projectId, 'meetings'));
+  await setDoc(ref, {
+    ...data,
+    id: ref.id,
+    projectId,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+  return ref.id;
+}
+
+export async function updateMeeting(projectId: string, meetingId: string, data: Partial<import('@/types').Meeting>) {
+  const ref = doc(db, 'projects', projectId, 'meetings', meetingId);
+  await updateDoc(ref, {
+    ...data,
+    updatedAt: serverTimestamp(),
+  });
+}
+
+export async function deleteMeeting(projectId: string, meetingId: string) {
+  await deleteDoc(doc(db, 'projects', projectId, 'meetings', meetingId));
+}
+
+export function subscribeToMeetings(projectId: string, callback: (meetings: import('@/types').Meeting[]) => void) {
+  const q = query(collection(db, 'projects', projectId, 'meetings'), orderBy('date', 'desc'));
+  return onSnapshot(q, (snap) => {
+    const res: import('@/types').Meeting[] = [];
+    snap.forEach(d => {
+      const data = d.data();
+      res.push({
+        ...data,
+        date: data.date?.toDate() || new Date(),
+        createdAt: data.createdAt?.toDate() || new Date(),
+        updatedAt: data.updatedAt?.toDate() || new Date(),
+      } as import('@/types').Meeting);
+    });
+    callback(res);
+  });
+}

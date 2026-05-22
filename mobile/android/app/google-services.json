@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "332300816650",
+    "project_id": "msdev-msdev",
+    "storage_bucket": "msdev-msdev.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:332300816650:android:de665d3483e8c038feaaf3",
+        "android_client_info": {
+          "package_name": "in.leo.msdev"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "332300816650-j80ocb0atipk2i9u304kgrth5du9f7rd.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC_-KRueApN7Eycfq7NZmGnnLiO_DrHGAE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "332300816650-j80ocb0atipk2i9u304kgrth5du9f7rd.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

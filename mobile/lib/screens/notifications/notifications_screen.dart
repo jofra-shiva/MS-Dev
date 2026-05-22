@@ -14,7 +14,7 @@ class NotificationsScreen extends StatelessWidget {
     final uid = FirebaseAuth.instance.currentUser?.uid;
 
     return Scaffold(
-      appBar: AppBar(title: Text('Notifications', style: GoogleFonts.inter(fontWeight: FontWeight.w800))),
+      appBar: AppBar(title: Text('Notifications', style: GoogleFonts.raleway(fontWeight: FontWeight.w800))),
       body: StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance
           .collection('notifications/$uid/items')
@@ -27,7 +27,7 @@ class NotificationsScreen extends StatelessWidget {
             return Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
               const Text('🔔', style: TextStyle(fontSize: 48)),
               const SizedBox(height: 12),
-              Text('No notifications', style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w700, color: Colors.white)),
+              Text('No notifications', style: GoogleFonts.raleway(fontSize: 16, fontWeight: FontWeight.w700, color: Colors.white)),
               const SizedBox(height: 6),
               Text("You're all caught up!", style: TextStyle(color: Colors.white.withOpacity(0.4))),
             ]));

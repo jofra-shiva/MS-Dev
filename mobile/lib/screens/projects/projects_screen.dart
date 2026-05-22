@@ -6,6 +6,11 @@ import 'package:shimmer/shimmer.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
+Color parseColor(String hex) {
+  try { return Color(int.parse('FF${hex.replaceAll('#', '')}', radix: 16)); }
+  catch (_) { return const Color(0xFFF59E0B); }
+}
+
 class ProjectsScreen extends StatelessWidget {
   const ProjectsScreen({super.key});
 
@@ -14,18 +19,30 @@ class ProjectsScreen extends StatelessWidget {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     final db = FirebaseFirestore.instance;
 
+    final user = FirebaseAuth.instance.currentUser;
+    final initials = (user?.displayName ?? 'U').isNotEmpty ? (user?.displayName ?? 'U')[0].toUpperCase() : 'U';
+
     return Scaffold(
       appBar: AppBar(
-        title: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('MSDEV', style: GoogleFonts.inter(fontSize: 20, fontWeight: FontWeight.w800, color: Colors.white)),
-          Text('Your Projects', style: TextStyle(fontSize: 12, color: Colors.white.withOpacity(0.4), fontWeight: FontWeight.w400)),
+        backgroundColor: const Color(0xFF0D1117),
+        title: Row(children: [
+          Image.asset('assets/images/MSDEV.png', height: 24, width: 24),
+          const SizedBox(width: 8),
+          Text('MSDev', style: GoogleFonts.raleway(fontSize: 20, fontWeight: FontWeight.w800, color: Colors.white)),
         ]),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.add, color: Colors.white),
-            onPressed: () => _showCreateDialog(context),
+          GestureDetector(
+            onTap: () => context.push('/profile'),
+            child: CircleAvatar(
+              radius: 16,
+              backgroundColor: const Color(0xFF1E2740),
+              backgroundImage: user?.photoURL != null ? NetworkImage(user!.photoURL!) : null,
+              child: user?.photoURL == null 
+                  ? Text(initials, style: GoogleFonts.raleway(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.white))
+                  : null,
+            ),
           ),
-          const SizedBox(width: 4),
+          const SizedBox(width: 16),
         ],
       ),
       body: StreamBuilder<QuerySnapshot>(
@@ -45,7 +62,7 @@ class ProjectsScreen extends StatelessWidget {
             itemCount: docs.length,
             itemBuilder: (ctx, i) {
               final p = docs[i].data() as Map<String, dynamic>;
-              final color = _parseColor(p['color'] ?? '#6366F1');
+              final color = parseColor(p['color'] ?? '#6366F1');
               return _ProjectCard(
                 id: docs[i].id, data: p, color: color,
                 onTap: () => context.go('/projects/${docs[i].id}'),
@@ -57,25 +74,20 @@ class ProjectsScreen extends StatelessWidget {
     );
   }
 
-  Color _parseColor(String hex) {
-    try { return Color(int.parse('FF${hex.replaceAll('#', '')}', radix: 16)); }
-    catch (_) { return const Color(0xFF6366F1); }
-  }
-
   Widget _buildEmpty(BuildContext context) {
     return Center(
       child: Column(mainAxisSize: MainAxisSize.min, children: [
-        const Icon(Icons.rocket_launch_outlined, size: 64, color: Color(0xFF6366F1)),
+        const Icon(Icons.rocket_launch_outlined, size: 64, color: Color(0xFFF59E0B)),
         const SizedBox(height: 16),
-        Text('No projects yet', style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w700, color: Colors.white)),
+        Text('No projects yet', style: GoogleFonts.raleway(fontSize: 18, fontWeight: FontWeight.w700, color: Colors.white)),
         const SizedBox(height: 8),
         Text('Create your first project to get started', style: TextStyle(color: Colors.white.withOpacity(0.4))),
         const SizedBox(height: 24),
         ElevatedButton.icon(
-          onPressed: () => _showCreateDialog(context),
+          onPressed: () => context.push('/create-project'),
           icon: const Icon(Icons.add),
           label: const Text('Create Project'),
-          style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF6366F1), foregroundColor: Colors.white),
+          style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFF59E0B), foregroundColor: Colors.white),
         ),
       ]),
     );
@@ -95,60 +107,6 @@ class ProjectsScreen extends StatelessWidget {
       ),
     );
   }
-
-  void _showCreateDialog(BuildContext context) {
-    final nameCtrl = TextEditingController();
-    final descCtrl = TextEditingController();
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: const Color(0xFF0D1117),
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (ctx) => Padding(
-        padding: EdgeInsets.only(left: 24, right: 24, top: 24, bottom: MediaQuery.of(ctx).viewInsets.bottom + 24),
-        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('New Project', style: GoogleFonts.inter(fontSize: 20, fontWeight: FontWeight.w800, color: Colors.white)),
-          const SizedBox(height: 20),
-          TextField(controller: nameCtrl, style: const TextStyle(color: Colors.white), decoration: _inputDec('Project Name')),
-          const SizedBox(height: 12),
-          TextField(controller: descCtrl, style: const TextStyle(color: Colors.white), maxLines: 2, decoration: _inputDec('Description (optional)')),
-          const SizedBox(height: 20),
-          SizedBox(
-            width: double.infinity, height: 48,
-            child: ElevatedButton(
-              onPressed: () async {
-                if (nameCtrl.text.trim().isEmpty) return;
-                final uid = FirebaseAuth.instance.currentUser!;
-                final db = FirebaseFirestore.instance;
-                final ref = db.collection('projects').doc();
-                await ref.set({
-                  'id': ref.id, 'name': nameCtrl.text.trim(), 'description': descCtrl.text.trim(),
-                  'ownerId': uid.uid, 'taskPrefix': 'TASK', 'status': 'active', 'color': '#6366F1',
-                  'completionPercentage': 0,
-                  'members': { uid.uid: { 'role': 'admin', 'displayName': uid.displayName, 'photoURL': uid.photoURL, 'email': uid.email, 'joinedAt': FieldValue.serverTimestamp() }},
-                  'github': {'connected': false},
-                  'stats': {'totalTasks': 0, 'completedTasks': 0, 'inProgressTasks': 0, 'pendingTasks': 0, 'totalCommits': 0, 'totalMembers': 1},
-                  'createdAt': FieldValue.serverTimestamp(), 'updatedAt': FieldValue.serverTimestamp(),
-                });
-                await db.doc('users/${uid.uid}').update({'projectIds': FieldValue.arrayUnion([ref.id])});
-                if (ctx.mounted) Navigator.pop(ctx);
-              },
-              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF6366F1), foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
-              child: const Text('Create Project', style: TextStyle(fontWeight: FontWeight.w700)),
-            ),
-          ),
-        ]),
-      ),
-    );
-  }
-
-  InputDecoration _inputDec(String hint) => InputDecoration(
-    hintText: hint, hintStyle: TextStyle(color: Colors.white.withOpacity(0.3)),
-    filled: true, fillColor: Colors.white.withOpacity(0.05),
-    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.white.withOpacity(0.1))),
-    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.white.withOpacity(0.1))),
-    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFF6366F1))),
-  );
 }
 
 class _ProjectCard extends StatelessWidget {
@@ -177,7 +135,7 @@ class _ProjectCard extends StatelessWidget {
           padding: const EdgeInsets.all(16),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(children: [
-              Expanded(child: Text(data['name'] ?? '', style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w700, color: Colors.white), maxLines: 1, overflow: TextOverflow.ellipsis)),
+              Expanded(child: Text(data['name'] ?? '', style: GoogleFonts.raleway(fontSize: 15, fontWeight: FontWeight.w700, color: Colors.white), maxLines: 1, overflow: TextOverflow.ellipsis)),
               Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(color: const Color(0xFF10B981).withOpacity(0.12), borderRadius: BorderRadius.circular(99)),
                 child: Text(data['status'] ?? 'active', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFF10B981)))),

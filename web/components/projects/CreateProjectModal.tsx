@@ -1,5 +1,6 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { createProject } from '@/lib/firebase/firestore';
 import { logActivity } from '@/lib/firebase/firestore';
@@ -15,21 +16,30 @@ export default function CreateProjectModal({ onClose }: Props) {
   const { user } = useAuth();
   const [name, setName] = useState('');
   const [desc, setDesc] = useState('');
-  const [prefix, setPrefix] = useState('TASK');
+  const [liveLink, setLiveLink] = useState('');
   const [color, setColor] = useState(COLORS[0]);
   const [loading, setLoading] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = 'unset'; };
+  }, []);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user || !name.trim()) return;
     setLoading(true);
+    const randomColor = COLORS[Math.floor(Math.random() * COLORS.length)];
     try {
       const id = await createProject({
         name: name.trim(),
         description: desc.trim(),
         ownerId: user.uid,
-        taskPrefix: prefix,
-        color,
+        taskPrefix: PREFIXES[Math.floor(Math.random() * PREFIXES.length)],
+        liveUrl: liveLink.trim(),
+        color: randomColor,
         status: 'active',
         members: {
           [user.uid]: {
@@ -49,7 +59,7 @@ export default function CreateProjectModal({ onClose }: Props) {
     finally { setLoading(false); }
   };
 
-  return (
+  const modalContent = (
     <AnimatePresence>
       <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
         <motion.div className="modal" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} transition={{ duration: 0.18 }}>
@@ -68,24 +78,9 @@ export default function CreateProjectModal({ onClose }: Props) {
               <label className="input-label">Description</label>
               <textarea id="project-desc-input" className="input" placeholder="What is this project about?" value={desc} onChange={e => setDesc(e.target.value)} rows={3} />
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-              <div className="input-group">
-                <label className="input-label">Task Prefix</label>
-                <select id="task-prefix-select" className="input" value={prefix} onChange={e => setPrefix(e.target.value)}>
-                  {PREFIXES.map(p => <option key={p} value={p}>{p}</option>)}
-                </select>
-              </div>
-              <div className="input-group">
-                <label className="input-label">Project Color</label>
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 6 }}>
-                  {COLORS.map(c => (
-                    <button key={c} type="button" id={`color-${c}`}
-                      onClick={() => setColor(c)}
-                      style={{ width: 26, height: 26, borderRadius: '50%', background: c, border: color === c ? '3px solid white' : '3px solid transparent', cursor: 'pointer', outline: color === c ? `3px solid ${c}` : 'none', outlineOffset: 1 }}
-                    />
-                  ))}
-                </div>
-              </div>
+            <div className="input-group">
+              <label className="input-label">Live Link (optional)</label>
+              <input id="project-livelink-input" className="input" placeholder="https://..." type="url" value={liveLink} onChange={e => setLiveLink(e.target.value)} />
             </div>
             <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
               <button type="button" className="btn btn-secondary" style={{ flex: 1 }} onClick={onClose}>Cancel</button>
@@ -98,4 +93,7 @@ export default function CreateProjectModal({ onClose }: Props) {
       </div>
     </AnimatePresence>
   );
+
+  if (!mounted) return null;
+  return createPortal(modalContent, document.body);
 }

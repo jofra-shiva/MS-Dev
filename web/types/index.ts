@@ -114,6 +114,17 @@ export interface TaskGitHubRef {
   branchName: string | null;
 }
 
+export interface Meeting {
+  id: string;
+  projectId: string;
+  name: string;
+  date: Date;
+  link: string | null;
+  attendees: string[]; // User IDs
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface Task {
   id: string;
   projectId: string;
@@ -131,6 +142,7 @@ export interface Task {
   tags: string[];
   attachments: TaskAttachment[];
   githubRef: TaskGitHubRef;
+  meetingId?: string | null;
   createdBy: string;
   createdAt: Date;
   updatedAt: Date;

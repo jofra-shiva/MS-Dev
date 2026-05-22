@@ -40,7 +40,7 @@ class MSDEVApp extends ConsumerWidget {
       ),
       scaffoldBackgroundColor: const Color(0xFF070B14),
       cardColor: const Color(0xFF0D1117),
-      textTheme: GoogleFonts.interTextTheme(base.textTheme).apply(
+      textTheme: GoogleFonts.ralewayTextTheme(base.textTheme).apply(
         bodyColor: Colors.white,
         displayColor: Colors.white,
       ),

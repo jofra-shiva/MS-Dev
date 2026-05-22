@@ -7,10 +7,11 @@ import { Project } from '@/types';
 
 const PROJECT_TABS = [
   { key: 'overview', label: 'Overview', icon: '📊', path: '' },
-  { key: 'kanban', label: 'Kanban', icon: '🗂️', path: '/kanban' },
+  { key: 'kanban', label: 'A to Z', icon: '🗂️', path: '/kanban' },
   { key: 'tracker', label: 'Tracker', icon: '📋', path: '/tracker' },
   { key: 'analytics', label: 'Analytics', icon: '📈', path: '/analytics' },
   { key: 'activity', label: 'Activity', icon: '⚡', path: '/activity' },
+  { key: 'meetings', label: 'Meetings', icon: '📅', path: '/meetings' },
   { key: 'github', label: 'GitHub', icon: '🔗', path: '/github' },
   { key: 'settings', label: 'Settings', icon: '⚙️', path: '/settings' },
 ];

@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { Task, Comment } from '@/types';
-import { updateTask, deleteTask, subscribeToComments, addComment, logActivity } from '@/lib/firebase/firestore';
+import { Task, Comment, Meeting } from '@/types';
+import { updateTask, deleteTask, subscribeToComments, addComment, logActivity, subscribeToMeetings } from '@/lib/firebase/firestore';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { motion, AnimatePresence } from 'framer-motion';
 import { formatDistanceToNow } from 'date-fns';
@@ -12,16 +12,30 @@ interface Props { task: Task; projectId: string; onClose: () => void; }
 export default function TaskDetailModal({ task, projectId, onClose }: Props) {
   const { user } = useAuth();
   const [comments, setComments] = useState<Comment[]>([]);
+  const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [newComment, setNewComment] = useState('');
   const [editing, setEditing] = useState(false);
-  const [form, setForm] = useState({ title: task.title, description: task.description, progress: task.progress, status: task.status, priority: task.priority, type: task.type || 'feature' });
+  const [form, setForm] = useState({ 
+    title: task.title, 
+    description: task.description, 
+    progress: task.progress, 
+    status: task.status, 
+    priority: task.priority, 
+    type: task.type || 'feature',
+    meetingId: task.meetingId || 'none'
+  });
   const [saving, setSaving] = useState(false);
   const [commenting, setCommenting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
 
   useEffect(() => {
-    return subscribeToComments(projectId, task.id, setComments);
+    const unsubComments = subscribeToComments(projectId, task.id, setComments);
+    const unsubMeetings = subscribeToMeetings(projectId, setMeetings);
+    return () => {
+      unsubComments();
+      unsubMeetings();
+    };
   }, [projectId, task.id]);
 
   const handleSave = async () => {
@@ -29,6 +43,7 @@ export default function TaskDetailModal({ task, projectId, onClose }: Props) {
     try {
       await updateTask(projectId, task.id, {
         ...form,
+        meetingId: form.meetingId === 'none' ? null : form.meetingId,
         lastMovedBy: {
           uid: user!.uid,
           name: user!.displayName || 'Unknown User',
@@ -174,7 +189,8 @@ export default function TaskDetailModal({ task, projectId, onClose }: Props) {
                     <span style={{ fontSize: 13 }}>{task.assigneeName}</span>
                   </div>
                 ) : <span style={{ color: 'var(--text-3)', fontSize: 13 }}>Unassigned</span> },
-                { label: 'Due Date', content: <span style={{ fontSize: 13 }}>{task.dueDate ? new Date((task.dueDate as any).toDate?.() || task.dueDate).toLocaleDateString() : '—'}</span> },
+                { label: 'Due Date', content: <span style={{ fontSize: 13 }}>{task.dueDate ? new Date((task.dueDate as any).toDate?.() || task.dueDate).toLocaleDateString('en-GB') : '—'}</span> },
+                { label: 'Meeting', content: task.meetingId ? <span style={{ fontSize: 13, display: 'flex', alignItems: 'center', gap: 4 }} title="Task originated from a meeting">📅 {meetings.find(m => m.id === task.meetingId)?.name || 'Linked'}</span> : <span style={{ color: 'var(--text-3)', fontSize: 13 }}>None</span> },
                 { label: 'Created', content: <span style={{ fontSize: 13, color: 'var(--text-2)' }}>{(task.createdAt as any)?.toDate ? formatDistanceToNow((task.createdAt as any).toDate(), { addSuffix: true }) : '—'}</span> },
                 { label: 'Tags', content: task.tags?.length > 0 ? <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>{task.tags.map(t => <span key={t} style={{ fontSize: 10, background: 'rgba(99,102,241,0.12)', color: 'var(--accent)', padding: '2px 7px', borderRadius: 99 }}>#{t}</span>)}</div> : <span style={{ color: 'var(--text-3)', fontSize: 13 }}>None</span> },
               ].map(({ label, content }) => (
@@ -209,6 +225,15 @@ export default function TaskDetailModal({ task, projectId, onClose }: Props) {
                       <option value="medium">Medium</option>
                       <option value="high">High</option>
                       <option value="urgent">Urgent</option>
+                    </select>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', marginBottom: 5 }}>Meeting</div>
+                    <select className="input" value={form.meetingId} onChange={e => setForm(f => ({ ...f, meetingId: e.target.value }))}>
+                      <option value="none">No Meeting</option>
+                      {meetings.map(m => (
+                        <option key={m.id} value={m.id}>{m.name || 'Unnamed Meeting'}</option>
+                      ))}
                     </select>
                   </div>
                 </>

@@ -13,12 +13,7 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  bool _loading = false;
   bool _googleLoading = false;
-  bool _isLogin = true;
-  final _emailCtrl = TextEditingController();
-  final _passCtrl = TextEditingController();
-  final _nameCtrl = TextEditingController();
 
   Future<void> _googleSignIn() async {
     setState(() => _googleLoading = true);
@@ -37,27 +32,6 @@ class _LoginScreenState extends State<LoginScreen> {
       _showError('Google sign-in failed: $e');
     } finally {
       if (mounted) setState(() => _googleLoading = false);
-    }
-  }
-
-  Future<void> _emailAuth() async {
-    setState(() => _loading = true);
-    try {
-      UserCredential result;
-      if (_isLogin) {
-        result = await FirebaseAuth.instance.signInWithEmailAndPassword(
-          email: _emailCtrl.text.trim(), password: _passCtrl.text);
-      } else {
-        result = await FirebaseAuth.instance.createUserWithEmailAndPassword(
-          email: _emailCtrl.text.trim(), password: _passCtrl.text);
-        await result.user?.updateDisplayName(_nameCtrl.text.trim());
-      }
-      await _upsertUser(result.user!);
-      if (mounted) context.go('/');
-    } catch (e) {
-      _showError(e.toString());
-    } finally {
-      if (mounted) setState(() => _loading = false);
     }
   }
 
@@ -114,9 +88,9 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ).animate().fadeIn(duration: 600.ms).scale(begin: const Offset(0.8, 0.8)),
                   const SizedBox(height: 16),
-                  Text('MSDEV', style: GoogleFonts.inter(fontSize: 28, fontWeight: FontWeight.w800, color: Colors.white))
+                  Text('MSDEV', style: GoogleFonts.raleway(fontSize: 28, fontWeight: FontWeight.w800, color: Colors.white))
                     .animate().fadeIn(delay: 200.ms),
-                  Text(_isLogin ? 'Welcome back' : 'Create your account',
+                  Text('Sign in to continue',
                     style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 14))
                     .animate().fadeIn(delay: 300.ms),
                   const SizedBox(height: 32),
@@ -124,52 +98,6 @@ class _LoginScreenState extends State<LoginScreen> {
                   // Google Sign-In
                   _GoogleButton(loading: _googleLoading, onTap: _googleSignIn)
                     .animate().fadeIn(delay: 400.ms).slideY(begin: 0.2),
-                  const SizedBox(height: 20),
-                  Row(children: [
-                    Expanded(child: Divider(color: Colors.white.withOpacity(0.1))),
-                    Padding(padding: const EdgeInsets.symmetric(horizontal: 12), child: Text('or', style: TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 12))),
-                    Expanded(child: Divider(color: Colors.white.withOpacity(0.1))),
-                  ]).animate().fadeIn(delay: 500.ms),
-                  const SizedBox(height: 20),
-
-                  // Form
-                  Column(
-                    children: [
-                      if (!_isLogin) ...[
-                        _InputField(controller: _nameCtrl, hint: 'Full Name', icon: Icons.person_outline),
-                        const SizedBox(height: 12),
-                      ],
-                      _InputField(controller: _emailCtrl, hint: 'Email Address', icon: Icons.email_outlined, keyboardType: TextInputType.emailAddress),
-                      const SizedBox(height: 12),
-                      _InputField(controller: _passCtrl, hint: 'Password', icon: Icons.lock_outline, obscure: true),
-                      const SizedBox(height: 20),
-                      SizedBox(
-                        width: double.infinity,
-                        height: 50,
-                        child: ElevatedButton(
-                          onPressed: _loading ? null : _emailAuth,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF6366F1),
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                            elevation: 0,
-                          ),
-                          child: _loading
-                            ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                            : Text(_isLogin ? 'Sign In' : 'Create Account', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
-                        ),
-                      ),
-                    ],
-                  ).animate().fadeIn(delay: 500.ms).slideY(begin: 0.2),
-
-                  const SizedBox(height: 20),
-                  TextButton(
-                    onPressed: () => setState(() => _isLogin = !_isLogin),
-                    child: Text.rich(TextSpan(children: [
-                      TextSpan(text: _isLogin ? "Don't have an account? " : 'Already have an account? ', style: TextStyle(color: Colors.white.withOpacity(0.4))),
-                      TextSpan(text: _isLogin ? 'Sign up' : 'Sign in', style: const TextStyle(color: Color(0xFF6366F1), fontWeight: FontWeight.w700)),
-                    ])),
-                  ),
                 ],
               ),
             ),
@@ -198,36 +126,6 @@ class _GoogleButton extends StatelessWidget {
         ),
         icon: loading ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : Image.network('https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Google_%22G%22_logo.svg/768px-Google_%22G%22_logo.svg.png', width: 18, height: 18, errorBuilder: (_, __, ___) => const Icon(Icons.g_mobiledata)),
         label: const Text('Continue with Google', style: TextStyle(fontWeight: FontWeight.w600)),
-      ),
-    );
-  }
-}
-
-class _InputField extends StatelessWidget {
-  final TextEditingController controller;
-  final String hint;
-  final IconData icon;
-  final bool obscure;
-  final TextInputType? keyboardType;
-  const _InputField({required this.controller, required this.hint, required this.icon, this.obscure = false, this.keyboardType});
-
-  @override
-  Widget build(BuildContext context) {
-    return TextField(
-      controller: controller,
-      obscureText: obscure,
-      keyboardType: keyboardType,
-      style: const TextStyle(color: Colors.white, fontSize: 14),
-      decoration: InputDecoration(
-        hintText: hint,
-        hintStyle: TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 14),
-        prefixIcon: Icon(icon, color: Colors.white.withOpacity(0.3), size: 18),
-        filled: true,
-        fillColor: Colors.white.withOpacity(0.05),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.white.withOpacity(0.1))),
-        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.white.withOpacity(0.1))),
-        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFF6366F1), width: 1.5)),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       ),
     );
   }

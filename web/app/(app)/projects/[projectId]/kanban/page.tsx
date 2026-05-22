@@ -1,8 +1,8 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { subscribeToProject, subscribeToTasks, updateTask, logActivity } from '@/lib/firebase/firestore';
-import { Task, TaskStatus, Project } from '@/types';
+import { subscribeToProject, subscribeToTasks, updateTask, logActivity, subscribeToMeetings } from '@/lib/firebase/firestore';
+import { Task, TaskStatus, Project, Meeting } from '@/types';
 import { useAuth } from '@/lib/hooks/useAuth';
 import KanbanBoard from '@/components/kanban/KanbanBoard';
 import CreateTaskModal from '@/components/tasks/CreateTaskModal';
@@ -12,6 +12,8 @@ export default function KanbanPage() {
   const { projectId } = useParams<{ projectId: string }>();
   const { user } = useAuth();
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [meetings, setMeetings] = useState<Meeting[]>([]);
+  const [selectedMeetingId, setSelectedMeetingId] = useState<string>('all');
   const [project, setProject] = useState<Project | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -19,7 +21,8 @@ export default function KanbanPage() {
   useEffect(() => {
     const u1 = subscribeToProject(projectId, p => setProject(p));
     const u2 = subscribeToTasks(projectId, t => { setTasks(t); setLoading(false); });
-    return () => { u1(); u2(); };
+    const u3 = subscribeToMeetings(projectId, setMeetings);
+    return () => { u1(); u2(); u3(); };
   }, [projectId]);
 
   const handleStatusChange = async (taskId: string, newStatus: TaskStatus) => {
@@ -46,14 +49,44 @@ export default function KanbanPage() {
     } catch { toast.error('Failed to update task'); }
   };
 
+  const filteredTasks = selectedMeetingId === 'all' 
+    ? tasks 
+    : tasks.filter(t => t.meetingId === selectedMeetingId);
+
   return (
     <div className="animate-fadeIn" style={{ display:'flex', flexDirection:'column', height:'calc(100vh - 64px)' }}>
       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:20, flexShrink:0 }}>
         <div>
-          <h1 style={{ fontSize:22, fontWeight:800 }}>Kanban Board</h1>
-          <p style={{ color:'var(--text-2)', fontSize:13, marginTop:2 }}>{tasks.length} tasks · {project?.name}</p>
+          <h1 style={{ fontSize:22, fontWeight:800 }}>A to Z</h1>
+          <p style={{ color:'var(--text-2)', fontSize:13, marginTop:2 }}>{filteredTasks.length} tasks · {project?.name}</p>
         </div>
-        <div style={{ display:'flex', gap:8 }}>
+        <div style={{ display:'flex', gap:12, alignItems: 'center' }}>
+          {meetings.length > 0 && (
+            <select 
+              style={{ 
+                padding: '6px 32px 6px 12px', 
+                height: '32px', 
+                borderRadius: '8px', 
+                border: '1px solid var(--border)', 
+                background: 'var(--bg-elevated)', 
+                color: 'var(--text-1)', 
+                fontSize: '13px', 
+                cursor: 'pointer', 
+                appearance: 'none', 
+                backgroundImage: 'url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23a1a1aa%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E")', 
+                backgroundRepeat: 'no-repeat', 
+                backgroundPosition: 'right 12px top 50%', 
+                backgroundSize: '10px auto' 
+              }}
+              value={selectedMeetingId}
+              onChange={(e) => setSelectedMeetingId(e.target.value)}
+            >
+              <option value="all">All Meetings</option>
+              {meetings.map(m => (
+                <option key={m.id} value={m.id}>{m.name || 'Unnamed Meeting'}</option>
+              ))}
+            </select>
+          )}
           <button id="create-task-btn" className="btn btn-primary btn-sm" onClick={() => setShowCreate(true)}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
             Add Task
@@ -65,9 +98,9 @@ export default function KanbanPage() {
         ? <div style={{ display:'flex', gap:16, flex:1 }}>
             {[1,2,3,4].map(i => <div key={i} className="skeleton" style={{ width:300, flexShrink:0, borderRadius:12 }} />)}
           </div>
-        : <KanbanBoard tasks={tasks} projectId={projectId} project={project} onStatusChange={handleStatusChange} />
+        : <KanbanBoard tasks={filteredTasks} projectId={projectId} project={project} onStatusChange={handleStatusChange} />
       }
-      {showCreate && <CreateTaskModal projectId={projectId} project={project} onClose={() => setShowCreate(false)} />}
+      {showCreate && <CreateTaskModal projectId={projectId} project={project} onClose={() => setShowCreate(false)} preselectedMeetingId={selectedMeetingId} />}
     </div>
   );
 }

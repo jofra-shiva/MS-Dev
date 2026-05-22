@@ -17,7 +17,7 @@ class KanbanScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Kanban Board', style: GoogleFonts.inter(fontWeight: FontWeight.w800))),
+      appBar: AppBar(title: Text('A to Z', style: GoogleFonts.raleway(fontWeight: FontWeight.w800))),
       body: StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance.collection('projects/$projectId/tasks').snapshots(),
         builder: (context, snap) {

@@ -1,14 +1,14 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/hooks/useAuth';
-import { createTask, logActivity, getProjectModules, addCustomModule } from '@/lib/firebase/firestore';
-import { Project, TaskPriority, TaskStatus, TaskType, TaskAttachment } from '@/types';
+import { createTask, logActivity, getProjectModules, addCustomModule, subscribeToMeetings, createMeeting } from '@/lib/firebase/firestore';
+import { Project, TaskPriority, TaskStatus, TaskType, TaskAttachment, Meeting } from '@/types';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
 
-interface Props { projectId: string; project: Project | null; onClose: () => void; }
+interface Props { projectId: string; project: Project | null; onClose: () => void; preselectedMeetingId?: string; }
 
-export default function CreateTaskModal({ projectId, project, onClose }: Props) {
+export default function CreateTaskModal({ projectId, project, onClose, preselectedMeetingId }: Props) {
   const { user } = useAuth();
   const [form, setForm] = useState({
     title: '', description: '', type: 'bug' as TaskType, priority: 'medium' as TaskPriority,
@@ -20,6 +20,8 @@ export default function CreateTaskModal({ projectId, project, onClose }: Props) 
   const [githubModules, setGithubModules] = useState<string[]>([]);
   const [projectModules, setProjectModules] = useState<string[]>([]);
   const [moduleFocused, setModuleFocused] = useState(false);
+  const [meetings, setMeetings] = useState<Meeting[]>([]);
+  const [selectedMeetingId, setSelectedMeetingId] = useState<string>(preselectedMeetingId && preselectedMeetingId !== 'all' ? preselectedMeetingId : 'none');
 
   useEffect(() => {
     // Fetch unique modules from existing tasks in the project
@@ -36,7 +38,12 @@ export default function CreateTaskModal({ projectId, project, onClose }: Props) 
         })
         .catch(console.error);
     }
-  }, [project]);
+
+    const unsubMeetings = subscribeToMeetings(projectId, setMeetings);
+    return () => {
+      unsubMeetings();
+    };
+  }, [project, projectId]);
 
   const members = Object.entries(project?.members || {});
 
@@ -87,6 +94,20 @@ export default function CreateTaskModal({ projectId, project, onClose }: Props) 
         }
       }
 
+      let finalMeetingId: string | null = null;
+      if (selectedMeetingId === 'new_today') {
+        const dateObj = new Date();
+        const defaultName = `Sync - ${dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
+        finalMeetingId = await createMeeting(projectId, {
+          name: defaultName,
+          date: dateObj,
+          link: null,
+          attendees: [user.uid],
+        });
+      } else if (selectedMeetingId !== 'none') {
+        finalMeetingId = selectedMeetingId;
+      }
+
       await createTask(projectId, {
         title: form.title.trim(),
         description: form.description.trim(),
@@ -102,6 +123,7 @@ export default function CreateTaskModal({ projectId, project, onClose }: Props) 
         tags: form.tags ? form.tags.split(',').map(t => t.trim()).filter(Boolean) : [],
         attachments: attachmentUrls,
         githubRef: { lastCommitSha: null, lastCommitMessage: null, prNumber: null, branchName: null },
+        meetingId: finalMeetingId,
         createdBy: user.uid,
       }, taskCount);
 
@@ -272,6 +294,19 @@ export default function CreateTaskModal({ projectId, project, onClose }: Props) 
                   <option value="in_progress">In Progress</option>
                   <option value="testing">Testing</option>
                   <option value="completed">Completed</option>
+                </select>
+              </div>
+
+              <div className="input-group" style={{ gridColumn: '1/-1' }}>
+                <label className="input-label">Meeting Source</label>
+                <select className="input" value={selectedMeetingId} onChange={e => setSelectedMeetingId(e.target.value)}>
+                  <option value="none">No Meeting</option>
+                  <option value="new_today">✨ New Meet (Today)</option>
+                  {meetings.map(m => (
+                    <option key={m.id} value={m.id}>
+                      {m.name || 'Unnamed Meeting'} - {m.date.toLocaleDateString('en-GB')}
+                    </option>
+                  ))}
                 </select>
               </div>
 
