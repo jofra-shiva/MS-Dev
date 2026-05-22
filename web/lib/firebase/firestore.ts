@@ -390,7 +390,7 @@ export async function createMeeting(projectId: string, data: Omit<import('@/type
         await createNotification(uid, {
           type: 'project_update',
           title: 'New Meeting Scheduled',
-          body: `A new meeting "${data.title}" was scheduled.`,
+          body: `A new meeting "${data.name}" was scheduled.`,
         });
       }
     }
