@@ -103,6 +103,7 @@ export default function CreateTaskModal({ projectId, project, onClose, preselect
           date: dateObj,
           link: null,
           attendees: [user.uid],
+          createdBy: user.uid,
         });
       } else if (selectedMeetingId !== 'none') {
         finalMeetingId = selectedMeetingId;

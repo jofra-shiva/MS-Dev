@@ -2,12 +2,14 @@
 
 import { use, useEffect, useState } from 'react';
 import { subscribeToProject, subscribeToMeetings, subscribeToTasks, updateMeeting, deleteMeeting, createMeeting } from '@/lib/firebase/firestore';
+import { useAuth } from '@/lib/hooks/useAuth';
 import { Project, Meeting, Task } from '@/types';
 import toast from 'react-hot-toast';
 
 export default function MeetingsPage({ params }: { params: Promise<{ projectId: string }> | { projectId: string } }) {
   const resolvedParams = 'then' in params ? use(params) : params;
   const projectId = resolvedParams.projectId;
+  const { user } = useAuth();
 
   const [project, setProject] = useState<Project | null>(null);
   const [meetings, setMeetings] = useState<Meeting[]>([]);
@@ -35,7 +37,7 @@ export default function MeetingsPage({ params }: { params: Promise<{ projectId: 
     e.preventDefault();
     try {
       if (isNew) {
-        await createMeeting(projectId, meetingData);
+        await createMeeting(projectId, { ...meetingData, createdBy: user?.uid || project.ownerId });
         toast.success('Meeting created');
         setIsCreating(false);
       } else if (editingMeeting) {
@@ -70,7 +72,8 @@ export default function MeetingsPage({ params }: { params: Promise<{ projectId: 
       const data = {
         ...form,
         date: new Date(form.date),
-        attendees: [project.ownerId] // Using ownerId as default attendee
+        attendees: [project.ownerId], // Using ownerId as default attendee
+        createdBy: user?.uid || project.ownerId
       };
       await createMeeting(projectId, data);
       toast.success('Meeting logged');

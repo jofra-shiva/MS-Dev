@@ -130,6 +130,7 @@ export interface Meeting {
   date: Date;
   link: string | null;
   attendees: string[]; // User IDs
+  createdBy: string;
   createdAt: Date;
   updatedAt: Date;
 }
