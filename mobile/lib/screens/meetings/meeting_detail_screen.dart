@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class MeetingDetailScreen extends StatefulWidget {
   final String projectId;
@@ -42,6 +43,64 @@ class _MeetingDetailScreenState extends State<MeetingDetailScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Meeting marked as completed')),
       );
+    }
+  }
+
+  Future<void> _deleteMeeting() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (c) => AlertDialog(
+        backgroundColor: const Color(0xFF0F172A),
+        title: const Text('Delete Meeting', style: TextStyle(color: Colors.white)),
+        content: const Text('Are you sure you want to delete this meeting?', style: TextStyle(color: Colors.white70)),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Cancel', style: TextStyle(color: Colors.white54))),
+          TextButton(onPressed: () => Navigator.pop(c, true), child: const Text('Delete', style: TextStyle(color: Colors.redAccent))),
+        ],
+      )
+    );
+    if (confirm != true) return;
+
+    await FirebaseFirestore.instance.doc('projects/${widget.projectId}/meetings/${widget.meetingId}').delete();
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Meeting deleted')));
+      context.pop();
+    }
+  }
+
+  Future<void> _editMeeting(Map<String, dynamic> m) async {
+    final titleCtrl = TextEditingController(text: m['title'] as String? ?? m['name'] as String? ?? '');
+    final linkCtrl = TextEditingController(text: m['link'] as String? ?? '');
+
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (c) => AlertDialog(
+        backgroundColor: const Color(0xFF0F172A),
+        title: const Text('Edit Meeting', style: TextStyle(color: Colors.white)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(controller: titleCtrl, style: const TextStyle(color: Colors.white), decoration: const InputDecoration(labelText: 'Meeting Name', labelStyle: TextStyle(color: Colors.white54))),
+            const SizedBox(height: 12),
+            TextField(controller: linkCtrl, style: const TextStyle(color: Colors.white), decoration: const InputDecoration(labelText: 'Meeting Link', labelStyle: TextStyle(color: Colors.white54))),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Cancel', style: TextStyle(color: Colors.white54))),
+          TextButton(onPressed: () => Navigator.pop(c, true), child: const Text('Save', style: TextStyle(color: Color(0xFF10B981)))),
+        ],
+      )
+    );
+
+    if (result == true) {
+      await FirebaseFirestore.instance.doc('projects/${widget.projectId}/meetings/${widget.meetingId}').update({
+        'title': titleCtrl.text.trim(),
+        'name': titleCtrl.text.trim(),
+        'link': linkCtrl.text.trim(),
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Meeting updated')));
+      }
     }
   }
 
@@ -119,6 +178,14 @@ class _MeetingDetailScreenState extends State<MeetingDetailScreen> {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis),
                 actions: [
+                  IconButton(
+                    icon: const Icon(Icons.edit_outlined, color: Colors.white54, size: 20),
+                    onPressed: () => _editMeeting(m),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 20),
+                    onPressed: _deleteMeeting,
+                  ),
                   if (status != 'completed')
                     TextButton(
                       onPressed: _markCompleted,
@@ -177,6 +244,29 @@ class _MeetingDetailScreenState extends State<MeetingDetailScreen> {
                               child: Text(agenda, style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 13, height: 1.5)),
                             ),
                           ]),
+                        ],
+                        if (m['link'] != null && m['link'].toString().isNotEmpty) ...[
+                          const SizedBox(height: 16),
+                          OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                              side: const BorderSide(color: Color(0xFF1E293B)),
+                              backgroundColor: Colors.white.withOpacity(0.02),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              minimumSize: const Size(double.infinity, 0),
+                            ),
+                            onPressed: () async {
+                              final urlStr = m['link'] as String;
+                              final url = Uri.parse(urlStr.startsWith('http') ? urlStr : 'https://$urlStr');
+                              try {
+                                await launchUrl(url, mode: LaunchMode.externalApplication);
+                              } catch (e) {
+                                if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not open link')));
+                              }
+                            },
+                            icon: const Icon(Icons.language, color: Color(0xFF38BDF8), size: 16),
+                            label: const Text('Join Meeting / Live Link', style: TextStyle(color: Color(0xFF38BDF8), fontSize: 13, fontWeight: FontWeight.bold)),
+                          ),
                         ],
                       ],
                     ),
@@ -398,6 +488,8 @@ class _ActionItemTile extends StatelessWidget {
       'in_progress': const Color(0xFFF59E0B),
       'testing': const Color(0xFF38BDF8),
       'completed': const Color(0xFF10B981),
+      'github_pushed': const Color(0xFF8B5CF6),
+      'deployed': const Color(0xFFEC4899),
     };
     final priorityColors = {
       'low': const Color(0xFF10B981),
@@ -423,7 +515,7 @@ class _ActionItemTile extends StatelessWidget {
       child: Row(children: [
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(task['title'] ?? '',
+            Text(task['module'] as String? ?? task['title'] as String? ?? '',
                 style: GoogleFonts.raleway(fontWeight: FontWeight.w700, fontSize: 13, color: Colors.white),
                 maxLines: 2),
             if (assigneeName.isNotEmpty) ...[
@@ -636,8 +728,8 @@ class _AddTaskSheetState extends State<_AddTaskSheet> {
               child: _DropdownField(
                 label: 'Status',
                 value: _status,
-                items: const ['pending', 'in_progress', 'testing', 'completed'],
-                displayLabels: const ['Pending', 'In Progress', 'Testing', 'Completed'],
+                items: const ['pending', 'in_progress', 'testing', 'completed', 'github_pushed', 'deployed'],
+                displayLabels: const ['Pending', 'In Progress', 'Testing', 'Completed', 'GitHub Pushed', 'Deployed'],
                 onChanged: (v) => setState(() => _status = v!),
               ),
             ),

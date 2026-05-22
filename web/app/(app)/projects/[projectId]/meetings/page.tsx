@@ -112,6 +112,7 @@ export default function MeetingsPage({ params }: { params: Promise<{ projectId: 
         {isCreating && (
           <MeetingEditor 
             projectMembers={members}
+            defaultLink={meetings.length > 0 ? [...meetings].sort((a, b) => b.date.getTime() - a.date.getTime())[0]?.link || '' : ''}
             onCancel={() => setIsCreating(false)}
             onSave={(data: any) => handleSaveMeeting({ preventDefault: () => {} } as any, data, true)}
           />
@@ -257,9 +258,8 @@ export default function MeetingsPage({ params }: { params: Promise<{ projectId: 
                         }`
                       }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                          <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-3)' }}>{t.id}</span>
                           <span style={{ fontSize: 14, fontWeight: 500, color: t.status === 'completed' ? 'var(--text-3)' : 'var(--text-1)', textDecoration: t.status === 'completed' ? 'line-through' : 'none' }}>
-                            {t.title}
+                            {t.module || t.title}
                           </span>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -288,11 +288,11 @@ export default function MeetingsPage({ params }: { params: Promise<{ projectId: 
   );
 }
 
-function MeetingEditor({ initialData, projectMembers, onCancel, onSave }: any) {
+function MeetingEditor({ initialData, projectMembers, onCancel, onSave, defaultLink = '' }: any) {
   const [form, setForm] = useState({
     name: initialData?.name || '',
     date: initialData?.date ? new Date(initialData.date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
-    link: initialData?.link || '',
+    link: initialData?.link || defaultLink,
     attendees: initialData?.attendees || []
   });
 
@@ -328,7 +328,12 @@ function MeetingEditor({ initialData, projectMembers, onCancel, onSave }: any) {
           <input className="input" type="date" value={form.date} onChange={e => setForm({...form, date: e.target.value})} required />
         </div>
         <div className="input-group" style={{ gridColumn: '1/-1' }}>
-          <label className="input-label">Meeting Link (Optional)</label>
+          <label className="input-label" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            Meeting Link (Optional)
+            {!initialData && defaultLink && (
+              <span style={{ fontSize: 10, fontWeight: 600, color: 'var(--accent)', background: 'rgba(99,102,241,0.1)', padding: '1px 7px', borderRadius: 99 }}>From last meeting</span>
+            )}
+          </label>
           <input className="input" type="url" value={form.link} onChange={e => setForm({...form, link: e.target.value})} placeholder="https://meet.google.com/..." />
         </div>
         <div className="input-group" style={{ gridColumn: '1/-1' }}>

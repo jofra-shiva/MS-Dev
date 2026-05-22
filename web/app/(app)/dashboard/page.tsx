@@ -1,8 +1,8 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '@/lib/hooks/useAuth';
-import { subscribeToUserProjects } from '@/lib/firebase/firestore';
-import { Project } from '@/types';
+import { subscribeToTasks, subscribeToUserProjects } from '@/lib/firebase/firestore';
+import { Project, Task } from '@/types';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { formatDistanceToNow } from 'date-fns';
@@ -13,8 +13,10 @@ const COLORS = ['#34d399', '#38bdf8', '#6ee7b7', '#7dd3fc', '#a7f3d0', '#bae6fd'
 export default function DashboardPage() {
   const { user } = useAuth();
   const [projects, setProjects] = useState<Project[]>([]);
+  const [projectTaskMap, setProjectTaskMap] = useState<Record<string, Task[]>>({});
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
+  const [showPromo, setShowPromo] = useState(true);
 
   useEffect(() => {
     if (!user) return;
@@ -22,10 +24,34 @@ export default function DashboardPage() {
     return unsub;
   }, [user]);
 
+  useEffect(() => {
+    if (projects.length === 0) {
+      setProjectTaskMap({});
+      return;
+    }
+
+    const unsubs = projects.map((project) => subscribeToTasks(project.id, (tasks) => {
+      setProjectTaskMap((current) => ({ ...current, [project.id]: tasks }));
+    }));
+
+    return () => {
+      unsubs.forEach((unsub) => unsub());
+    };
+  }, [projects]);
+
+  const allTasks = useMemo(() => Object.values(projectTaskMap).flat(), [projectTaskMap]);
+
   const totalTasks = projects.reduce((s, p) => s + (p.stats?.totalTasks || 0), 0);
   const totalCompleted = projects.reduce((s, p) => s + (p.stats?.completedTasks || 0), 0);
   const totalCommits = projects.reduce((s, p) => s + (p.stats?.totalCommits || 0), 0);
   const activeProjects = projects.filter(p => p.status === 'active').length;
+  const completedTasks = allTasks.filter((task) => ['completed', 'deployed'].includes(task.status));
+  const latestUpdatedTasks = [...allTasks]
+    .sort((a, b) => new Date((b.updatedAt as any)?.toDate?.() || b.updatedAt || 0).getTime() - new Date((a.updatedAt as any)?.toDate?.() || a.updatedAt || 0).getTime())
+    .slice(0, 5);
+  const latestCompletedTasks = [...completedTasks]
+    .sort((a, b) => new Date((b.completedAt as any)?.toDate?.() || b.updatedAt || 0).getTime() - new Date((a.completedAt as any)?.toDate?.() || a.updatedAt || 0).getTime())
+    .slice(0, 5);
 
   const stats = [
     { label: 'Active Projects', value: activeProjects, icon: '📁', color: '#34d399', bg: 'rgba(52,211,153,0.12)' },
@@ -34,8 +60,42 @@ export default function DashboardPage() {
     { label: 'Total Commits',   value: totalCommits,    icon: '⚡', color: '#7dd3fc', bg: 'rgba(125,211,252,0.12)' },
   ];
 
+  const taskStatusSummary = [
+    { label: 'Recently updated', value: latestUpdatedTasks.length, color: '#38bdf8' },
+    { label: 'Recently completed', value: latestCompletedTasks.length, color: '#10b981' },
+    { label: 'Completion verified', value: allTasks.filter((task) => ['completed', 'deployed'].includes(task.status) && task.githubRef?.lastCommitSha).length, color: '#8b5cf6' },
+  ];
+
   return (
     <div className="animate-fadeIn" style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
+      {/* Mobile Promo Banner */}
+      {showPromo && (
+        <motion.div 
+          initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} 
+          className="glass-card" 
+          style={{ padding: '16px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'linear-gradient(90deg, rgba(56,189,248,0.1), rgba(139,92,246,0.1))', border: '1px solid rgba(56,189,248,0.3)' }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+            <div style={{ fontSize: 24 }}>📱</div>
+            <div>
+              <h3 style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-1)', marginBottom: 4 }}>MS-Dev Mobile App is Live!</h3>
+              <p style={{ fontSize: 14, color: 'var(--text-2)', margin: 0 }}>We've built a mobile version. Track your projects on the go.</p>
+            </div>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <a href="https://github.com/jofra-shiva/MS-Dev" target="_blank" rel="noopener noreferrer" className="btn" style={{ padding: '8px 16px', fontSize: 13, background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-subtle)', textDecoration: 'none' }}>
+              View on GitHub
+            </a>
+            <a href="https://github.com/jofra-shiva/MS-Dev/raw/master/releases/MS-Dev-Mobile.apk" download className="btn btn-primary" style={{ padding: '8px 16px', fontSize: 13, textDecoration: 'none' }}>
+              Download APK
+            </a>
+            <button onClick={() => setShowPromo(false)} style={{ background: 'none', border: 'none', color: 'var(--text-3)', cursor: 'pointer', padding: 4, marginLeft: 8 }} aria-label="Dismiss">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+            </button>
+          </div>
+        </motion.div>
+      )}
+
       {/* Hero Header */}
       <motion.div 
         className="glass-card"
@@ -74,6 +134,15 @@ export default function DashboardPage() {
               <div style={{ fontSize: 14, color: 'var(--text-2)', marginTop: 4, fontWeight: 500 }}>{s.label}</div>
             </div>
           </motion.div>
+        ))}
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
+        {taskStatusSummary.map((item) => (
+          <div key={item.label} className="card" style={{ borderTop: `3px solid ${item.color}` }}>
+            <div style={{ fontSize: 12, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>{item.label}</div>
+            <div style={{ fontSize: 28, fontWeight: 800, color: 'var(--text-1)' }}>{item.value}</div>
+          </div>
         ))}
       </div>
 
@@ -184,6 +253,40 @@ export default function DashboardPage() {
                 {totalCommits}
               </div>
               <div style={{ fontSize: 13, color: 'var(--text-2)', marginTop: 4 }}>Total GitHub Commits</div>
+            </div>
+
+            <div className="card" style={{ marginTop: 20 }}>
+              <h3 style={{ fontSize: 14, fontWeight: 700, marginBottom: 14 }}>Recent Task Updates</h3>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {latestUpdatedTasks.length > 0 ? latestUpdatedTasks.map((task) => (
+                  <div key={task.id} style={{ padding: 12, borderRadius: 12, background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, marginBottom: 6 }}>
+                      <div style={{ fontWeight: 700, color: 'var(--text-1)' }} className="truncate-1">{task.title}</div>
+                      <span className={`badge badge-${task.status}`}>{task.status.replace('_', ' ')}</span>
+                    </div>
+                    <div style={{ fontSize: 12, color: 'var(--text-2)' }}>
+                      Updated by {task.lastMovedBy?.name || '—'} · {task.updatedAt ? formatDistanceToNow((task.updatedAt as any).toDate?.() || new Date(task.updatedAt as any), { addSuffix: true }) : '—'}
+                    </div>
+                  </div>
+                )) : <div style={{ color: 'var(--text-3)', fontSize: 13 }}>No task updates yet.</div>}
+              </div>
+            </div>
+
+            <div className="card" style={{ marginTop: 20 }}>
+              <h3 style={{ fontSize: 14, fontWeight: 700, marginBottom: 14 }}>Recent Completions</h3>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {latestCompletedTasks.length > 0 ? latestCompletedTasks.map((task) => (
+                  <div key={task.id} style={{ padding: 12, borderRadius: 12, background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, marginBottom: 6 }}>
+                      <div style={{ fontWeight: 700, color: 'var(--text-1)' }} className="truncate-1">{task.title}</div>
+                      <span className="badge badge-completed">Completed</span>
+                    </div>
+                    <div style={{ fontSize: 12, color: 'var(--text-2)' }}>
+                      {task.completedBy?.name || '—'} · {task.completedAt ? formatDistanceToNow((task.completedAt as any).toDate?.() || new Date(task.completedAt as any), { addSuffix: true }) : '—'}
+                    </div>
+                  </div>
+                )) : <div style={{ color: 'var(--text-3)', fontSize: 13 }}>No completed tasks yet.</div>}
+              </div>
             </div>
           </motion.div>
         </div>

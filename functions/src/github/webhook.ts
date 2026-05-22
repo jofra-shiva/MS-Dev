@@ -140,7 +140,15 @@ export const githubWebhook = functions.https.onRequest(async (req, res) => {
                 'githubRef.lastCommitMessage': message,
                 'githubRef.branchName': branch,
                 updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-                ...(statusChange.status === 'completed' ? { completedAt: admin.firestore.FieldValue.serverTimestamp() } : {}),
+                ...(statusChange.status === 'completed' ? {
+                  completedAt: admin.firestore.FieldValue.serverTimestamp(),
+                  completedBy: {
+                    uid: 'github',
+                    name: pusher || 'GitHub',
+                    photo: '',
+                    date: admin.firestore.FieldValue.serverTimestamp(),
+                  },
+                } : {}),
               });
               totalTasksUpdated++;
 

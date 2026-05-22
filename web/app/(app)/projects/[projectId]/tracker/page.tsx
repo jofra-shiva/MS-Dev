@@ -33,6 +33,47 @@ const ProgressRenderer = (p: any) => (
   </div>
 );
 
+const GitHubStatusRenderer = (p: any) => {
+  const hasCommit = Boolean(p.data?.githubRef?.lastCommitSha);
+  const isComplete = ['completed', 'deployed'].includes(p.data?.status);
+  const label = isComplete ? 'Complete' : hasCommit ? 'Updated' : 'Not linked';
+  const color = isComplete ? '#10B981' : hasCommit ? '#38BDF8' : '#64748B';
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+      <span style={{ padding: '2px 10px', borderRadius: 99, fontSize: 11, fontWeight: 700, background: `${color}20`, color }}>{label}</span>
+      <span style={{ fontSize: 10, color: 'var(--text-3)' }}>
+        {hasCommit ? `GitHub ${p.data.githubRef.lastCommitSha.slice(0, 7)}` : 'Waiting for commit'}
+      </span>
+    </div>
+  );
+};
+
+const CompletionByRenderer = (p: any) => {
+  const completedBy = p.data?.completedBy?.name || '—';
+  const completedPhoto = p.data?.completedBy?.photo || '';
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+      {completedPhoto
+        ? <img src={completedPhoto} alt="" className="avatar avatar-sm" style={{ width: 22, height: 22 }} />
+        : <div className="avatar-placeholder" style={{ width: 22, height: 22, fontSize: 8 }}>{completedBy === '—' ? '?' : completedBy.slice(0, 2).toUpperCase()}</div>
+      }
+      <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.2 }}>
+        <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-1)' }}>{completedBy}</span>
+        <span style={{ fontSize: 10, color: 'var(--text-3)' }}>{p.data?.completedAt ? 'Marked completed' : 'Not completed yet'}</span>
+      </div>
+    </div>
+  );
+};
+
+const getTaskTime = (value: any) => {
+  if (!value) return 0;
+  if (typeof value?.toDate === 'function') return value.toDate().getTime();
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? 0 : parsed.getTime();
+};
+
 export default function TrackerPage() {
   const { projectId } = useParams<{ projectId: string }>();
   const { user } = useAuth();
@@ -57,6 +98,8 @@ export default function TrackerPage() {
     const task = e.data as Task;
     const field = e.colDef.field as string;
     const newValue = e.newValue;
+    const wasCompleted = task.status === 'completed';
+    const isNowCompleted = field === 'status' && newValue === 'completed';
     try {
       await updateTask(projectId, task.id, { 
         [field]: newValue,
@@ -65,14 +108,23 @@ export default function TrackerPage() {
           name: user.displayName || 'Unknown User',
           photo: user.photoURL || '',
           date: new Date()
-        }
+        },
+        ...(field === 'status' && newValue !== 'completed' && wasCompleted ? { completedBy: null } : {}),
+        ...(isNowCompleted && !wasCompleted ? {
+          completedBy: {
+            uid: user.uid,
+            name: user.displayName || 'Unknown User',
+            photo: user.photoURL || '',
+            date: new Date(),
+          }
+        } : {})
       });
       toast.success('✓ Saved', { duration: 1200 });
     } catch { toast.error('Save failed'); e.node.setDataValue(field, e.oldValue); }
   }, [projectId, user]);
 
   const handleExport = () => {
-    const headers = ['Task Title', 'Type', 'Status', 'Priority', 'Module', 'Assignee', 'Progress', 'Due Date'];
+    const headers = ['Task Title', 'Type', 'Status', 'Priority', 'Module', 'Assignee', 'Progress', 'Due Date', 'Created At', 'Updated At', 'Completed At', 'Last Completed By', 'GitHub Completion'];
     const rows = tasks.map(t => [
       t.title || '',
       t.type || '',
@@ -81,7 +133,12 @@ export default function TrackerPage() {
       t.module || '',
       t.assigneeName || '',
       t.progress || 0,
-      t.dueDate ? format((t.dueDate as any).toDate?.() || new Date(t.dueDate as any), 'yyyy-MM-dd') : ''
+      t.dueDate ? format((t.dueDate as any).toDate?.() || new Date(t.dueDate as any), 'yyyy-MM-dd') : '',
+      t.createdAt ? format((t.createdAt as any).toDate?.() || new Date(t.createdAt as any), 'yyyy-MM-dd HH:mm') : '',
+      t.updatedAt ? format((t.updatedAt as any).toDate?.() || new Date(t.updatedAt as any), 'yyyy-MM-dd HH:mm') : '',
+      t.completedAt ? format((t.completedAt as any).toDate?.() || new Date(t.completedAt as any), 'yyyy-MM-dd HH:mm') : '',
+      t.completedBy?.name || t.lastMovedBy?.name || '',
+      ['completed', 'deployed'].includes(t.status) && t.githubRef?.lastCommitSha ? 'Yes' : 'No'
     ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(','));
 
     const csv = [headers.map(v => `"${v}"`).join(','), ...rows].join('\n');
@@ -104,6 +161,11 @@ export default function TrackerPage() {
     return undefined;
   }, []);
 
+  const visibleTasks = activeTab === 'all' ? tasks : tasks.filter(t => t.type === activeTab);
+  const completedTasks = visibleTasks.filter(t => t.status === 'completed' || t.status === 'deployed');
+  const githubCompletedTasks = completedTasks.filter(t => t.githubRef?.lastCommitSha);
+  const latestCompletedTask = [...completedTasks].sort((a, b) => getTaskTime(b.completedAt || b.updatedAt) - getTaskTime(a.completedAt || a.updatedAt))[0];
+
   const colDefs: ColDef[] = [
     { headerName: 'S.No', valueGetter: 'node.rowIndex + 1', width: 70, editable: false, pinned: 'left', cellStyle: { color: 'var(--text-3)', fontWeight: 700, fontSize: 12 } },
     { field: 'title', headerName: 'Task Title', flex: 2, minWidth: 200, editable: true, cellStyle: (p: any) => ({ fontWeight: 600, textDecoration: p.data?.status === 'completed' ? 'line-through' : 'none', opacity: p.data?.status === 'completed' ? 0.6 : 1 }) },
@@ -116,19 +178,27 @@ export default function TrackerPage() {
     { field: 'module', headerName: 'Module', width: 140, editable: true },
     { field: 'assigneeName', headerName: 'Assignee', width: 150, editable: false },
     { field: 'progress', headerName: 'Progress', width: 180, editable: true, cellRenderer: ProgressRenderer, type: 'numericColumn' },
+    { field: 'completedBy.name', headerName: 'Last Completed By', width: 190, editable: false, cellRenderer: CompletionByRenderer },
+    { field: 'githubRef.lastCommitSha', headerName: 'GitHub Status', width: 170, editable: false, cellRenderer: GitHubStatusRenderer },
     { field: 'dueDate', headerName: 'Due Date', width: 130, editable: false, valueFormatter: p => p.value ? format(p.value.toDate?.() || new Date(p.value), 'MMM d, yyyy') : '—' },
+    { field: 'createdAt', headerName: 'Created At', width: 150, editable: false, valueFormatter: p => p.value ? format(p.value.toDate?.() || new Date(p.value), 'MMM d, yyyy HH:mm') : '—' },
+    { field: 'updatedAt', headerName: 'Updated At', width: 150, editable: false, valueFormatter: p => p.value ? format(p.value.toDate?.() || new Date(p.value), 'MMM d, yyyy HH:mm') : '—' },
+    { field: 'completedAt', headerName: 'Completed At', width: 150, editable: false, valueFormatter: p => p.value ? format(p.value.toDate?.() || new Date(p.value), 'MMM d, yyyy HH:mm') : '—' },
     { field: 'githubRef.lastCommitSha', headerName: 'Last Commit', width: 130, editable: false, valueFormatter: p => p.value ? p.value.slice(0, 7) : '—', cellStyle: { fontFamily: 'JetBrains Mono, monospace', fontSize: 11, color: 'var(--success)' } },
-    { field: 'createdAt', headerName: 'Created', width: 130, editable: false, valueFormatter: p => p.value ? format(p.value.toDate?.() || new Date(p.value), 'MMM d, yyyy') : '—' },
   ];
 
   return (
-    <div className="animate-fadeIn" style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 64px)' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18, flexShrink: 0 }}>
+    <div className="animate-fadeIn" style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 64px)', minHeight: 0, overflow: 'hidden' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, marginBottom: 18, flexShrink: 0 }}>
         <div>
           <h1 style={{ fontSize: 22, fontWeight: 800 }}>Project Tracker</h1>
           <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginTop: 4 }}>
             <p style={{ color: 'var(--text-2)', fontSize: 13 }}>{tasks.length} tasks · Spreadsheet view</p>
             {liveIndicator && <span style={{ fontSize: 11, color: 'var(--success)', fontWeight: 700, animation: 'fadeIn 0.2s ease' }}>● Live update</span>}
+          </div>
+          <div className="show-xl" style={{ display: 'none', gap: 10, marginTop: 12, flexWrap: 'wrap' }}>
+            <span className="badge badge-completed" style={{ textTransform: 'none' }}>GitHub complete: {githubCompletedTasks.length}/{completedTasks.length || 0}</span>
+            <span className="badge badge-testing" style={{ textTransform: 'none' }}>Latest done by: {latestCompletedTask?.completedBy?.name || '—'}</span>
           </div>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
@@ -167,10 +237,10 @@ export default function TrackerPage() {
         ))}
       </div>
 
-      <div className="ag-theme-msdev" style={{ flex: 1, width: '100%' }}>
+      <div className="ag-theme-msdev" style={{ flex: 1, width: '100%', minHeight: 0 }}>
         <AgGridReact
           theme="legacy"
-          rowData={activeTab === 'all' ? tasks : tasks.filter(t => t.type === activeTab)}
+          rowData={visibleTasks}
           columnDefs={colDefs}
           getRowStyle={getRowStyle}
           onCellValueChanged={handleCellChanged}

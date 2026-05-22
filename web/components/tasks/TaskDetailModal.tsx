@@ -49,7 +49,16 @@ export default function TaskDetailModal({ task, projectId, onClose }: Props) {
           name: user!.displayName || 'Unknown User',
           photo: user!.photoURL || '',
           date: new Date()
-        }
+        },
+        ...(form.status === 'completed' && task.status !== 'completed' ? {
+          completedBy: {
+            uid: user!.uid,
+            name: user!.displayName || 'Unknown User',
+            photo: user!.photoURL || '',
+            date: new Date(),
+          }
+        } : {}),
+        ...(form.status !== 'completed' && task.status === 'completed' ? { completedBy: null } : {})
       });
       await logActivity(projectId, { type: 'task_updated', userId: user!.uid, userName: user!.displayName||'', userPhoto: user!.photoURL||'', taskId: task.id, taskTitle: form.title, metadata: {} });
       toast.success('Task updated');
@@ -72,6 +81,17 @@ export default function TaskDetailModal({ task, projectId, onClose }: Props) {
       await addComment(projectId, task.id, { authorId: user.uid, authorName: user.displayName||'', authorPhoto: user.photoURL||'', text: newComment.trim(), attachments: [] });
       setNewComment('');
     } finally { setCommenting(false); }
+  };
+
+  const toDate = (value: any) => {
+    if (!value) return null;
+    return typeof value?.toDate === 'function' ? value.toDate() : new Date(value);
+  };
+
+  const formatAuditDate = (value: any) => {
+    const date = toDate(value);
+    if (!date || Number.isNaN(date.getTime())) return '—';
+    return `${date.toLocaleDateString('en-GB')} · ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
   };
 
   return (
@@ -137,6 +157,33 @@ export default function TaskDetailModal({ task, projectId, onClose }: Props) {
                   <div className="mono" style={{ fontSize: 12, color: 'var(--text-2)' }}>{task.githubRef.lastCommitMessage}</div>
                 </div>
               )}
+
+              {/* Audit Trail */}
+              <div style={{ marginBottom: 18, padding: 14, background: 'var(--bg-elevated)', borderRadius: 8, border: '1px solid var(--border-subtle)' }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', marginBottom: 10 }}>Audit Trail</div>
+                <div style={{ display: 'grid', gap: 10 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+                    <span style={{ fontSize: 12, color: 'var(--text-3)' }}>Created</span>
+                    <span style={{ fontSize: 12, color: 'var(--text-1)', textAlign: 'right' }}>{formatAuditDate(task.createdAt)}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+                    <span style={{ fontSize: 12, color: 'var(--text-3)' }}>Last updated</span>
+                    <span style={{ fontSize: 12, color: 'var(--text-1)', textAlign: 'right' }}>{formatAuditDate(task.updatedAt)}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+                    <span style={{ fontSize: 12, color: 'var(--text-3)' }}>Updated by</span>
+                    <span style={{ fontSize: 12, color: 'var(--text-1)', textAlign: 'right' }}>{task.lastMovedBy?.name || '—'}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+                    <span style={{ fontSize: 12, color: 'var(--text-3)' }}>Completed</span>
+                    <span style={{ fontSize: 12, color: 'var(--text-1)', textAlign: 'right' }}>{task.completedAt ? formatAuditDate(task.completedAt) : 'Not completed yet'}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+                    <span style={{ fontSize: 12, color: 'var(--text-3)' }}>Completed by</span>
+                    <span style={{ fontSize: 12, color: 'var(--text-1)', textAlign: 'right' }}>{task.completedBy?.name || '—'}</span>
+                  </div>
+                </div>
+              </div>
 
               {/* Attachments / Screenshots */}
               {task.attachments && task.attachments.length > 0 && (
@@ -216,6 +263,8 @@ export default function TaskDetailModal({ task, projectId, onClose }: Props) {
                       <option value="in_progress">In Progress</option>
                       <option value="testing">Testing</option>
                       <option value="completed">Completed</option>
+                      <option value="github_pushed">🐙 GitHub Pushed</option>
+                      <option value="deployed">🚀 Deployed</option>
                     </select>
                   </div>
                   <div>

@@ -14,7 +14,6 @@ class NotificationsScreen extends StatelessWidget {
     final uid = FirebaseAuth.instance.currentUser?.uid;
 
     return Scaffold(
-      appBar: AppBar(title: Text('Notifications', style: GoogleFonts.raleway(fontWeight: FontWeight.w800))),
       body: StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance
           .collection('notifications/$uid/items')

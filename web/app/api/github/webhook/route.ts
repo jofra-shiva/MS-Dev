@@ -123,7 +123,15 @@ export async function POST(req: NextRequest) {
 
             if (newStatus) {
               updates.status = newStatus;
-              if (newStatus === 'completed') updates.completedAt = admin.firestore.FieldValue.serverTimestamp();
+              if (newStatus === 'completed') {
+                updates.completedAt = admin.firestore.FieldValue.serverTimestamp();
+                updates.completedBy = {
+                  uid: 'github',
+                  name: commit.author?.name || 'GitHub',
+                  photo: commit.author?.username ? `https://github.com/${commit.author.username}.png` : '',
+                  date: admin.firestore.FieldValue.serverTimestamp(),
+                };
+              }
               if (newStatus === 'in_progress') updates.progress = 50; // just an example bump
               if (newStatus === 'completed') updates.progress = 100;
             }

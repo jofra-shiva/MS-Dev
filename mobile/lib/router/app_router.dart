@@ -10,11 +10,16 @@ import '../screens/projects/project_detail_screen.dart';
 import '../screens/kanban/kanban_screen.dart';
 import '../screens/notifications/notifications_screen.dart';
 import '../screens/projects/project_shell_screen.dart';
-import '../screens/profile/profile_screen.dart';
 import '../screens/projects/create_project_screen.dart';
+import '../screens/profile/profile_screen.dart';
+import '../screens/kanban/tracker_screen.dart';
 import '../screens/meetings/meetings_screen.dart';
 import '../screens/meetings/create_meeting_screen.dart';
 import '../screens/meetings/meeting_detail_screen.dart';
+import '../screens/projects/analytics_screen.dart';
+import '../screens/projects/activity_screen.dart';
+import '../screens/projects/github_screen.dart';
+import '../screens/projects/project_settings_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
@@ -52,7 +57,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         ),
       ),
 
-      // Project Context Shell (Overview, Kanban, Tracker, etc.)
+      // Project Context Shell (Overview, A to Z, Tracker, etc.)
       ShellRoute(
         builder: (context, state, child) {
           final uri = Uri.parse(state.matchedLocation);
@@ -70,11 +75,11 @@ final routerProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(path: 'kanban', builder: (_, state) => KanbanScreen(projectId: state.pathParameters['id']!)),
               GoRoute(path: 'meetings', builder: (_, state) => MeetingsScreen(projectId: state.pathParameters['id']!)),
-              GoRoute(path: 'tracker', builder: (_, __) => const ProjectPlaceholderScreen(title: 'Tracker')),
-              GoRoute(path: 'analytics', builder: (_, __) => const ProjectPlaceholderScreen(title: 'Analytics')),
-              GoRoute(path: 'activity', builder: (_, __) => const ProjectPlaceholderScreen(title: 'Activity')),
-              GoRoute(path: 'github', builder: (_, __) => const ProjectPlaceholderScreen(title: 'GitHub Integration')),
-              GoRoute(path: 'settings', builder: (_, __) => const ProjectPlaceholderScreen(title: 'Project Settings')),
+              GoRoute(path: 'tracker', builder: (_, state) => TrackerScreen(projectId: state.pathParameters['id']!)),
+              GoRoute(path: 'analytics', builder: (_, state) => AnalyticsScreen(projectId: state.pathParameters['id']!)),
+              GoRoute(path: 'activity', builder: (_, state) => ActivityScreen(projectId: state.pathParameters['id']!)),
+              GoRoute(path: 'github', builder: (_, state) => GithubScreen(projectId: state.pathParameters['id']!)),
+              GoRoute(path: 'settings', builder: (_, state) => ProjectSettingsScreen(projectId: state.pathParameters['id']!)),
             ],
           ),
         ],

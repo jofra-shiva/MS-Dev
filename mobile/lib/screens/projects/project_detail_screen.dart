@@ -26,7 +26,12 @@ class ProjectDetailScreen extends StatelessWidget {
             final inProgressTasks = tasks.where((t) => (t.data() as Map)['status'] == 'in_progress').length;
             final testingTasks = tasks.where((t) => (t.data() as Map)['status'] == 'testing').length;
             final pendingTasks = tasks.where((t) => (t.data() as Map)['status'] == 'pending').length;
-            final pct = totalTasks == 0 ? 0.0 : (completedTasks / totalTasks) * 100.0;
+            final githubTasks = tasks.where((t) => (t.data() as Map)['status'] == 'github_pushed').length;
+            final deployedTasks = tasks.where((t) => (t.data() as Map)['status'] == 'deployed').length;
+            
+            // Treat deployed and github_pushed as completed for the percentage calculation
+            final overallCompleted = completedTasks + githubTasks + deployedTasks;
+            final pct = totalTasks == 0 ? 0.0 : (overallCompleted / totalTasks) * 100.0;
 
             // Sort for recent tasks
             final recentTasks = List.from(tasks)..sort((a, b) {
@@ -81,7 +86,10 @@ class ProjectDetailScreen extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text('Recent Tasks', style: GoogleFonts.raleway(fontWeight: FontWeight.w800, fontSize: 16, color: Colors.white)),
-                    const Text('View board →', style: TextStyle(color: Color(0xFFF59E0B), fontSize: 12, fontWeight: FontWeight.w700)),
+                    GestureDetector(
+                      onTap: () => context.go('/projects/$projectId/kanban'),
+                      child: const Text('View board →', style: TextStyle(color: Color(0xFFF59E0B), fontSize: 12, fontWeight: FontWeight.w700)),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 12),
@@ -123,15 +131,16 @@ class ProjectDetailScreen extends StatelessWidget {
                         ],
                       ),
                       const SizedBox(height: 8),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(99),
-                        child: LinearProgressIndicator(
-                          value: pct / 100, minHeight: 6,
-                          backgroundColor: Colors.white.withOpacity(0.05),
-                          valueColor: const AlwaysStoppedAnimation(Color(0xFFF59E0B)), // Yellow theme
-                        ),
+                      const SizedBox(height: 16),
+                      Center(
+                        child: _WaterBottleProgress(pct: pct),
                       ),
                       const SizedBox(height: 24),
+                      const SizedBox(height: 24),
+                      _buildProgressRow('Deployed', '$deployedTasks', const Color(0xFFEC4899)),
+                      const SizedBox(height: 12),
+                      _buildProgressRow('GitHub Pushed', '$githubTasks', const Color(0xFF8B5CF6)),
+                      const SizedBox(height: 12),
                       _buildProgressRow('Completed', '$completedTasks', const Color(0xFF10B981)),
                       const SizedBox(height: 12),
                       _buildProgressRow('Testing', '$testingTasks', const Color(0xFF38BDF8)),
@@ -212,7 +221,10 @@ class ProjectDetailScreen extends StatelessWidget {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text('Team Members', style: GoogleFonts.raleway(fontSize: 16, fontWeight: FontWeight.w800, color: Colors.white)),
-                          const Text('Manage →', style: TextStyle(color: Color(0xFFF59E0B), fontSize: 12, fontWeight: FontWeight.w700)),
+                          GestureDetector(
+                            onTap: () => context.go('/projects/$projectId/settings'),
+                            child: const Text('Manage →', style: TextStyle(color: Color(0xFFF59E0B), fontSize: 12, fontWeight: FontWeight.w700)),
+                          ),
                         ],
                       ),
                       const SizedBox(height: 16),
@@ -315,7 +327,14 @@ class _TaskTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final statusColors = {'pending': const Color(0xFF475569), 'in_progress': const Color(0xFFF59E0B), 'testing': const Color(0xFF38BDF8), 'completed': const Color(0xFF10B981)};
+    final statusColors = {
+      'pending': const Color(0xFF475569), 
+      'in_progress': const Color(0xFFF59E0B), 
+      'testing': const Color(0xFF38BDF8), 
+      'completed': const Color(0xFF10B981),
+      'github_pushed': const Color(0xFF8B5CF6),
+      'deployed': const Color(0xFFEC4899),
+    };
     final color = statusColors[task['status']] ?? const Color(0xFF475569);
     
     // Priority badge mapping
@@ -413,6 +432,62 @@ class _ProjectDropdownTitle extends StatelessWidget {
           },
         );
       },
+    );
+  }
+}
+
+class _WaterBottleProgress extends StatelessWidget {
+  final double pct;
+  const _WaterBottleProgress({required this.pct});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 100,
+      height: 160,
+      decoration: BoxDecoration(
+        color: const Color(0xFF070B14),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withOpacity(0.2), width: 3),
+        boxShadow: [
+          BoxShadow(color: const Color(0xFF38BDF8).withOpacity(0.1), blurRadius: 10, spreadRadius: 2),
+        ],
+      ),
+      child: Stack(
+        alignment: Alignment.bottomCenter,
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(13),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 1500),
+              curve: Curves.easeOutCubic,
+              height: 160 * (pct / 100),
+              width: double.infinity,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.bottomCenter,
+                  end: Alignment.topCenter,
+                  colors: [
+                    const Color(0xFF0284C7),
+                    const Color(0xFF38BDF8).withOpacity(0.8),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          Center(
+            child: Text(
+              '${pct.round()}%',
+              style: GoogleFonts.raleway(
+                fontSize: 24,
+                fontWeight: FontWeight.w900,
+                color: pct > 50 ? Colors.white : const Color(0xFF38BDF8),
+                shadows: [Shadow(color: Colors.black.withOpacity(0.5), blurRadius: 4)],
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

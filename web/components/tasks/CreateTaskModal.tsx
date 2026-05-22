@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/hooks/useAuth';
-import { createTask, logActivity, getProjectModules, addCustomModule, subscribeToMeetings, createMeeting } from '@/lib/firebase/firestore';
+import { createTask, logActivity, getProjectModules, addCustomModule, subscribeToMeetings, createMeeting, createNotification } from '@/lib/firebase/firestore';
 import { Project, TaskPriority, TaskStatus, TaskType, TaskAttachment, Meeting } from '@/types';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
@@ -138,6 +138,13 @@ export default function CreateTaskModal({ projectId, project, onClose, preselect
         const due = new Date(form.dueDate).getTime();
         const now = Date.now();
         const diffHours = (due - now) / (1000 * 60 * 60);
+
+        // Create in-app notification
+        await createNotification(form.assigneeId, {
+          type: 'deadline',
+          title: 'Task Assigned with Deadline',
+          body: `You were assigned "${form.title}" due on ${new Date(form.dueDate).toLocaleDateString()}.`,
+        });
         
         // If due date is today or tomorrow (less than ~24 hours away logically for a date input)
         if (diffHours < 24) {

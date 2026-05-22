@@ -12,6 +12,21 @@ const PRIORITY_DOT: Record<string, string> = {
   low: '#475569', medium: '#3B82F6', high: '#F59E0B', urgent: '#EF4444',
 };
 
+const getGitHubCompletionLabel = (task: Task) => {
+  const hasCommit = Boolean(task.githubRef?.lastCommitSha);
+  const isComplete = ['completed', 'deployed'].includes(task.status);
+  if (isComplete && hasCommit) return { label: 'GitHub complete', color: '#10B981' };
+  if (hasCommit) return { label: 'GitHub updated', color: '#38BDF8' };
+  return { label: 'GitHub pending', color: '#64748B' };
+};
+
+const formatCardDate = (value: any) => {
+  if (!value) return '';
+  const date = typeof value?.toDate === 'function' ? value.toDate() : new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
+};
+
 export default function TaskCard({ task, projectId, isDragging }: Props) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging: isSortableDragging } = useSortable({ id: task.id });
   const [showDetail, setShowDetail] = useState(false);
@@ -24,6 +39,8 @@ export default function TaskCard({ task, projectId, isDragging }: Props) {
 
   const dueDate = task.dueDate ? (task.dueDate as any).toDate?.() || new Date(task.dueDate) : null;
   const isOverdue = dueDate && dueDate < new Date() && task.status !== 'completed';
+  const githubState = getGitHubCompletionLabel(task);
+  const completedBy = task.completedBy?.name || task.lastMovedBy?.name || 'Unassigned';
 
   return (
     <>
@@ -79,7 +96,7 @@ export default function TaskCard({ task, projectId, isDragging }: Props) {
               <span style={{ fontSize: 10, color: 'var(--accent)', background: 'rgba(99,102,241,0.1)', padding: '1px 6px', borderRadius: 99 }}>#{task.tags[0]}</span>
             )}
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
             {task.meetingId && (
               <span title="Linked to Meeting" style={{ fontSize: 11 }}>📅</span>
             )}
@@ -97,6 +114,17 @@ export default function TaskCard({ task, projectId, isDragging }: Props) {
           </div>
         </div>
 
+        <div className="show-xl" style={{ display: 'none', gap: 8, marginTop: 10, paddingTop: 8, borderTop: '1px dashed var(--border-subtle)', flexDirection: 'column' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+            <span style={{ fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Completed by</span>
+            <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-1)' }}>{task.status === 'completed' || task.status === 'deployed' ? completedBy : 'Not complete'}</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+            <span style={{ fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>GitHub</span>
+            <span style={{ padding: '2px 8px', borderRadius: 99, fontSize: 10, fontWeight: 700, background: `${githubState.color}20`, color: githubState.color }}>{githubState.label}</span>
+          </div>
+        </div>
+
         {/* Last Moved By Indicator */}
         {task.lastMovedBy && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 10, paddingTop: 8, borderTop: '1px dashed var(--border-subtle)', fontSize: 10, color: 'var(--text-3)' }}>
@@ -109,6 +137,16 @@ export default function TaskCard({ task, projectId, isDragging }: Props) {
               </div>
             )}
             <span style={{ fontWeight: 500, color: 'var(--text-2)' }}>{task.lastMovedBy.name}</span>
+            {task.lastMovedBy.date && <span style={{ color: 'var(--text-3)' }}>· {formatCardDate(task.lastMovedBy.date)}</span>}
+          </div>
+        )}
+
+        {(task.completedBy || task.completedAt) && (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginTop: 8, paddingTop: 8, borderTop: '1px dashed var(--border-subtle)', fontSize: 10, color: 'var(--text-3)' }}>
+            <span>Completed</span>
+            <span style={{ color: 'var(--text-2)', textAlign: 'right' }}>
+              {task.completedBy?.name || '—'}{task.completedAt ? ` · ${formatCardDate(task.completedAt)}` : ''}
+            </span>
           </div>
         )}
       </div>

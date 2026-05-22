@@ -23,28 +23,6 @@ class ProjectsScreen extends StatelessWidget {
     final initials = (user?.displayName ?? 'U').isNotEmpty ? (user?.displayName ?? 'U')[0].toUpperCase() : 'U';
 
     return Scaffold(
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF0D1117),
-        title: Row(children: [
-          Image.asset('assets/images/MSDEV.png', height: 24, width: 24),
-          const SizedBox(width: 8),
-          Text('MSDev', style: GoogleFonts.raleway(fontSize: 20, fontWeight: FontWeight.w800, color: Colors.white)),
-        ]),
-        actions: [
-          GestureDetector(
-            onTap: () => context.push('/profile'),
-            child: CircleAvatar(
-              radius: 16,
-              backgroundColor: const Color(0xFF1E2740),
-              backgroundImage: user?.photoURL != null ? NetworkImage(user!.photoURL!) : null,
-              child: user?.photoURL == null 
-                  ? Text(initials, style: GoogleFonts.raleway(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.white))
-                  : null,
-            ),
-          ),
-          const SizedBox(width: 16),
-        ],
-      ),
       body: StreamBuilder<QuerySnapshot>(
         stream: db.collection('projects')
           .where('members.$uid.role', whereIn: ['admin', 'member', 'viewer'])
@@ -118,48 +96,70 @@ class _ProjectCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final pct = (data['completionPercentage'] ?? 0).toDouble();
-    final stats = data['stats'] as Map<String, dynamic>? ?? {};
-
     return GestureDetector(
       onTap: onTap,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        decoration: BoxDecoration(
-          color: const Color(0xFF0D1117),
-          borderRadius: BorderRadius.circular(14),
-          border: Border(left: BorderSide(color: color, width: 4)),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 10, offset: const Offset(0, 4))],
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Row(children: [
-              Expanded(child: Text(data['name'] ?? '', style: GoogleFonts.raleway(fontSize: 15, fontWeight: FontWeight.w700, color: Colors.white), maxLines: 1, overflow: TextOverflow.ellipsis)),
-              Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(color: const Color(0xFF10B981).withOpacity(0.12), borderRadius: BorderRadius.circular(99)),
-                child: Text(data['status'] ?? 'active', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFF10B981)))),
-            ]),
-            if (data['description']?.isNotEmpty == true) ...[
-              const SizedBox(height: 6),
-              Text(data['description'] ?? '', style: TextStyle(fontSize: 12.5, color: Colors.white.withOpacity(0.4), height: 1.4), maxLines: 2, overflow: TextOverflow.ellipsis),
-            ],
-            const SizedBox(height: 14),
-            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-              Text('${pct.round()}% complete', style: TextStyle(fontSize: 11, color: Colors.white.withOpacity(0.4))),
-              Text('${stats['completedTasks'] ?? 0}/${stats['totalTasks'] ?? 0} tasks', style: TextStyle(fontSize: 11, color: Colors.white.withOpacity(0.4))),
-            ]),
-            const SizedBox(height: 6),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(99),
-              child: LinearProgressIndicator(
-                value: pct / 100, minHeight: 4,
-                backgroundColor: Colors.white.withOpacity(0.08),
-                valueColor: AlwaysStoppedAnimation(color),
-              ),
+      child: StreamBuilder<QuerySnapshot>(
+        stream: FirebaseFirestore.instance.collection('projects/$id/tasks').snapshots(),
+        builder: (context, taskSnap) {
+          int totalTasks = 0;
+          int completedTasks = 0;
+          
+          if (taskSnap.hasData) {
+            final tasks = taskSnap.data!.docs;
+            totalTasks = tasks.length;
+            for (var doc in tasks) {
+              final status = (doc.data() as Map)['status'];
+              if (status == 'completed' || status == 'deployed' || status == 'github_pushed') {
+                completedTasks++;
+              }
+            }
+          } else {
+            final stats = data['stats'] as Map<String, dynamic>? ?? {};
+            totalTasks = stats['totalTasks'] ?? 0;
+            completedTasks = stats['completedTasks'] ?? 0;
+          }
+
+          final pct = totalTasks == 0 ? 0.0 : (completedTasks / totalTasks) * 100.0;
+
+          return Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            decoration: BoxDecoration(
+              color: const Color(0xFF0D1117),
+              borderRadius: BorderRadius.circular(14),
+              border: Border(left: BorderSide(color: color, width: 4)),
+              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 10, offset: const Offset(0, 4))],
             ),
-          ]),
-        ),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Row(children: [
+                  Expanded(child: Text(data['name'] ?? '', style: GoogleFonts.raleway(fontSize: 15, fontWeight: FontWeight.w700, color: Colors.white), maxLines: 1, overflow: TextOverflow.ellipsis)),
+                  Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(color: const Color(0xFF10B981).withOpacity(0.12), borderRadius: BorderRadius.circular(99)),
+                    child: Text(data['status'] ?? 'active', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFF10B981)))),
+                ]),
+                if (data['description']?.isNotEmpty == true) ...[
+                  const SizedBox(height: 6),
+                  Text(data['description'] ?? '', style: TextStyle(fontSize: 12.5, color: Colors.white.withOpacity(0.4), height: 1.4), maxLines: 2, overflow: TextOverflow.ellipsis),
+                ],
+                const SizedBox(height: 14),
+                Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                  Text('${pct.round()}% complete', style: TextStyle(fontSize: 11, color: Colors.white.withOpacity(0.4))),
+                  Text('$completedTasks/$totalTasks tasks', style: TextStyle(fontSize: 11, color: Colors.white.withOpacity(0.4))),
+                ]),
+                const SizedBox(height: 6),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(99),
+                  child: LinearProgressIndicator(
+                    value: pct / 100, minHeight: 4,
+                    backgroundColor: Colors.white.withOpacity(0.08),
+                    valueColor: AlwaysStoppedAnimation(color),
+                  ),
+                ),
+              ]),
+            ),
+          );
+        }
       ),
     );
   }

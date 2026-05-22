@@ -11,10 +11,12 @@ import TaskCard from './TaskCard';
 import { motion } from 'framer-motion';
 
 const COLUMNS: { id: TaskStatus; label: string; color: string; emoji: string }[] = [
-  { id: 'pending',     label: 'Pending',     color: '#475569', emoji: '📌' },
-  { id: 'in_progress', label: 'In Progress', color: '#F59E0B', emoji: '🔄' },
-  { id: 'testing',     label: 'Testing',     color: '#3B82F6', emoji: '🧪' },
-  { id: 'completed',   label: 'Completed',   color: '#10B981', emoji: '✅' },
+  { id: 'pending',       label: 'Pending',        color: '#475569', emoji: '📌' },
+  { id: 'in_progress',   label: 'In Progress',    color: '#F59E0B', emoji: '🔄' },
+  { id: 'testing',       label: 'Testing',        color: '#3B82F6', emoji: '🧪' },
+  { id: 'completed',     label: 'Completed',      color: '#10B981', emoji: '✅' },
+  { id: 'github_pushed', label: 'GitHub',         color: '#8B5CF6', emoji: '🐙' },
+  { id: 'deployed',      label: 'Deployed',       color: '#EC4899', emoji: '🚀' },
 ];
 
 interface Props {
@@ -65,7 +67,7 @@ export default function KanbanBoard({ tasks, projectId, project, onStatusChange 
 
   return (
     <DndContext sensors={sensors} collisionDetection={closestCorners} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-      <div className="kanban-board" style={{ flex: 1, overflow: 'hidden auto' }}>
+      <div className="kanban-board" style={{ flex: 1, minHeight: 0, overflowX: 'auto', overflowY: 'hidden' }}>
         {COLUMNS.map((col, i) => {
           const colTasks = tasks.filter(t => t.status === col.id);
           return (

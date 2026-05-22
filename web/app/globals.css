@@ -425,22 +425,27 @@ textarea.input { resize: vertical; min-height: 80px; }
   display: flex;
   gap: 16px;
   align-items: flex-start;
+  flex-wrap: nowrap;
   overflow-x: auto;
-  padding-bottom: 12px;
-  padding-right: 20px; /* Extra padding so the last item isn't flush with the edge when scrolling */
-  min-height: calc(100vh - 200px);
+  overflow-y: hidden;
+  padding: 0 4px 14px 2px;
+  scroll-snap-type: x proximity;
+  scrollbar-gutter: stable both-edges;
+  min-height: 0;
 }
 
 .kanban-column {
-  flex: 1;
-  min-width: 260px;
-  max-width: 340px;
+  flex: 0 0 320px;
+  width: 320px;
+  min-width: 320px;
   background: var(--bg-card);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius);
   display: flex;
   flex-direction: column;
-  max-height: calc(100vh - 180px);
+  max-height: calc(100vh - 210px);
+  scroll-snap-align: start;
+  overflow: hidden;
 }
 
 .kanban-column-header {
@@ -455,10 +460,23 @@ textarea.input { resize: vertical; min-height: 80px; }
 .kanban-cards {
   flex: 1;
   overflow-y: auto;
+  min-height: 0;
   padding: 10px 10px 20px 10px; /* Extra bottom padding for clearance */
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+.kanban-board::-webkit-scrollbar,
+.kanban-cards::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.kanban-board::-webkit-scrollbar-thumb,
+.kanban-cards::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 99px;
 }
 
 .task-card {
@@ -506,6 +524,12 @@ textarea.input { resize: vertical; min-height: 80px; }
   border-radius: 99px;
   background: linear-gradient(90deg, var(--accent), var(--accent-2));
   transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.show-xl { display: none !important; }
+
+@media (min-width: 1280px) {
+  .show-xl { display: flex !important; }
 }
 
 /* ────────────────────────────────────────────────────────────
@@ -698,8 +722,36 @@ textarea.input { resize: vertical; min-height: 80px; }
   --ag-input-focus-border-color: var(--accent);
   --ag-font-family: 'Inter', sans-serif;
   --ag-font-size: 13px;
+  height: 100%;
+  min-height: 0;
   border-radius: var(--radius);
   overflow: hidden;
+}
+
+.ag-theme-msdev .ag-root-wrapper,
+.ag-theme-msdev .ag-root,
+.ag-theme-msdev .ag-body-viewport,
+.ag-theme-msdev .ag-center-cols-viewport {
+  background: var(--bg-card);
+}
+
+.ag-theme-msdev .ag-header {
+  border-bottom: 1px solid var(--border-subtle);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.ag-theme-msdev .ag-body-viewport::-webkit-scrollbar,
+.ag-theme-msdev .ag-center-cols-viewport::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.ag-theme-msdev .ag-body-viewport::-webkit-scrollbar-thumb,
+.ag-theme-msdev .ag-center-cols-viewport::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 99px;
 }
 
 /* ────────────────────────────────────────────────────────────

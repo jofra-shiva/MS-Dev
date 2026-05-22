@@ -31,13 +31,22 @@ export default function KanbanPage() {
       if (!task) return;
       await updateTask(projectId, taskId, { 
         status: newStatus, 
-        progress: newStatus === 'completed' ? 100 : newStatus === 'testing' ? 75 : newStatus === 'in_progress' ? 30 : 0,
+        progress: newStatus === 'deployed' ? 100 : newStatus === 'github_pushed' ? 100 : newStatus === 'completed' ? 100 : newStatus === 'testing' ? 75 : newStatus === 'in_progress' ? 30 : 0,
         lastMovedBy: {
           uid: user!.uid,
           name: user!.displayName || 'Unknown User',
           photo: user!.photoURL || '',
           date: new Date()
-        }
+        },
+        ...(newStatus === 'completed' && task.status !== 'completed' ? {
+          completedBy: {
+            uid: user!.uid,
+            name: user!.displayName || 'Unknown User',
+            photo: user!.photoURL || '',
+            date: new Date(),
+          }
+        } : {}),
+        ...(newStatus !== 'completed' && task.status === 'completed' ? { completedBy: null } : {})
       });
       await logActivity(projectId, {
         type: newStatus === 'completed' ? 'task_completed' : 'task_updated',
@@ -45,7 +54,9 @@ export default function KanbanPage() {
         userPhoto: user!.photoURL||'', taskId, taskTitle: task.title,
         metadata: { from: task.status, to: newStatus },
       });
-      if (newStatus === 'completed') toast.success(`✅ "${task.title}" completed!`);
+      if (newStatus === 'deployed') toast.success(`🚀 "${task.title}" is live!`);
+      else if (newStatus === 'github_pushed') toast.success(`🐙 "${task.title}" pushed to GitHub!`);
+      else if (newStatus === 'completed') toast.success(`✅ "${task.title}" completed!`);
     } catch { toast.error('Failed to update task'); }
   };
 

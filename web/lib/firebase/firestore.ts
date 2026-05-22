@@ -227,6 +227,22 @@ export const subscribeToActivity = (
 // NOTIFICATIONS
 // ─────────────────────────────────────────────
 
+export const createNotification = async (
+  userId: string,
+  data: {
+    type: 'task_assigned' | 'task_completed' | 'deadline' | 'commit' | 'mention' | 'project_update';
+    title: string;
+    body: string;
+    link?: string;
+  }
+) => {
+  await addDoc(collection(db, `notifications/${userId}/items`), {
+    ...data,
+    read: false,
+    createdAt: serverTimestamp(),
+  });
+};
+
 export const subscribeToNotifications = (
   userId: string,
   callback: (notifs: unknown[]) => void
@@ -275,6 +291,18 @@ export const inviteMember = async (
     createdAt: serverTimestamp(),
     expiresAt,
   });
+
+  // Try to find the user by email to send a notification
+  const userQ = query(collection(db, 'users'), where('email', '==', email));
+  const snap = await getDocs(userQ);
+  if (!snap.empty) {
+    const uid = snap.docs[0].id;
+    await createNotification(uid, {
+      type: 'project_update',
+      title: 'New Project Invitation',
+      body: `${invitedByName} invited you to join ${projectName}.`,
+    });
+  }
 };
 
 export const subscribeToMyInvitations = (
@@ -354,6 +382,20 @@ export async function createMeeting(projectId: string, data: Omit<import('@/type
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
+
+  // Notify all attendees
+  if (data.attendees && Array.isArray(data.attendees)) {
+    for (const uid of data.attendees) {
+      if (uid !== data.createdBy) {
+        await createNotification(uid, {
+          type: 'project_update',
+          title: 'New Meeting Scheduled',
+          body: `A new meeting "${data.title}" was scheduled.`,
+        });
+      }
+    }
+  }
+
   return ref.id;
 }
 

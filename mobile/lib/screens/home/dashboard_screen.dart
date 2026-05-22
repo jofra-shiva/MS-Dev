@@ -25,33 +25,6 @@ class DashboardScreen extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: const Color(0xFF070B14),
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        title: Row(
-          children: [
-            Image.asset('assets/images/MSDEV.png', height: 24, width: 24),
-            const SizedBox(width: 8),
-            Text('MSDev', style: GoogleFonts.raleway(fontSize: 20, fontWeight: FontWeight.w800, color: Colors.white)),
-          ],
-        ),
-        actions: [
-          GestureDetector(
-            onTap: () => context.push('/profile'),
-            child: CircleAvatar(
-              radius: 16,
-              backgroundColor: const Color(0xFF1E2740),
-              backgroundImage: user?.photoURL != null && !user!.photoURL!.startsWith('/') 
-                  ? NetworkImage(user!.photoURL!) 
-                  : (user?.photoURL?.startsWith('/') == true ? AssetImage('assets/images${user!.photoURL}') : null) as ImageProvider?,
-              child: user?.photoURL == null 
-                  ? Text((user?.displayName ?? 'U').isNotEmpty ? user!.displayName![0].toUpperCase() : 'U', style: GoogleFonts.raleway(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.white))
-                  : null,
-            ),
-          ),
-          const SizedBox(width: 16),
-        ],
-      ),
       body: StreamBuilder<QuerySnapshot>(
         stream: db.collection('projects')
           .where('members.$uid.role', whereIn: ['admin', 'member', 'viewer'])
@@ -89,34 +62,46 @@ class DashboardScreen extends ConsumerWidget {
             }
           }
 
-          final overallCompletion = totalTasks > 0 ? (completedTasks / totalTasks) : 0.0;
+          return FutureBuilder<Map<String, int>>(
+            future: _fetchRealStats(activeProjects),
+            builder: (context, statsSnap) {
+              final realStats = statsSnap.data;
+              if (realStats != null) {
+                totalTasks = realStats['total']!;
+                completedTasks = realStats['completed']!;
+                inProgressTasks = realStats['inProgress']!;
+                pendingTasks = realStats['pending']!;
+                totalCommits = realStats['commits']!;
+              }
 
-          return SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Hero Header
-                Text('Good morning, $name 👋', style: GoogleFonts.raleway(fontSize: 26, fontWeight: FontWeight.w800, color: Colors.white, letterSpacing: -0.5)),
-                const SizedBox(height: 24),
+              final overallCompletion = totalTasks > 0 ? (completedTasks / totalTasks) : 0.0;
 
-                // Stats Grid
-                GridView.count(
-                  crossAxisCount: 2,
-                  crossAxisSpacing: 16,
-                  mainAxisSpacing: 16,
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  childAspectRatio: 1.4,
+              return SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildStatCard('Active Projects', activeProjectsCount.toString(), '📁', const Color(0xFFF59E0B)),
-                    _buildStatCard('Total Tasks', totalTasks.toString(), '✅', const Color(0xFFFBBF24)),
-                    _buildStatCard('Completed', completedTasks.toString(), '🎯', const Color(0xFFD97706)),
-                    _buildStatCard('Total Commits', totalCommits.toString(), '⚡', const Color(0xFFFCD34D)),
-                  ],
-                ),
-                
-                const SizedBox(height: 32),
+                    // Hero Header
+                    Text('Good morning, $name 👋', style: GoogleFonts.raleway(fontSize: 26, fontWeight: FontWeight.w800, color: Colors.white, letterSpacing: -0.5)),
+                    const SizedBox(height: 24),
+
+                    // Stats Grid
+                    GridView.count(
+                      crossAxisCount: 2,
+                      crossAxisSpacing: 16,
+                      mainAxisSpacing: 16,
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      childAspectRatio: 1.4,
+                      children: [
+                        _buildStatCard('Active Projects', activeProjectsCount.toString(), '📁', const Color(0xFFF59E0B)),
+                        _buildStatCard('Total Tasks', totalTasks.toString(), '✅', const Color(0xFFFBBF24)),
+                        _buildStatCard('Completed', completedTasks.toString(), '🎯', const Color(0xFFD97706)),
+                        _buildStatCard('Total Commits', totalCommits.toString(), '⚡', const Color(0xFFFCD34D)),
+                      ],
+                    ),
+                    
+                    const SizedBox(height: 32),
 
                 // Active Projects Section
                 Row(
@@ -238,8 +223,10 @@ class DashboardScreen extends ConsumerWidget {
                 ).animate().fadeIn().slideY(begin: 0.1),
 
                 const SizedBox(height: 40),
-              ],
-            ),
+                  ],
+                ),
+              );
+            },
           );
         },
       ),
@@ -387,5 +374,32 @@ class DashboardScreen extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  Future<Map<String, int>> _fetchRealStats(List<Map<String, dynamic>> projects) async {
+    int total = 0;
+    int completed = 0;
+    int inProgress = 0;
+    int pending = 0;
+    int commits = 0;
+
+    for (final p in projects) {
+      final stats = p['stats'] as Map<String, dynamic>? ?? {};
+      commits += (stats['totalCommits'] as num?)?.toInt() ?? 0;
+
+      final snap = await FirebaseFirestore.instance.collection('projects/${p['id']}/tasks').get();
+      total += snap.docs.length;
+      for (var doc in snap.docs) {
+        final status = doc.data()['status'];
+        if (status == 'completed' || status == 'deployed' || status == 'github_pushed') {
+          completed++;
+        } else if (status == 'in_progress' || status == 'testing') {
+          inProgress++;
+        } else if (status == 'pending') {
+          pending++;
+        }
+      }
+    }
+    return {'total': total, 'completed': completed, 'inProgress': inProgress, 'pending': pending, 'commits': commits};
   }
 }

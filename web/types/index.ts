@@ -4,7 +4,7 @@
 
 export type UserRole = 'admin' | 'member' | 'viewer';
 
-export type TaskStatus = 'pending' | 'in_progress' | 'testing' | 'completed';
+export type TaskStatus = 'pending' | 'in_progress' | 'testing' | 'completed' | 'github_pushed' | 'deployed';
 
 export type TaskPriority = 'low' | 'medium' | 'high' | 'urgent';
 
@@ -26,7 +26,9 @@ export type NotificationType =
   | 'deadline'
   | 'commit'
   | 'mention'
-  | 'project_update';
+  | 'project_update'
+  | 'project_request'
+  | 'meeting_started';
 
 // ─────────────────────────────────────────────
 // User
@@ -114,6 +116,13 @@ export interface TaskGitHubRef {
   branchName: string | null;
 }
 
+export interface TaskCompletionActor {
+  uid: string;
+  name: string;
+  photo: string;
+  date: Date;
+}
+
 export interface Meeting {
   id: string;
   projectId: string;
@@ -147,12 +156,8 @@ export interface Task {
   createdAt: Date;
   updatedAt: Date;
   completedAt: Date | null;
-  lastMovedBy?: {
-    uid: string;
-    name: string;
-    photo: string;
-    date: Date;
-  } | null;
+  lastMovedBy?: TaskCompletionActor | null;
+  completedBy?: TaskCompletionActor | null;
 }
 
 // ─────────────────────────────────────────────
