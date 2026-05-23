@@ -1,0 +1,12 @@
+# Dependencies
+**/node_modules/
+
+# Local service workspace that should stay out of this repo view
+whatsapp-service/
+
+# Package manager noise
+**/.package-lock.json
+
+# OS / editor junk
+.DS_Store
+Thumbs.db

@@ -38,6 +38,7 @@ export type NotificationType =
 export interface MSDEVUser {
   uid: string;
   email: string;
+  phoneNumber?: string;
   displayName: string;
   photoURL: string;
   projectIds: string[];
@@ -58,6 +59,7 @@ export interface ProjectMember {
   displayName: string;
   photoURL: string;
   email: string;
+  phoneNumber?: string;
   joinedAt: Date;
 }
 

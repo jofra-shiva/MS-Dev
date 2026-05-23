@@ -147,7 +147,7 @@ export const updateTask = async (
   if (data.status === 'completed' || data.status === 'deployed') {
     updates.completedAt = serverTimestamp();
     updates.progress = 100;
-  } else if (data.status && data.status !== 'completed' && data.status !== 'deployed') {
+  } else if (data.status) {
     updates.completedAt = null;
     updates.completedBy = null;
   }
