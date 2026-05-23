@@ -1,8 +1,8 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/lib/hooks/useAuth';
-import { subscribeToUserProjects } from '@/lib/firebase/firestore';
-import { Project } from '@/types';
+import { subscribeToUserProjects, subscribeToTasks } from '@/lib/firebase/firestore';
+import { Project, Task } from '@/types';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import CreateProjectModal from '@/components/projects/CreateProjectModal';
@@ -10,6 +10,7 @@ import CreateProjectModal from '@/components/projects/CreateProjectModal';
 export default function ProjectsPage() {
   const { user } = useAuth();
   const [projects, setProjects] = useState<Project[]>([]);
+  const [projectTaskMap, setProjectTaskMap] = useState<Record<string, Task[]>>({});
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
   const [filter, setFilter] = useState<'all'|'active'|'completed'|'archived'>('all');
@@ -19,6 +20,21 @@ export default function ProjectsPage() {
     if (!user) return;
     return subscribeToUserProjects(user.uid, p => { setProjects(p); setLoading(false); });
   }, [user]);
+
+  useEffect(() => {
+    if (projects.length === 0) {
+      setProjectTaskMap({});
+      return;
+    }
+
+    const unsubs = projects.map((project) => subscribeToTasks(project.id, (tasks) => {
+      setProjectTaskMap((current) => ({ ...current, [project.id]: tasks as Task[] }));
+    }));
+
+    return () => {
+      unsubs.forEach((unsub) => unsub());
+    };
+  }, [projects]);
 
   const filtered = projects.filter(p =>
     (filter === 'all' || p.status === filter) &&
@@ -67,7 +83,14 @@ export default function ProjectsPage() {
         </div>
       ) : (
         <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(320px,1fr))', gap:16 }}>
-          {filtered.map((p, i) => (
+          {filtered.map((p, i) => {
+            const pTasks = projectTaskMap[p.id] || [];
+            const pTotalTasks = pTasks.length;
+            const pCompletedTasks = pTasks.filter(t => ['completed', 'deployed'].includes(t.status)).length;
+            const pCompletionPercentage = pTotalTasks > 0 ? (pCompletedTasks / pTotalTasks) * 100 : 0;
+            const pCommits = pTasks.filter(t => Boolean(t.githubRef?.lastCommitSha)).length;
+            
+            return (
             <motion.div key={p.id} initial={{ opacity:0, y:12 }} animate={{ opacity:1, y:0 }} transition={{ delay:i*0.04 }}>
               <Link href={`/projects/${p.id}`} style={{ textDecoration:'none' }}>
                 <div className="card" style={{ cursor:'pointer', borderLeft:`4px solid ${p.color||'var(--accent)'}` }}>
@@ -78,15 +101,15 @@ export default function ProjectsPage() {
                   <p style={{ fontSize:12.5, color:'var(--text-2)', marginBottom:14, lineHeight:1.5 }} className="truncate-2">{p.description || 'No description provided.'}</p>
                   <div style={{ marginBottom:12 }}>
                     <div style={{ display:'flex', justifyContent:'space-between', fontSize:11, color:'var(--text-2)', marginBottom:5 }}>
-                      <span>Completion</span><span style={{ fontWeight:700, color:'var(--text-1)' }}>{Math.round(p.completionPercentage||0)}%</span>
+                      <span>Completion</span><span style={{ fontWeight:700, color:'var(--text-1)' }}>{Math.round(pCompletionPercentage)}%</span>
                     </div>
-                    <div className="progress-bar"><div className="progress-fill" style={{ width:`${p.completionPercentage||0}%` }} /></div>
+                    <div className="progress-bar"><div className="progress-fill" style={{ width:`${pCompletionPercentage}%` }} /></div>
                   </div>
                   <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
                     <div style={{ display:'flex', gap:14, fontSize:12, color:'var(--text-3)' }}>
-                      <span>📋 {p.stats?.totalTasks||0} tasks</span>
-                      <span>✅ {p.stats?.completedTasks||0} done</span>
-                      <span>⚡ {p.stats?.totalCommits||0} commits</span>
+                      <span>📋 {pTotalTasks} tasks</span>
+                      <span>✅ {pCompletedTasks} done</span>
+                      <span>⚡ {pCommits || p.stats?.totalCommits || 0} commits</span>
                     </div>
                     <div style={{ display:'flex', marginLeft:'auto' }}>
                       {Object.entries(p.members||{}).slice(0,4).map(([uid, m]: any) => (
@@ -99,7 +122,7 @@ export default function ProjectsPage() {
                 </div>
               </Link>
             </motion.div>
-          ))}
+          )})}
         </div>
       )}
       {showCreate && <CreateProjectModal onClose={() => setShowCreate(false)} />}

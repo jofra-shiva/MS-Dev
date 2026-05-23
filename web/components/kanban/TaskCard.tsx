@@ -55,8 +55,14 @@ export default function TaskCard({ task, projectId, isDragging }: Props) {
         {/* Priority + Module */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            {task.type === 'bug' ? <span title="Bug" style={{ fontSize: 13 }}>Bug</span> : task.type === 'feature' ? <span title="Feature" style={{ fontSize: 13 }}>Feat</span> : <span title="Improvement" style={{ fontSize: 13 }}>Imp</span>}
-            <div style={{ width: 7, height: 7, borderRadius: '50%', background: PRIORITY_DOT[task.priority] }} />
+            {task.ticketId ? (
+              <span style={{ fontSize: 13, fontWeight: 800, color: task.type === 'bug' ? '#EF4444' : task.type === 'feature' ? '#8B5CF6' : '#10B981', background: `${task.type === 'bug' ? '#EF4444' : task.type === 'feature' ? '#8B5CF6' : '#10B981'}15`, padding: '2px 8px', borderRadius: 4 }}>
+                {task.ticketId}
+              </span>
+            ) : (
+              task.type === 'bug' ? <span title="Bug" style={{ fontSize: 13, fontWeight: 700, color: '#EF4444' }}>BUG</span> : task.type === 'feature' ? <span title="Feature" style={{ fontSize: 13, fontWeight: 700, color: '#8B5CF6' }}>FEAT</span> : <span title="Improvement" style={{ fontSize: 13, fontWeight: 700, color: '#10B981' }}>IMP</span>
+            )}
+            <div style={{ width: 6, height: 6, borderRadius: '50%', background: PRIORITY_DOT[task.priority], marginLeft: 4 }} />
             <span style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{task.priority}</span>
           </div>
           {task.module && (

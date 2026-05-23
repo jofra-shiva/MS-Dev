@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { subscribeToProject, subscribeToTasks, updateTask, logActivity, subscribeToMeetings } from '@/lib/firebase/firestore';
+import { subscribeToProject, subscribeToTasks, updateTask, deleteTask, logActivity, subscribeToMeetings } from '@/lib/firebase/firestore';
 import { Task, TaskStatus, Project, Meeting } from '@/types';
 import { useAuth } from '@/lib/hooks/useAuth';
 import KanbanBoard from '@/components/kanban/KanbanBoard';
@@ -13,7 +13,7 @@ export default function KanbanPage() {
   const { user } = useAuth();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [meetings, setMeetings] = useState<Meeting[]>([]);
-  const [selectedMeetingId, setSelectedMeetingId] = useState<string>('all');
+  const [selectedMeetingId, setSelectedMeetingId] = useState<string>('');
   const [project, setProject] = useState<Project | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -21,9 +21,22 @@ export default function KanbanPage() {
   useEffect(() => {
     const u1 = subscribeToProject(projectId, p => setProject(p));
     const u2 = subscribeToTasks(projectId, t => { setTasks(t); setLoading(false); });
-    const u3 = subscribeToMeetings(projectId, setMeetings);
+    const u3 = subscribeToMeetings(projectId, (fetchedMeetings) => {
+      const sorted = [...fetchedMeetings].sort((a,b) => new Date(b.date || b.createdAt || 0).getTime() - new Date(a.date || a.createdAt || 0).getTime());
+      setMeetings(sorted);
+      setSelectedMeetingId(prev => (prev === '' && sorted.length > 0) ? sorted[0].id : (prev === '' ? 'all' : prev));
+    });
     return () => { u1(); u2(); u3(); };
   }, [projectId]);
+
+  const handleDeleteTask = async (taskId: string) => {
+    try {
+      await deleteTask(projectId, taskId);
+      toast.success('Task deleted successfully');
+    } catch {
+      toast.error('Failed to delete task');
+    }
+  };
 
   const handleStatusChange = async (taskId: string, newStatus: TaskStatus) => {
     try {
@@ -93,9 +106,14 @@ export default function KanbanPage() {
               onChange={(e) => setSelectedMeetingId(e.target.value)}
             >
               <option value="all">All Meetings</option>
-              {meetings.map(m => (
-                <option key={m.id} value={m.id}>{m.name || 'Unnamed Meeting'}</option>
-              ))}
+              {meetings.map(m => {
+                const pendingCount = tasks.filter(t => t.meetingId === m.id && t.status === 'pending').length;
+                return (
+                  <option key={m.id} value={m.id}>
+                    {m.name || 'Unnamed Meeting'} {pendingCount > 0 ? `(${pendingCount} pending) 🔴` : ''}
+                  </option>
+                );
+              })}
             </select>
           )}
           <button id="create-task-btn" className="btn btn-primary btn-sm" onClick={() => setShowCreate(true)}>
@@ -109,7 +127,7 @@ export default function KanbanPage() {
         ? <div style={{ display:'flex', gap:16, flex:1 }}>
             {[1,2,3,4].map(i => <div key={i} className="skeleton" style={{ width:300, flexShrink:0, borderRadius:12 }} />)}
           </div>
-        : <KanbanBoard tasks={filteredTasks} projectId={projectId} project={project} onStatusChange={handleStatusChange} />
+        : <KanbanBoard tasks={filteredTasks} projectId={projectId} project={project} onStatusChange={handleStatusChange} onDeleteTask={handleDeleteTask} />
       }
       {showCreate && <CreateTaskModal projectId={projectId} project={project} onClose={() => setShowCreate(false)} preselectedMeetingId={selectedMeetingId} />}
     </div>

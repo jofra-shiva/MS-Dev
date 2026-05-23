@@ -16,6 +16,7 @@ import {
   increment,
   writeBatch,
   arrayUnion,
+  arrayRemove,
   Unsubscribe,
 } from 'firebase/firestore';
 import { db } from './config';
@@ -94,28 +95,40 @@ export const subscribeToUserProjects = (
 // TASKS
 // ─────────────────────────────────────────────
 
-export async function createTask(projectId: string, data: Omit<Task, 'id' | 'projectId' | 'createdAt' | 'updatedAt' | 'completedAt'>, currentCount: number) {
-  const prefix = (await getDoc(doc(db, 'projects', projectId))).data()?.prefix || 'TASK';
-  const taskId = `${prefix}-${currentCount}`;
+export async function createTask(projectId: string, data: Omit<Task, 'id' | 'projectId' | 'createdAt' | 'updatedAt' | 'completedAt' | 'ticketId'>) {
+  const projectRef = doc(db, 'projects', projectId);
+  const projectSnap = await getDoc(projectRef);
+  const projectData = projectSnap.data();
+  
+  const typeKey = data.type === 'feature' ? 'feat' : data.type === 'bug' ? 'bug' : 'imp';
+  const currentCount = (projectData?.stats?.taskCounters?.[typeKey] || 0) + 1;
+  const ticketId = `${typeKey.toUpperCase()}-${currentCount}`;
+  
+  // Use a generic UUID or timestamp-based ID for the actual document ID to avoid conflicts 
+  // if multiple users create tasks at the exact same millisecond. But for simplicity, we can use ticketId if conflicts are rare.
+  // Let's use ticketId as the document ID for cleaner URLs.
+  const taskId = ticketId;
   const ref = doc(db, 'projects', projectId, 'tasks', taskId);
   
   await setDoc(ref, {
     ...data,
     id: taskId,
     projectId,
+    ticketId,
     meetingId: data.meetingId || null,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
     completedAt: null
   });
   
-  // Also increment project task count
-  await updateDoc(doc(db, 'projects', projectId), {
+  // Also increment project task count and the specific counter
+  await updateDoc(projectRef, {
     'stats.totalTasks': increment(1),
     'stats.pendingTasks': increment(data.status === 'pending' ? 1 : 0),
     'stats.inProgressTasks': increment(data.status === 'in_progress' ? 1 : 0),
     'stats.testingTasks': increment(data.status === 'testing' ? 1 : 0),
     'stats.completedTasks': increment(data.status === 'completed' ? 1 : 0),
+    [`stats.taskCounters.${typeKey}`]: increment(1),
     updatedAt: serverTimestamp()
   });
   
@@ -131,9 +144,12 @@ export const updateTask = async (
     ...data,
     updatedAt: serverTimestamp(),
   };
-  if (data.status === 'completed') {
+  if (data.status === 'completed' || data.status === 'deployed') {
     updates.completedAt = serverTimestamp();
     updates.progress = 100;
+  } else if (data.status && data.status !== 'completed' && data.status !== 'deployed') {
+    updates.completedAt = null;
+    updates.completedBy = null;
   }
   await updateDoc(doc(db, `projects/${projectId}/tasks/${taskId}`), updates);
 };
@@ -141,6 +157,8 @@ export const updateTask = async (
 export const deleteTask = async (projectId: string, taskId: string) => {
   await deleteDoc(doc(db, `projects/${projectId}/tasks/${taskId}`));
 };
+
+
 
 export const subscribeToTasks = (
   projectId: string,
@@ -152,6 +170,75 @@ export const subscribeToTasks = (
   );
   return onSnapshot(q, (snap) => {
     callback(snap.docs.map((d) => ({ ...d.data(), id: d.id } as Task)));
+  });
+};
+
+export const requestTaskMovePermission = async (
+  projectId: string,
+  taskId: string,
+  requesterId: string,
+  requesterName: string,
+  assigneeId: string,
+  assigneeEmail?: string,
+  taskTitle?: string
+) => {
+  const taskRef = doc(db, `projects/${projectId}/tasks/${taskId}`);
+  await updateDoc(taskRef, {
+    moveRequests: arrayUnion(requesterId)
+  });
+
+  // Create in-app notification
+  await createNotification(assigneeId, {
+    type: 'task_move_request',
+    title: 'Task Move Permission Requested',
+    body: `${requesterName} wants to move your task "${taskTitle || 'Unknown'}". Please review and approve.`,
+    projectId,
+    taskId
+  });
+
+  // Send email if assigneeEmail is provided
+  if (assigneeEmail) {
+    try {
+      await fetch('/api/email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to: assigneeEmail,
+          subject: `Permission Request: Move Task`,
+          html: `
+            <div style="font-family: sans-serif; padding: 20px;">
+              <h2>Permission Request</h2>
+              <p><strong>${requesterName}</strong> has requested permission to move the task <strong>"${taskTitle || 'Unknown'}"</strong> which is currently assigned to you.</p>
+              <p>Log in to your dashboard to approve or ignore this request.</p>
+            </div>
+          `
+        })
+      });
+    } catch (e) {
+      console.error('Failed to send permission email:', e);
+    }
+  }
+};
+
+export const approveTaskMovePermission = async (
+  projectId: string,
+  taskId: string,
+  requesterId: string,
+  taskTitle?: string
+) => {
+  const taskRef = doc(db, `projects/${projectId}/tasks/${taskId}`);
+  await updateDoc(taskRef, {
+    moveRequests: arrayRemove(requesterId),
+    approvedMovers: arrayUnion(requesterId)
+  });
+
+  // Notify the requester
+  await createNotification(requesterId, {
+    type: 'task_move_approved',
+    title: 'Permission Granted',
+    body: `You have been granted permission to move the task "${taskTitle || 'Unknown'}".`,
+    projectId,
+    taskId
   });
 };
 
@@ -230,10 +317,13 @@ export const subscribeToActivity = (
 export const createNotification = async (
   userId: string,
   data: {
-    type: 'task_assigned' | 'task_completed' | 'deadline' | 'commit' | 'mention' | 'project_update';
+    type: 'task_assigned' | 'task_completed' | 'deadline' | 'commit' | 'mention' | 'project_update' | 'task_move_request' | 'task_move_approved' | 'permission_request';
     title: string;
     body: string;
     link?: string;
+    projectId?: string;
+    taskId?: string;
+    metadata?: any;
   }
 ) => {
   await addDoc(collection(db, `notifications/${userId}/items`), {
@@ -271,7 +361,7 @@ export const inviteMember = async (
   projectId: string,
   projectName: string,
   email: string,
-  role: 'member' | 'viewer',
+  role: 'member' | 'viewer' | 'task_assigner',
   invitedBy: string,
   invitedByName: string
 ) => {
@@ -292,11 +382,13 @@ export const inviteMember = async (
     expiresAt,
   });
 
-  // Try to find the user by email to send a notification
-  const userQ = query(collection(db, 'users'), where('email', '==', email));
+  // Try to find the user by email (case-insensitive) to send a notification
+  const userQ = query(collection(db, 'users'));
   const snap = await getDocs(userQ);
-  if (!snap.empty) {
-    const uid = snap.docs[0].id;
+  const matchedUser = snap.docs.find(d => d.data().email?.toLowerCase() === email.toLowerCase());
+  
+  if (matchedUser) {
+    const uid = matchedUser.id;
     await createNotification(uid, {
       type: 'project_update',
       title: 'New Project Invitation',
@@ -391,6 +483,7 @@ export async function createMeeting(projectId: string, data: Omit<import('@/type
           type: 'project_update',
           title: 'New Meeting Scheduled',
           body: `A new meeting "${data.name}" was scheduled.`,
+          link: data.link || undefined,
         });
       }
     }

@@ -126,7 +126,7 @@ export default function CreateTaskModal({ projectId, project, onClose, preselect
         githubRef: { lastCommitSha: null, lastCommitMessage: null, prNumber: null, branchName: null },
         meetingId: finalMeetingId,
         createdBy: user.uid,
-      }, taskCount);
+      });
 
       await logActivity(projectId, {
         type: 'task_created', userId: user.uid, userName: user.displayName || '',

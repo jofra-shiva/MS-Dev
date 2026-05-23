@@ -106,7 +106,7 @@
 html { scroll-behavior: smooth; }
 
 body {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: 'Raleway', -apple-system, BlinkMacSystemFont, sans-serif;
   background: var(--bg-primary);
   color: var(--text-1);
   -webkit-font-smoothing: antialiased;
@@ -726,6 +726,12 @@ textarea.input { resize: vertical; min-height: 80px; }
   min-height: 0;
   border-radius: var(--radius);
   overflow: hidden;
+  color: var(--text-1);
+}
+
+.ag-theme-msdev .ag-cell, 
+.ag-theme-msdev .ag-row {
+  color: var(--text-1);
 }
 
 .ag-theme-msdev .ag-root-wrapper,

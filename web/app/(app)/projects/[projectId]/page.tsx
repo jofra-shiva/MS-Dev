@@ -37,14 +37,16 @@ export default function ProjectOverviewPage() {
   return (
     <div className="animate-fadeIn">
       {/* Stats Row */}
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:14, marginBottom:24 }}>
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(140px, 1fr))', gap:14, marginBottom:24 }}>
         {[
           { label:'Total Tasks', value:tasks.length, color:'var(--accent)' },
           { label:'In Progress', value:byStatus.in_progress.length, color:'var(--warning)' },
+          { label:'GitHub', value:tasks.filter(t => t.status === 'github_pushed').length, color:'#8b5cf6' },
+          { label:'Deployed', value:tasks.filter(t => t.status === 'deployed').length, color:'#0ea5e9' },
           { label:'Completed', value:byStatus.completed.length, color:'var(--success)' },
           { label:'Team Size', value:members.length, color:'var(--info)' },
         ].map((s,i) => (
-          <motion.div key={s.label} className="stat-card" initial={{ opacity:0, y:10 }} animate={{ opacity:1, y:0 }} transition={{ delay:i*0.07 }}>
+          <motion.div key={s.label} className="stat-card" initial={{ opacity:0, y:10 }} animate={{ opacity:1, y:0 }} transition={{ delay:i*0.07 }} style={{ padding: '20px 16px' }}>
             <div style={{ fontSize:28, fontWeight:800, color:s.color }}>{s.value}</div>
             <div style={{ fontSize:12, color:'var(--text-2)' }}>{s.label}</div>
           </motion.div>
@@ -59,15 +61,21 @@ export default function ProjectOverviewPage() {
             <div style={{ marginBottom:20 }}>
               <div style={{ display:'flex', justifyContent:'space-between', fontSize:12, color:'var(--text-2)', marginBottom:6 }}>
                 <span>Overall completion</span>
-                <span style={{ fontWeight:700, color:'var(--text-1)' }}>{Math.round(project.completionPercentage||0)}%</span>
+                <span style={{ fontWeight:700, color:'var(--text-1)' }}>
+                  {Math.round(tasks.length > 0 ? (tasks.filter(t => ['completed', 'deployed'].includes(t.status)).length / tasks.length) * 100 : 0)}%
+                </span>
               </div>
-              <div className="progress-bar" style={{ height:8 }}><div className="progress-fill" style={{ width:`${project.completionPercentage||0}%` }} /></div>
+              <div className="progress-bar" style={{ height:8 }}>
+                <div className="progress-fill" style={{ width:`${tasks.length > 0 ? (tasks.filter(t => ['completed', 'deployed'].includes(t.status)).length / tasks.length) * 100 : 0}%` }} />
+              </div>
             </div>
             {[
-              { label:'Completed', count:byStatus.completed.length, color:'var(--success)', cls:'completed' },
-              { label:'Testing', count:byStatus.testing.length, color:'var(--info)', cls:'testing' },
-              { label:'In Progress', count:byStatus.in_progress.length, color:'var(--warning)', cls:'in_progress' },
-              { label:'Pending', count:byStatus.pending.length, color:'var(--text-3)', cls:'pending' },
+              { label:'Completed', count:byStatus.completed.length, color:'var(--success)' },
+              { label:'Deployed', count:tasks.filter(t => t.status==='deployed').length, color:'#0ea5e9' },
+              { label:'GitHub', count:tasks.filter(t => t.status==='github_pushed').length, color:'#8b5cf6' },
+              { label:'Testing', count:byStatus.testing.length, color:'var(--info)' },
+              { label:'In Progress', count:byStatus.in_progress.length, color:'var(--warning)' },
+              { label:'Pending', count:byStatus.pending.length, color:'var(--text-3)' },
             ].map(row => (
               <div key={row.label} style={{ display:'flex', alignItems:'center', gap:10, marginBottom:12 }}>
                 <div style={{ width:8, height:8, borderRadius:'50%', background:row.color, flexShrink:0 }} />
@@ -138,7 +146,7 @@ export default function ProjectOverviewPage() {
                 <div style={{ fontSize:12, color:'var(--text-2)', fontFamily:'var(--mono)' }}>
                   {project.github.repoOwner}/{project.github.repoName}
                 </div>
-                <div style={{ marginTop:10, fontSize:12, color:'var(--text-3)' }}>⚡ {project.stats?.totalCommits||0} commits tracked</div>
+                <div style={{ marginTop:10, fontSize:12, color:'var(--text-3)' }}>⚡ {tasks.filter(t => Boolean(t.githubRef?.lastCommitSha)).length || project.stats?.totalCommits || 0} commits tracked</div>
               </div>
             ) : (
               <div style={{ textAlign:'center', padding:'8px 0' }}>

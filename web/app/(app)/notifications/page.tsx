@@ -26,7 +26,7 @@ export default function NotificationsPage() {
     const unsubNotifs = subscribeToNotifications(user.uid, (n) => { setNotifs(n as any[]); setLoading(false); });
     
     // Subscribe to pending project invitations
-    const unsubInvites = subscribeToMyInvitations(user.email, (inv) => { setInvitations(inv); });
+    const unsubInvites = subscribeToMyInvitations(user.email.toLowerCase(), (inv) => { setInvitations(inv); });
     
     return () => {
       unsubNotifs();

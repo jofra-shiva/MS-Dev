@@ -2,7 +2,7 @@
 // MSDEV — Core TypeScript Types
 // ============================================================
 
-export type UserRole = 'admin' | 'member' | 'viewer';
+export type UserRole = 'admin' | 'member' | 'viewer' | 'task_assigner';
 
 export type TaskStatus = 'pending' | 'in_progress' | 'testing' | 'completed' | 'github_pushed' | 'deployed';
 
@@ -28,7 +28,9 @@ export type NotificationType =
   | 'mention'
   | 'project_update'
   | 'project_request'
-  | 'meeting_started';
+  | 'meeting_started'
+  | 'task_move_request'
+  | 'task_move_approved';
 
 // ─────────────────────────────────────────────
 // User
@@ -76,6 +78,7 @@ export interface ProjectStats {
   pendingTasks: number;
   totalCommits: number;
   totalMembers: number;
+  taskCounters?: Record<string, number>;
 }
 
 export interface Project {
@@ -138,6 +141,7 @@ export interface Meeting {
 export interface Task {
   id: string;
   projectId: string;
+  ticketId?: string;
   title: string;
   description: string;
   type: TaskType;
@@ -159,6 +163,8 @@ export interface Task {
   completedAt: Date | null;
   lastMovedBy?: TaskCompletionActor | null;
   completedBy?: TaskCompletionActor | null;
+  moveRequests?: string[];
+  approvedMovers?: string[];
 }
 
 // ─────────────────────────────────────────────

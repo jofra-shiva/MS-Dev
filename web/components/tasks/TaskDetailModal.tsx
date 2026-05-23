@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { Task, Comment, Meeting } from '@/types';
-import { updateTask, deleteTask, subscribeToComments, addComment, logActivity, subscribeToMeetings } from '@/lib/firebase/firestore';
+import { updateTask, deleteTask, subscribeToComments, addComment, logActivity, subscribeToMeetings, approveTaskMovePermission } from '@/lib/firebase/firestore';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { motion, AnimatePresence } from 'framer-motion';
 import { formatDistanceToNow } from 'date-fns';
@@ -83,6 +83,15 @@ export default function TaskDetailModal({ task, projectId, onClose }: Props) {
     } finally { setCommenting(false); }
   };
 
+  const handleApproveMove = async (requesterId: string) => {
+    try {
+      await approveTaskMovePermission(projectId, task.id, requesterId, task.title);
+      toast.success('Permission granted!');
+    } catch (e: any) {
+      toast.error('Failed to grant permission: ' + e.message);
+    }
+  };
+
   const toDate = (value: any) => {
     if (!value) return null;
     return typeof value?.toDate === 'function' ? value.toDate() : new Date(value);
@@ -93,6 +102,8 @@ export default function TaskDetailModal({ task, projectId, onClose }: Props) {
     if (!date || Number.isNaN(date.getTime())) return '—';
     return `${date.toLocaleDateString('en-GB')} · ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
   };
+
+  const isAssignee = user?.uid === task.assigneeId;
 
   return (
     <AnimatePresence>
@@ -127,6 +138,21 @@ export default function TaskDetailModal({ task, projectId, onClose }: Props) {
               <button className="btn-icon btn-ghost" onClick={onClose}>✕</button>
             </div>
           </div>
+
+          {isAssignee && task.moveRequests && task.moveRequests.length > 0 && (
+            <div style={{ marginBottom: 20, padding: 14, background: 'rgba(245, 158, 11, 0.1)', border: '1px solid rgba(245, 158, 11, 0.2)', borderRadius: 8 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: '#F59E0B', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
+                Permission Requests
+              </div>
+              {task.moveRequests.map(reqId => (
+                <div key={reqId} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--bg-card)', padding: '8px 12px', borderRadius: 6, marginTop: 8 }}>
+                  <span style={{ fontSize: 13, color: 'var(--text-1)' }}>Someone requested to move this task.</span>
+                  <button className="btn btn-primary btn-sm" onClick={() => handleApproveMove(reqId)}>Approve</button>
+                </div>
+              ))}
+            </div>
+          )}
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 220px', gap: 20 }}>
             {/* Main content */}

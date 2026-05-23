@@ -4,10 +4,10 @@ import { useParams } from 'next/navigation';
 import { subscribeToProject, updateProject, inviteMember } from '@/lib/firebase/firestore';
 import { Project, UserRole } from '@/types';
 import { useAuth } from '@/lib/hooks/useAuth';
-import { doc, updateDoc, collection, query, where, getDocs } from 'firebase/firestore';
+import { doc, updateDoc, collection, query, where, getDocs, deleteDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
 import toast from 'react-hot-toast';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 
 export default function SettingsPage() {
   const { projectId } = useParams<{ projectId: string }>();
@@ -18,9 +18,10 @@ export default function SettingsPage() {
   const [liveUrl, setLiveUrl] = useState('');
   const [saving, setSaving] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
-  const [inviteRole, setInviteRole] = useState<'member' | 'viewer'>('member');
+  const [inviteRole, setInviteRole] = useState<'member' | 'viewer' | 'task_assigner'>('member');
   const [inviting, setInviting] = useState(false);
   const [isEditingGeneral, setIsEditingGeneral] = useState(false);
+  const [memberToRemove, setMemberToRemove] = useState<{ uid: string; name: string } | null>(null);
 
   useEffect(() => {
     return subscribeToProject(projectId, p => {
@@ -52,7 +53,7 @@ export default function SettingsPage() {
     const emailToInvite = inviteEmail.trim().toLowerCase();
 
     // Check if user is already a member
-    const isAlreadyMember = Object.values(project?.members || {}).some((m: any) => m.email?.toLowerCase() === emailToInvite);
+    const isAlreadyMember = Object.values(project?.members || {}).some((m: any) => m && m.email?.toLowerCase() === emailToInvite);
     if (isAlreadyMember) {
       toast.error('User is already in the team');
       return;
@@ -64,9 +65,10 @@ export default function SettingsPage() {
       const q = query(collection(db, 'invitations'), where('invitedEmail', '==', emailToInvite), where('projectId', '==', projectId), where('status', '==', 'pending'));
       const snap = await getDocs(q);
       if (!snap.empty) {
-        toast.error('An invitation is already pending for this user');
-        setInviting(false);
-        return;
+        // Delete old pending invitations so we can send a fresh one
+        for (const docSnap of snap.docs) {
+          await deleteDoc(doc(db, 'invitations', docSnap.id));
+        }
       }
 
       await inviteMember(projectId, project?.name || '', emailToInvite, inviteRole, user.uid, user.displayName || '');
@@ -113,12 +115,15 @@ export default function SettingsPage() {
     finally { setInviting(false); }
   };
 
-  const handleRemoveMember = async (uid: string, name: string) => {
-    if (!confirm(`Remove ${name} from this project?`)) return;
+  const confirmRemoveMember = async () => {
+    if (!memberToRemove) return;
     try {
-      await updateDoc(doc(db, 'projects', projectId), { [`members.${uid}`]: null });
-      toast.success(`${name} removed`);
-    } catch { toast.error('Failed to remove member'); }
+      await updateDoc(doc(db, 'projects', projectId), { [`members.${memberToRemove.uid}`]: null });
+      toast.success(`${memberToRemove.name} removed`);
+      setMemberToRemove(null);
+    } catch { 
+      toast.error('Failed to remove member'); 
+    }
   };
 
   const handleChangeRole = async (uid: string, role: UserRole) => {
@@ -129,7 +134,7 @@ export default function SettingsPage() {
   };
 
   if (!project) return null;
-  const members = Object.entries(project.members || {});
+  const members = Object.entries(project.members || {}).filter(([_, m]) => m !== null && m !== undefined);
 
   return (
     <div className="animate-fadeIn" style={{ maxWidth: 1000, margin: '0 auto', width: '100%' }}>
@@ -233,6 +238,7 @@ export default function SettingsPage() {
                 <select className="input" value={inviteRole} onChange={e => setInviteRole(e.target.value as any)} style={{ width: 140 }}>
                   <option value="member">Member</option>
                   <option value="viewer">Viewer</option>
+                  <option value="task_assigner">Task Assigner</option>
                 </select>
                 <button id="send-invite-btn" type="submit" className="btn btn-primary" disabled={inviting || !inviteEmail.trim()}>
                   {inviting ? '...' : 'Invite'}
@@ -259,15 +265,16 @@ export default function SettingsPage() {
                   </div>
                   {isAdmin && uid !== user?.uid ? (
                     <div style={{ display: 'flex', gap: 8 }}>
-                      <select className="input" style={{ width: 110, padding: '4px 8px', fontSize: 12 }} value={m.role} onChange={e => handleChangeRole(uid, e.target.value as UserRole)}>
+                      <select className="input" style={{ width: 130, padding: '4px 8px', fontSize: 12 }} value={m.role} onChange={e => handleChangeRole(uid, e.target.value as UserRole)}>
                         <option value="admin">Admin</option>
                         <option value="member">Member</option>
                         <option value="viewer">Viewer</option>
+                        <option value="task_assigner">Task Assigner</option>
                       </select>
-                      <button className="btn btn-danger btn-sm" onClick={() => handleRemoveMember(uid, m.displayName)}>Remove</button>
+                      <button className="btn btn-danger btn-sm" onClick={() => setMemberToRemove({ uid, name: m.displayName })}>Remove</button>
                     </div>
                   ) : (
-                    <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 99, textTransform: 'uppercase', background: m.role === 'admin' ? 'rgba(99,102,241,0.15)' : 'rgba(16,185,129,0.12)', color: m.role === 'admin' ? 'var(--accent)' : 'var(--success)' }}>{m.role}</span>
+                    <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 99, textTransform: 'uppercase', background: m.role === 'admin' ? 'rgba(99,102,241,0.15)' : 'rgba(16,185,129,0.12)', color: m.role === 'admin' ? 'var(--accent)' : 'var(--success)' }}>{m.role === 'task_assigner' ? 'Task Assigner' : m.role}</span>
                   )}
                 </motion.div>
               ))}
@@ -275,6 +282,30 @@ export default function SettingsPage() {
           </div>
         </div>
       </div>
+
+      <AnimatePresence>
+        {memberToRemove && (
+          <div className="modal-overlay" style={{ zIndex: 9999 }}>
+            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} transition={{ duration: 0.15 }} className="modal" style={{ maxWidth: 400, padding: 24 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+                <div style={{ background: 'rgba(239, 68, 68, 0.1)', color: 'var(--danger)', padding: 10, borderRadius: '50%' }}>
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M16 21v-2a4 4 0 00-4-4H5c-1.1 0-2 .9-2 2v2"/><circle cx="8.5" cy="7" r="4"/><line x1="18" y1="8" x2="23" y2="13"/><line x1="23" y1="8" x2="18" y2="13"/></svg>
+                </div>
+                <h3 style={{ fontSize: 18, fontWeight: 700, margin: 0 }}>Remove Member?</h3>
+              </div>
+              <p style={{ color: 'var(--text-2)', fontSize: 14, lineHeight: 1.5, marginBottom: 24 }}>
+                Are you sure you want to remove <strong>{memberToRemove.name}</strong> from this project? They will lose all access immediately.
+              </p>
+              <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+                <button className="btn btn-secondary" onClick={() => setMemberToRemove(null)}>Cancel</button>
+                <button className="btn" style={{ background: 'var(--danger)', color: 'white', border: 'none' }} onClick={confirmRemoveMember}>
+                  Remove
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
