@@ -199,7 +199,7 @@ export default function MessagesPage() {
       setMessages([]);
       setReplyToMessage(null);
       setEditingMessage(null);
-      setMentionQuery(null);
+      setMentionQuery('');
       return;
     }
     
