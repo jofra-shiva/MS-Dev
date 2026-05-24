@@ -203,7 +203,7 @@ export default function MessagesPage() {
       return;
     }
     
-    if (activeChat.unreadCounts?.[user.uid] > 0) {
+    if ((activeChat.unreadCounts?.[user.uid] || 0) > 0) {
       markChatAsRead(activeChat.id, user.uid).catch(console.error);
     }
 
