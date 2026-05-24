@@ -101,7 +101,7 @@ export default function DashboardPage() {
             <h1 style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-0.01em', color: 'var(--text-1)', margin: 0, lineHeight: 1.2 }}>
               Good {new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 18 ? 'afternoon' : 'evening'}, {user?.displayName?.split(' ')[0] || 'Developer'}
             </h1>
-            <p style={{ color: 'var(--text-3)', fontSize: 13, margin: 0, marginTop: 4 }}>You have {allTasks.filter(t => t.status === 'todo' || t.status === 'in_progress').length} active tasks across {activeProjects} projects.</p>
+            <p style={{ color: 'var(--text-3)', fontSize: 13, margin: 0, marginTop: 4 }}>You have {allTasks.filter(t => t.status === 'pending' || t.status === 'in_progress').length} active tasks across {activeProjects} projects.</p>
           </div>
         </div>
         <button className="btn btn-primary" style={{ borderRadius: 10, padding: '8px 16px', fontSize: 13, height: 38 }} onClick={() => setShowCreate(true)}>
