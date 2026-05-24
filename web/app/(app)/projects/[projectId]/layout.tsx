@@ -50,7 +50,7 @@ export default function ProjectLayout({
           return (
             <Link key={tab.key}
               href={href}
-              style={{ padding:'8px 14px', borderRadius:'8px 8px 0 0', fontSize:13, fontWeight:500, textDecoration:'none',
+              style={{ padding:'8px 14px', borderRadius:'8px 8px 0 0', fontSize:13, fontWeight:700, textDecoration:'none',
                 background: isActive ? 'var(--bg-elevated)' : 'transparent',
                 color: isActive ? 'var(--text-1)' : 'var(--text-2)',
                 borderBottom: isActive ? '2px solid var(--accent)' : '2px solid transparent',

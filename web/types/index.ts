@@ -47,6 +47,7 @@ export interface MSDEVUser {
     theme: 'dark' | 'light';
     notifications: boolean;
   };
+  githubUsername?: string;
   createdAt: Date;
   lastActive: Date;
 }

@@ -1,6 +1,8 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { continueOnWebStore } from '@/lib/store/uiStore';
+import { AuraOrb } from '@/components/ui/AuraOrb';
 import { useAuth } from '@/lib/hooks/useAuth';
 import Sidebar from '@/components/ui/Sidebar';
 import Topbar from '@/components/ui/Topbar';
@@ -34,10 +36,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   if (loading) return (
     <div style={{ minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-primary)' }}>
-      <div style={{ textAlign: 'center' }}>
-        <div className="animate-spin" style={{ width: 36, height: 36, border: '3px solid var(--border)', borderTopColor: 'var(--accent)', borderRadius: '50%', margin: '0 auto 16px' }} />
-        <p style={{ color: 'var(--text-3)', fontSize: 13 }}>Loading MSDEV...</p>
-      </div>
+      <AuraOrb subtitle="Workspace" />
     </div>
   );
   if (!user) return null;

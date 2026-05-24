@@ -20,6 +20,19 @@ function getDefaultAvatar(uid: string, gender?: string): string {
   return pool[idx];
 }
 
+const getAuraGradient = (name: string) => {
+  const hash = Array.from(name || '').reduce((acc, char) => acc + char.charCodeAt(0), 0) % 6;
+  const gradients = [
+    'linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)',
+    'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+    'linear-gradient(135deg, #f59e0b 0%, #ea580c 100%)',
+    'linear-gradient(135deg, #ec4899 0%, #e11d48 100%)',
+    'linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%)',
+    'linear-gradient(135deg, #8b5cf6 0%, #d946ef 100%)',
+  ];
+  return gradients[hash];
+};
+
 interface TopbarProps { onMenuClick: () => void; }
 
 function ProjectSwitcher({ projects, currentProjectId, router }: { projects: Project[], currentProjectId: string, router: any }) {
@@ -52,15 +65,15 @@ function ProjectSwitcher({ projects, currentProjectId, router }: { projects: Pro
         onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
       >
         <div style={{
-          width: 26, height: 26, borderRadius: 4, flexShrink: 0,
-          background: '#090a0f', color: '#0ff',
+          width: 26, height: 26, borderRadius: 6, flexShrink: 0,
+          background: getAuraGradient(current.name),
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 15, fontWeight: 900, fontFamily: 'var(--mono), monospace', textTransform: 'uppercase',
-          border: '1px solid #0ff',
-          boxShadow: '0 0 8px rgba(0, 255, 255, 0.5), inset 0 0 4px rgba(0, 255, 255, 0.3)',
-          textShadow: '0 0 5px #0ff'
+          boxShadow: '0 2px 5px rgba(0,0,0,0.2), inset 0 1px 1px rgba(255,255,255,0.3)',
+          border: '1px solid rgba(0,0,0,0.1)',
         }}>
-          {current.name.charAt(0)}
+          <span style={{ color: '#fff', fontSize: 13, fontWeight: 700, textShadow: '0 1px 2px rgba(0,0,0,0.3)', textTransform: 'uppercase' }}>
+            {current.name.charAt(0)}
+          </span>
         </div>
         <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-1)' }}>{current.name}</span>
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-3)" strokeWidth="2.5" style={{ transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}>
@@ -93,15 +106,15 @@ function ProjectSwitcher({ projects, currentProjectId, router }: { projects: Pro
                 onMouseLeave={e => { if(p.id !== currentProjectId) e.currentTarget.style.background = 'transparent' }}
               >
                 <div style={{
-                  width: 24, height: 24, borderRadius: 4, flexShrink: 0,
-                  background: '#090a0f', color: '#0ff',
+                  width: 24, height: 24, borderRadius: 6, flexShrink: 0,
+                  background: getAuraGradient(p.name),
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 14, fontWeight: 900, fontFamily: 'var(--mono), monospace', textTransform: 'uppercase',
-                  border: '1px solid #0ff',
-                  boxShadow: '0 0 8px rgba(0, 255, 255, 0.5), inset 0 0 4px rgba(0, 255, 255, 0.3)',
-                  textShadow: '0 0 5px #0ff'
+                  boxShadow: '0 2px 5px rgba(0,0,0,0.2), inset 0 1px 1px rgba(255,255,255,0.3)',
+                  border: '1px solid rgba(0,0,0,0.1)',
                 }}>
-                  {p.name.charAt(0)}
+                  <span style={{ color: '#fff', fontSize: 13, fontWeight: 700, textShadow: '0 1px 2px rgba(0,0,0,0.3)', textTransform: 'uppercase' }}>
+                    {p.name.charAt(0)}
+                  </span>
                 </div>
                 <span style={{ fontSize: 13, fontWeight: p.id === currentProjectId ? 700 : 500, color: p.id === currentProjectId ? 'var(--text-1)' : 'var(--text-2)', flex: 1 }} className="truncate-1">
                   {p.name}
@@ -156,6 +169,7 @@ export default function Topbar({ onMenuClick }: TopbarProps) {
   const [notifOpen, setNotifOpen]     = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [approvingNotifId, setApprovingNotifId] = useState<string | null>(null);
+  const [imgError, setImgError]       = useState(false);
 
   const notifRef   = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
@@ -406,11 +420,11 @@ export default function Topbar({ onMenuClick }: TopbarProps) {
                               <button
                                 type="button"
                                 className="btn btn-primary btn-sm"
-                                onClick={(e) => { e.stopPropagation(); handleApproveMoveRequest(n); }}
-                                disabled={approvingNotifId === n.id}
-                                style={{ padding: '6px 10px', height: 30 }}
+                                onClick={(e) => { e.stopPropagation(); if (!n.read) handleApproveMoveRequest(n); }}
+                                disabled={approvingNotifId === n.id || n.read}
+                                style={{ padding: '6px 10px', height: 30, opacity: n.read ? 0.6 : 1 }}
                               >
-                                {approvingNotifId === n.id ? 'Approving...' : 'Accept'}
+                                {n.read ? 'Accepted' : approvingNotifId === n.id ? 'Approving...' : 'Accept'}
                               </button>
                             )}
                           </div>
@@ -442,15 +456,19 @@ export default function Topbar({ onMenuClick }: TopbarProps) {
             }}
             title="Profile"
           >
-            <img
-              src={avatarSrc}
-              alt={initials}
-              style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-              onError={(e) => {
-                // fallback: hide img, show initials via background
-                (e.target as HTMLImageElement).style.display = 'none';
-              }}
-            />
+            {!imgError && avatarSrc ? (
+              <img
+                src={avatarSrc}
+                alt={initials}
+                referrerPolicy="no-referrer"
+                style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                onError={() => setImgError(true)}
+              />
+            ) : (
+              <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--accent)', color: '#fff', fontWeight: 600, fontSize: 14 }}>
+                {initials}
+              </div>
+            )}
           </button>
 
           {/* Profile dropdown */}
@@ -471,11 +489,19 @@ export default function Topbar({ onMenuClick }: TopbarProps) {
                 borderBottom: '1px solid var(--border-subtle)',
                 display: 'flex', alignItems: 'center', gap: 10,
               }}>
-                <img
-                  src={avatarSrc}
-                  alt=""
-                  style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--border)' }}
-                />
+                {!imgError && avatarSrc ? (
+                  <img
+                    src={avatarSrc}
+                    alt=""
+                    referrerPolicy="no-referrer"
+                    style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--border)' }}
+                    onError={() => setImgError(true)}
+                  />
+                ) : (
+                  <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'var(--accent)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 600, fontSize: 14, border: '2px solid var(--border)' }}>
+                    {initials}
+                  </div>
+                )}
                 <div style={{ flex: 1, overflow: 'hidden' }}>
                   <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-1)' }} className="truncate-1">
                     {user?.displayName || 'User'}

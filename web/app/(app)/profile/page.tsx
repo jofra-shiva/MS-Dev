@@ -62,58 +62,6 @@ export default function ProfilePage() {
         ))}
       </div>
 
-      {/* Avatar picker */}
-      <div className="card">
-        <h2 style={{ fontSize: 16, fontWeight: 700, marginBottom: 16 }}>Choose Avatar</h2>
-
-        {/* Gender tabs */}
-        <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
-          {(['male', 'female'] as const).map(g => (
-            <button
-              key={g}
-              onClick={() => setGender(g)}
-              className={gender === g ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm'}
-              style={{ textTransform: 'capitalize' }}
-            >
-              {g === 'male' ? '👦 Male' : '👧 Female'}
-            </button>
-          ))}
-        </div>
-
-        {/* Avatar grid */}
-        <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
-          {avatars.map((src, i) => {
-            const isSelected = (selectedAvatar || currentAvatar) === src;
-            return (
-              <motion.button
-                key={src}
-                onClick={() => setSelectedAvatar(src)}
-                whileHover={{ scale: 1.08 }}
-                whileTap={{ scale: 0.95 }}
-                style={{
-                  padding: 0,
-                  background: 'none',
-                  border: `3px solid ${isSelected ? 'var(--accent)' : 'var(--border)'}`,
-                  borderRadius: '50%',
-                  cursor: 'pointer',
-                  width: 68, height: 68,
-                  overflow: 'hidden',
-                  transition: 'border-color 0.2s',
-                  boxShadow: isSelected ? 'var(--shadow-glow)' : 'none',
-                }}
-              >
-                <img src={src} alt={`Avatar ${i + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              </motion.button>
-            );
-          })}
-        </div>
-
-        {selectedAvatar && (
-          <div style={{ marginTop: 20, padding: '12px 16px', background: 'var(--bg-elevated)', borderRadius: 10, fontSize: 13, color: 'var(--text-2)' }}>
-            ✅ Avatar selected — this is saved locally for this session.
-          </div>
-        )}
-      </div>
     </div>
   );
 }

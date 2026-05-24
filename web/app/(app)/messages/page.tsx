@@ -19,6 +19,7 @@ import {
 import { subscribeToUserProjects, subscribeToTasks } from '@/lib/firebase/firestore';
 import { format, isToday, isYesterday } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
+import { AuraOrb } from '@/components/ui/AuraOrb';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
 import MSLoader from '@/components/ui/MSLoader';
@@ -97,7 +98,7 @@ const renderMessageText = (text: string, projectId?: string, onUserClick?: (name
         <span 
           key={i} 
           onClick={() => onUserClick?.(name)}
-          style={{ color: '#00a884', fontWeight: 600, background: 'rgba(0,168,132,0.1)', padding: '0 4px', borderRadius: 4, cursor: 'pointer' }}
+          style={{ color: 'var(--accent)', fontWeight: 600, background: 'rgba(0,168,132,0.1)', padding: '0 4px', borderRadius: 4, cursor: 'pointer' }}
         >
           {part}
         </span>
@@ -107,54 +108,13 @@ const renderMessageText = (text: string, projectId?: string, onUserClick?: (name
   });
 };
 
-const AuraOrb = () => (
-  <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-    {/* Outer Ring Animation */}
-    <svg viewBox="0 0 100 100" style={{ position: 'absolute', width: 140, height: 140 }}>
-      <motion.circle 
-        cx="50" cy="50" r="48"
-        fill="none"
-        stroke="rgba(83, 189, 235, 0.4)"
-        strokeWidth="1.5"
-        strokeDasharray="300"
-        initial={{ strokeDashoffset: 300, rotate: -90 }}
-        animate={{ strokeDashoffset: 0, rotate: 270 }}
-        transition={{ duration: 1.2, ease: "easeInOut" }}
-      />
-    </svg>
-
-    {/* Aura Glow */}
-    <motion.div
-      initial={{ opacity: 0, scale: 0.5 }}
-      animate={{ opacity: 0.6, scale: 1 }}
-      transition={{ delay: 0.3, duration: 0.8, ease: "easeOut" }}
-      style={{
-        position: 'absolute',
-        width: 80, height: 80,
-        borderRadius: '50%',
-        background: 'linear-gradient(135deg, #3b82f6, #14b8a6)',
-        filter: 'blur(20px)',
-      }}
-    />
-    
-    {/* Logo Text */}
-    <motion.div
-      initial={{ opacity: 0, scale: 0.9, y: 5 }}
-      animate={{ opacity: 1, scale: 1, y: 0 }}
-      transition={{ delay: 0.5, duration: 0.5, ease: "easeOut" }}
-      style={{
-        color: '#e9edef',
-        fontSize: 26,
-        fontWeight: 600,
-        letterSpacing: 1.5,
-        zIndex: 1,
-        textShadow: '0 2px 10px rgba(0,0,0,0.5)'
-      }}
-    >
-      <span style={{ color: '#53bdeb' }}>MS</span>-Dev
-    </motion.div>
-  </div>
-);
+// Regex for parsing reply-format messages stored as "> Replying to Name:\n> quote\n\nmessage"
+const REPLY_RE = /^> Replying to ([^:]+):\n> ([^\n]*)\n\n([\s\S]*)$/;
+function parseReply(text: string) {
+  const m = text.match(REPLY_RE);
+  if (!m) return null;
+  return { replyName: m[1], quotedText: m[2], actualText: m[3] };
+}
 
 export default function MessagesPage() {
   const { user } = useAuth();
@@ -650,37 +610,54 @@ export default function MessagesPage() {
   return (
     <div style={{ 
       height: 'calc(100dvh - 60px)', display: 'flex', overflow: 'hidden', 
-      margin: '-24px', background: '#0b141a'
+      margin: '-24px', background: 'var(--bg-primary)'
     }}>
       
       {/* ----------------------------- LEFT PANE (Chat List) ----------------------------- */}
-      <div style={{ width: 340, borderRight: '1px solid #222d34', display: 'flex', flexDirection: 'column', background: '#111b21', flexShrink: 0 }}>
+      <div style={{ width: 340, borderRight: '1px solid #222d34', display: 'flex', flexDirection: 'column', background: 'var(--bg-card)', flexShrink: 0 }}>
         
         {/* Top Header */}
-        <div style={{ padding: '10px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#202c33', height: 59 }}>
-          <h2 style={{ fontSize: 22, fontWeight: 600, color: '#e9edef', margin: 0 }}>Chats</h2>
-          <div style={{ display: 'flex', gap: 16, color: '#aebac1' }}>
+        <div style={{ padding: '10px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--bg-elevated)', height: 59 }}>
+          <h2 style={{ fontSize: 22, fontWeight: 600, color: 'var(--text-1)', margin: 0 }}>Chats</h2>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', color: 'var(--text-3)' }}>
+            {/* Search Icon */}
+            <button 
+              onClick={() => setChatListQuery(prev => prev === '__search__' ? '' : '__search__')} 
+              style={{ background: 'none', border: 'none', color: chatListQuery === '__search__' ? 'var(--accent)' : 'var(--text-2)', cursor: 'pointer', padding: 6, borderRadius: 8, display: 'flex', alignItems: 'center', transition: 'color 0.2s' }}
+              title="Search chats"
+            >
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M15.009 13.805h-.636l-.22-.219a5.184 5.184 0 0 0 1.256-3.386 5.207 5.207 0 1 0-5.207 5.208 5.183 5.183 0 0 0 3.385-1.255l.221.22v.635l4.004 3.999 1.194-1.195-3.997-4.007zm-4.608 0a3.606 3.606 0 1 1 0-7.212 3.606 3.606 0 0 1 0 7.212z"></path></svg>
+            </button>
+            {/* New Chat */}
             <button onClick={() => setIsSearchModalOpen(true)} style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', padding: 4 }}>
-              <div style={{ background: '#00a884', color: '#111b21', borderRadius: '50%', width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div style={{ background: 'var(--accent)', color: 'var(--bg-card)', borderRadius: '50%', width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"></path></svg>
               </div>
             </button>
           </div>
         </div>
 
-        {/* Search Bar */}
-        <div style={{ padding: '8px 12px', borderBottom: '1px solid #222d34' }}>
-          <div style={{ background: '#202c33', borderRadius: 8, display: 'flex', alignItems: 'center', padding: '0 12px', height: 36 }}>
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="#aebac1"><path d="M15.009 13.805h-.636l-.22-.219a5.184 5.184 0 0 0 1.256-3.386 5.207 5.207 0 1 0-5.207 5.208 5.183 5.183 0 0 0 3.385-1.255l.221.22v.635l4.004 3.999 1.194-1.195-3.997-4.007zm-4.608 0a3.606 3.606 0 1 1 0-7.212 3.606 3.606 0 0 1 0 7.212z"></path></svg>
-            <input 
-              type="text" 
-              placeholder="Search or start new chat" 
-              value={chatListQuery}
-              onChange={(e) => setChatListQuery(e.target.value)}
-              style={{ background: 'transparent', border: 'none', color: '#d1d7db', fontSize: 14, marginLeft: 16, width: '100%', outline: 'none' }} 
-            />
+        {/* Inline Search Bar — shown only when search icon is active */}
+        {chatListQuery === '__search__' || (chatListQuery && chatListQuery !== '__search__') ? (
+          <div style={{ padding: '8px 12px', borderBottom: '1px solid var(--border-subtle)', background: 'var(--bg-elevated)' }}>
+            <div style={{ background: 'var(--bg-card)', borderRadius: 8, display: 'flex', alignItems: 'center', padding: '0 12px', height: 36, border: '1px solid var(--border)' }}>
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="var(--text-3)"><path d="M15.009 13.805h-.636l-.22-.219a5.184 5.184 0 0 0 1.256-3.386 5.207 5.207 0 1 0-5.207 5.208 5.183 5.183 0 0 0 3.385-1.255l.221.22v.635l4.004 3.999 1.194-1.195-3.997-4.007zm-4.608 0a3.606 3.606 0 1 1 0-7.212 3.606 3.606 0 0 1 0 7.212z"></path></svg>
+              <input 
+                type="text" 
+                placeholder="Search chats..."
+                value={chatListQuery === '__search__' ? '' : chatListQuery}
+                onChange={(e) => setChatListQuery(e.target.value || '__search__')}
+                autoFocus
+                style={{ background: 'transparent', border: 'none', color: 'var(--text-1)', fontSize: 14, marginLeft: 10, width: '100%', outline: 'none', fontFamily: 'inherit' }} 
+              />
+              {chatListQuery !== '__search__' && (
+                <button onClick={() => setChatListQuery('__search__')} style={{ background: 'none', border: 'none', color: 'var(--text-3)', cursor: 'pointer', padding: 0 }}>
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M19.8 5.8l-1.6-1.6-6.2 6.2-6.2-6.2-1.6 1.6 6.2 6.2-6.2 6.2 1.6 1.6 6.2-6.2 6.2 6.2 1.6-1.6-6.2-6.2 6.2-6.2z"></path></svg>
+                </button>
+              )}
+            </div>
           </div>
-        </div>
+        ) : null}
 
         {/* Filter Pills */}
         <div style={{ padding: '8px 12px', display: 'flex', gap: 8, borderBottom: '1px solid #222d34' }}>
@@ -689,8 +666,8 @@ export default function MessagesPage() {
               key={f}
               onClick={() => setFilter(f)}
               style={{
-                background: filter === f ? '#0a332c' : '#202c33',
-                color: filter === f ? '#00a884' : '#8696a0',
+                background: filter === f ? '#0a332c' : 'var(--bg-elevated)',
+                color: filter === f ? 'var(--accent)' : 'var(--text-2)',
                 border: 'none', borderRadius: 16, padding: '6px 14px', fontSize: 13, fontWeight: 500, cursor: 'pointer', textTransform: 'capitalize', transition: 'all 0.2s'
               }}
             >
@@ -702,7 +679,7 @@ export default function MessagesPage() {
         {/* Chat List */}
         <div style={{ overflowY: 'auto', flex: 1 }}>
           {filteredChats.length === 0 ? (
-            <div style={{ padding: 32, textAlign: 'center', color: '#8696a0' }}>
+            <div style={{ padding: 32, textAlign: 'center', color: 'var(--text-2)' }}>
               <div style={{ fontSize: 13 }}>No conversations found.</div>
             </div>
           ) : (
@@ -731,10 +708,10 @@ export default function MessagesPage() {
                   style={{ 
                     display: 'flex', alignItems: 'center', gap: 14, padding: '0 12px', height: 72,
                     cursor: 'pointer',
-                    background: isActive ? '#2a3942' : 'transparent',
+                    background: isActive ? 'var(--bg-hover)' : 'transparent',
                     transition: 'background 0.2s'
                   }}
-                  onMouseEnter={e => { if(!isActive) e.currentTarget.style.background = '#202c33' }}
+                  onMouseEnter={e => { if(!isActive) e.currentTarget.style.background = 'var(--bg-elevated)' }}
                   onMouseLeave={e => { if(!isActive) e.currentTarget.style.background = 'transparent' }}
                 >
                   {/* Avatar */}
@@ -753,7 +730,7 @@ export default function MessagesPage() {
                   ) : other?.photoURL ? (
                     <img src={other.photoURL} alt="" style={{ width: 48, height: 48, borderRadius: '50%', objectFit: 'cover' }} />
                   ) : (
-                    <div style={{ width: 48, height: 48, borderRadius: '50%', background: '#6b7c85', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 600, color: '#fff', fontSize: 18 }}>
+                    <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'var(--text-3)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 600, color: '#fff', fontSize: 18 }}>
                       {displayName.charAt(0).toUpperCase()}
                     </div>
                   )}
@@ -761,18 +738,18 @@ export default function MessagesPage() {
                   {/* Text Content */}
                   <div style={{ flex: 1, minWidth: 0, paddingRight: 4, display: 'flex', flexDirection: 'column', justifyContent: 'center', height: '100%', borderBottom: isActive ? 'none' : '1px solid #222d34' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
-                      <div className="truncate-1" style={{ fontSize: 16, color: '#e9edef' }}>{displayName}</div>
-                      <div style={{ fontSize: 12, color: unread > 0 ? '#00a884' : '#8696a0' }}>
+                      <div className="truncate-1" style={{ fontSize: 16, color: 'var(--text-1)' }}>{displayName}</div>
+                      <div style={{ fontSize: 12, color: unread > 0 ? 'var(--accent)' : 'var(--text-2)' }}>
                         {chat.lastMessage ? formatMessageDate(chat.lastMessage.createdAt) : ''}
                       </div>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <div className="truncate-1" style={{ fontSize: 14, color: '#8696a0' }}>
+                      <div className="truncate-1" style={{ fontSize: 14, color: 'var(--text-2)' }}>
                         {isGroup && chat.lastMessage && chat.lastMessage.senderId !== user.uid ? `${getSenderName(chat.lastMessage.senderId)}: ` : ''}
                         {displayLastMessage}
                       </div>
                       {unread > 0 && (
-                        <div style={{ background: '#00a884', color: '#111b21', fontSize: 12, fontWeight: 600, borderRadius: 10, minWidth: 20, height: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 5px' }}>
+                        <div style={{ background: 'var(--accent)', color: 'var(--bg-card)', fontSize: 12, fontWeight: 600, borderRadius: 10, minWidth: 20, height: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 5px' }}>
                           {unread}
                         </div>
                       )}
@@ -786,7 +763,7 @@ export default function MessagesPage() {
       </div>
 
       {/* ----------------------------- RIGHT PANE (Active Chat) ----------------------------- */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#0b141a', backgroundImage: 'url("https://static.whatsapp.net/rsrc.php/v3/yl/r/rTpj1hXF1wB.png")', backgroundRepeat: 'repeat', backgroundSize: '400px', position: 'relative', overflow: 'hidden' }}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: 'var(--bg-primary)', position: 'relative', overflow: 'hidden' }}>
         
         {/* Cinematic MS Loader */}
         <AnimatePresence>
@@ -796,24 +773,24 @@ export default function MessagesPage() {
               initial={{ opacity: 1 }}
               exit={{ opacity: 0, scale: 2, filter: 'blur(15px)' }}
               transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', width: '100%', position: 'absolute', inset: 0, background: '#0b141a', zIndex: 100 }}
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', width: '100%', position: 'absolute', inset: 0, background: 'var(--bg-primary)', zIndex: 100 }}
             >
-              <AuraOrb />
+              <AuraOrb subtitle="Messages" />
             </motion.div>
           )}
         </AnimatePresence>
 
         {/* Global Landing Page Aura Animation (First Load Only) */}
         {!activeChat && !initialLoadFinished && (
-          <div style={{ position: 'absolute', inset: 0, background: '#0b141a', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
-            <AuraOrb />
+          <div style={{ position: 'absolute', inset: 0, background: 'var(--bg-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
+            <AuraOrb subtitle="Messages" />
           </div>
         )}
 
         {activeChat ? (
           <>
             {/* Header */}
-            <div style={{ padding: '10px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#202c33', height: 59, borderLeft: '1px solid #313d45' }}>
+            <div style={{ padding: '10px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--bg-elevated)', height: 59, borderLeft: '1px solid #313d45' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
                 {activeChat.type === 'group' ? (
                   <div style={{
@@ -830,7 +807,7 @@ export default function MessagesPage() {
                 ) : getOtherParticipant(activeChat)?.photoURL ? (
                   <img src={getOtherParticipant(activeChat)!.photoURL} alt="" style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover' }} />
                 ) : (
-                  <div style={{ width: 40, height: 40, borderRadius: '50%', background: '#6b7c85', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 600, color: '#fff', fontSize: 16 }}>
+                  <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'var(--text-3)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 600, color: '#fff', fontSize: 16 }}>
                     {getOtherParticipant(activeChat)?.displayName?.charAt(0).toUpperCase() || '?'}
                   </div>
                 )}
@@ -839,20 +816,20 @@ export default function MessagesPage() {
                 <div style={{ cursor: 'pointer' }}>
                   {activeChat.type === 'group' ? (
                     <Link href={`/projects/${activeChat.projectId}`} style={{ textDecoration: 'none' }}>
-                      <div style={{ fontSize: 16, color: '#e9edef' }}>{activeChat.name}</div>
-                      <div style={{ fontSize: 13, color: '#8696a0', marginTop: 1 }} className="truncate-1">
+                      <div style={{ fontSize: 16, color: 'var(--text-1)' }}>{activeChat.name}</div>
+                      <div style={{ fontSize: 13, color: 'var(--text-2)', marginTop: 1 }} className="truncate-1">
                         {activeChat.participants.map(uid => uid === user.uid ? 'You' : activeChat.participantDetails?.[uid]?.displayName?.split(' ')[0]).join(', ')}
                       </div>
                     </Link>
                   ) : (
                     <>
-                      <div style={{ fontSize: 16, color: '#e9edef' }}>{getOtherParticipant(activeChat)?.displayName}</div>
+                      <div style={{ fontSize: 16, color: 'var(--text-1)' }}>{getOtherParticipant(activeChat)?.displayName}</div>
                     </>
                   )}
                 </div>
               </div>
 
-              <div style={{ display: 'flex', gap: 16, color: '#aebac1', position: 'relative' }}>
+              <div style={{ display: 'flex', gap: 16, color: 'var(--text-3)', position: 'relative' }}>
                 <button onClick={() => setIsMessageSearchOpen(!isMessageSearchOpen)} style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', padding: 4 }}>
                   <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M15.9 14.3H15l-.3-.3c1-1.1 1.6-2.7 1.6-4.3 0-3.7-3-6.7-6.7-6.7S3 6 3 9.7s3 6.7 6.7 6.7c1.6 0 3.2-.6 4.3-1.6l.3.3v.8l5.1 5.1 1.5-1.5-5-5.2zm-6.2 0c-2.6 0-4.6-2.1-4.6-4.6s2.1-4.6 4.6-4.6 4.6 2.1 4.6 4.6-2 4.6-4.6 4.6z"></path></svg>
                 </button>
@@ -862,8 +839,8 @@ export default function MessagesPage() {
                 
                 {/* Chat Menu */}
                 {isChatMenuOpen && (
-                  <div style={{ position: 'absolute', top: 32, right: 0, background: '#233138', borderRadius: 3, boxShadow: '0 2px 5px 0 rgba(11,20,26,.26),0 2px 10px 0 rgba(11,20,26,.16)', zIndex: 20, minWidth: 160, padding: '8px 0' }}>
-                    <div onClick={handleClearChat} style={{ padding: '10px 24px', fontSize: 14, color: '#d1d7db', cursor: 'pointer' }} className="hover-bg">Clear chat</div>
+                  <div style={{ position: 'absolute', top: 32, right: 0, background: 'var(--bg-elevated)', borderRadius: 3, boxShadow: '0 2px 5px 0 rgba(11,20,26,.26),0 2px 10px 0 rgba(11,20,26,.16)', zIndex: 20, minWidth: 160, padding: '8px 0' }}>
+                    <div onClick={handleClearChat} style={{ padding: '10px 24px', fontSize: 14, color: 'var(--text-2)', cursor: 'pointer' }} className="hover-bg">Clear chat</div>
                   </div>
                 )}
               </div>
@@ -871,17 +848,17 @@ export default function MessagesPage() {
 
             {/* Message Search Bar */}
             {isMessageSearchOpen && (
-              <div style={{ background: '#202c33', padding: '8px 16px', display: 'flex', alignItems: 'center', borderLeft: '1px solid #313d45' }}>
-                <div style={{ flex: 1, background: '#2a3942', borderRadius: 8, display: 'flex', alignItems: 'center', padding: '0 12px', height: 36 }}>
+              <div style={{ background: 'var(--bg-elevated)', padding: '8px 16px', display: 'flex', alignItems: 'center', borderLeft: '1px solid #313d45' }}>
+                <div style={{ flex: 1, background: 'var(--bg-hover)', borderRadius: 8, display: 'flex', alignItems: 'center', padding: '0 12px', height: 36 }}>
                   <input 
                     type="text" 
                     placeholder="Search messages..." 
                     value={messageSearchQuery}
                     onChange={(e) => setMessageSearchQuery(e.target.value)}
-                    style={{ background: 'transparent', border: 'none', color: '#d1d7db', fontSize: 14, width: '100%', outline: 'none' }}
+                    style={{ background: 'transparent', border: 'none', color: 'var(--text-2)', fontSize: 14, width: '100%', outline: 'none', fontFamily: 'inherit' }}
                     autoFocus
                   />
-                  <button onClick={() => { setIsMessageSearchOpen(false); setMessageSearchQuery(''); }} style={{ background: 'none', border: 'none', color: '#8696a0', cursor: 'pointer', padding: 4 }}>
+                  <button onClick={() => { setIsMessageSearchOpen(false); setMessageSearchQuery(''); }} style={{ background: 'none', border: 'none', color: 'var(--text-2)', cursor: 'pointer', padding: 4 }}>
                     <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M19.8 5.8l-1.6-1.6-6.2 6.2-6.2-6.2-1.6 1.6 6.2 6.2-6.2 6.2 1.6 1.6 6.2-6.2 6.2 6.2 1.6-1.6-6.2-6.2 6.2-6.2z"></path></svg>
                   </button>
                 </div>
@@ -902,28 +879,60 @@ export default function MessagesPage() {
 
                 if (msg.isSystem) {
                   return (
-                    <div key={msg.id} style={{ display: 'flex', justifyContent: 'center', margin: '12px 0' }}>
-                      <div style={{ background: '#182229', padding: '12px 16px', borderRadius: 12, maxWidth: '85%', color: '#e9edef', fontSize: 14, textAlign: 'center', border: '1px solid #2a3942', boxShadow: '0 2px 8px rgba(0,0,0,0.15)' }}>
+                    <div key={msg.id} style={{ display: 'flex', justifyContent: 'center', margin: '8px 0' }}>
+                      <div style={{ 
+                        background: msg.systemType === 'meeting_invite' ? 'var(--bg-card)' : 'var(--bg-hover)', 
+                        padding: msg.systemType === 'meeting_invite' ? '16px 20px' : '6px 16px', 
+                        borderRadius: msg.systemType === 'meeting_invite' ? 12 : 24, 
+                        maxWidth: '85%', 
+                        color: msg.systemType === 'meeting_invite' ? 'var(--text-1)' : 'var(--text-2)', 
+                        fontSize: 13, 
+                        textAlign: 'center', 
+                        border: msg.systemType === 'meeting_invite' ? '1px solid var(--border-subtle)' : '1px solid var(--border)', 
+                        boxShadow: msg.systemType === 'meeting_invite' ? 'var(--shadow-card)' : 'none' 
+                      }}>
                         {msg.systemType === 'meeting_invite' && msg.systemData ? (
                           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'center' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#00a884', fontWeight: 600 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--accent)', fontWeight: 600 }}>
                               <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"></path></svg>
                               Meeting Scheduled
                             </div>
                             <div style={{ fontSize: 16 }}>{msg.systemData.name}</div>
-                            <div style={{ color: '#8696a0', fontSize: 12 }}>{format(msg.createdAt, 'MMM d, yyyy h:mm a')}</div>
-                            <Link href={`/projects/${activeChat.projectId}/meetings/${msg.systemData.meetingId}`} style={{ background: '#00a884', color: '#111b21', textDecoration: 'none', padding: '8px 24px', borderRadius: 20, fontWeight: 600, marginTop: 4 }}>
+                            <div style={{ color: 'var(--text-2)', fontSize: 12 }}>{format(msg.createdAt, 'MMM d, yyyy h:mm a')}</div>
+                            <Link href={`/projects/${activeChat.projectId}/meetings/${msg.systemData.meetingId}`} style={{ background: 'var(--accent)', color: 'var(--bg-card)', textDecoration: 'none', padding: '8px 24px', borderRadius: 20, fontWeight: 600, marginTop: 4 }}>
                               Join Meeting
                             </Link>
                           </div>
                         ) : (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'center' }}>
-                            {msg.systemType === 'task_assignment' && <svg viewBox="0 0 24 24" width="18" height="18" fill="#53bdeb" style={{ flexShrink: 0 }}><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"></path></svg>}
-                            {msg.systemType === 'task_update' && <svg viewBox="0 0 24 24" width="18" height="18" fill="#00a884" style={{ flexShrink: 0 }}><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"></path></svg>}
-                            <span style={{ lineHeight: 1.4 }}>{renderMessageText(msg.text, activeChat.projectId, handleUserClick)}</span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
+                            {msg.systemType === 'task_assignment' && <svg viewBox="0 0 24 24" width="16" height="16" fill="#53bdeb" style={{ flexShrink: 0 }}><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"></path></svg>}
+                            {msg.systemType === 'task_update' && <svg viewBox="0 0 24 24" width="16" height="16" fill="var(--accent)" style={{ flexShrink: 0 }}><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"></path></svg>}
+                            <span style={{ lineHeight: 1.4, display: 'flex', alignItems: 'center', gap: 6 }}>
+                              {msg.senderId && activeChat.participantDetails?.[msg.senderId]?.displayName && (msg.systemType === 'task_update' || msg.systemType === 'task_assignment') ? (
+                                <>
+                                  <strong 
+                                    onClick={() => {
+                                      const uid = msg.senderId;
+                                      const details = activeChat.participantDetails?.[uid];
+                                      if (details) setSelectedUserProfile({ ...details, uid });
+                                    }}
+                                    style={{ 
+                                      color: msg.systemType === 'task_update' ? 'var(--accent)' : '#53bdeb',
+                                      cursor: 'pointer',
+                                      borderBottom: '1px dotted currentColor',
+                                    }}
+                                  >
+                                    {activeChat.participantDetails[msg.senderId].displayName.split(' ')[0]}
+                                  </strong>{' '}
+                                  {renderMessageText(msg.text.charAt(0).toLowerCase() + msg.text.slice(1), activeChat.projectId, handleUserClick)}
+                                </>
+                              ) : (
+                                renderMessageText(msg.text, activeChat.projectId, handleUserClick)
+                              )}
+                              <span style={{ fontSize: 11, color: 'var(--text-3)', marginLeft: 4 }}>{format(msg.createdAt, 'HH:mm')}</span>
+                            </span>
                           </div>
                         )}
-                        <div style={{ fontSize: 11, color: '#8696a0', marginTop: 8 }}>{format(msg.createdAt, 'HH:mm')}</div>
                       </div>
                     </div>
                   );
@@ -938,21 +947,24 @@ export default function MessagesPage() {
                   >
                     <div style={{ 
                       maxWidth: '65%', 
-                      padding: '6px 7px 8px 9px', 
-                      borderRadius: 7.5,
-                      borderTopRightRadius: isMe && showTail ? 0 : 7.5,
-                      borderTopLeftRadius: !isMe && showTail ? 0 : 7.5,
-                      background: isMe ? '#005c4b' : '#202c33',
-                      color: '#e9edef',
-                      boxShadow: '0 1px 0.5px rgba(11,20,26,.13)',
-                      position: 'relative'
+                      padding: '6px 10px', 
+                      borderBottomLeftRadius: 12,
+                      borderBottomRightRadius: 12,
+                      borderTopRightRadius: isMe && showTail ? 4 : 12,
+                      borderTopLeftRadius: !isMe && showTail ? 4 : 12,
+                      background: isMe ? 'var(--accent)' : 'var(--bg-elevated)',
+                      color: isMe ? 'var(--btn-primary-text)' : 'var(--text-1)',
+                      boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+                      position: 'relative',
+                      border: isMe ? 'none' : '1px solid var(--border-subtle)',
+                      fontSize: 14.5
                     }}>
                       
                       {/* Down Arrow for Dropdown */}
                       {(isHovered || isDropdownOpen) && (
                         <div 
                           onClick={(e) => { e.stopPropagation(); setOpenDropdownId(isDropdownOpen ? null : msg.id); }}
-                          style={{ position: 'absolute', top: 0, right: 0, padding: '4px 6px', background: isMe ? 'linear-gradient(to right, transparent, #005c4b 20%)' : 'linear-gradient(to right, transparent, #202c33 20%)', borderRadius: '0 7.5px 0 0', cursor: 'pointer', zIndex: 10 }}
+                          style={{ position: 'absolute', top: 0, right: 0, padding: '6px 8px', background: isMe ? 'linear-gradient(to right, transparent, var(--accent) 20%)' : 'linear-gradient(to right, transparent, var(--bg-elevated) 20%)', borderRadius: '0 12px 0 0', cursor: 'pointer', zIndex: 10 }}
                         >
                           <svg viewBox="0 0 18 18" width="18" height="18" fill="rgba(255,255,255,0.6)"><path d="M3.3 4.6L9 10.3l5.7-5.7 1.6 1.6L9 13.6 1.7 6.2z"></path></svg>
                         </div>
@@ -960,12 +972,12 @@ export default function MessagesPage() {
 
                       {/* Dropdown Menu */}
                       {isDropdownOpen && !msg.isDeleted && (
-                        <div style={{ position: 'absolute', top: 24, right: 0, background: '#233138', borderRadius: 3, boxShadow: '0 2px 5px 0 rgba(11,20,26,.26),0 2px 10px 0 rgba(11,20,26,.16)', zIndex: 20, minWidth: 120, padding: '8px 0' }}>
-                          <div onClick={() => { setReplyToMessage(msg); setOpenDropdownId(null); }} style={{ padding: '10px 24px', fontSize: 14, color: '#d1d7db', cursor: 'pointer' }} className="hover-bg">Reply</div>
+                        <div style={{ position: 'absolute', top: 24, right: 0, background: 'var(--bg-elevated)', borderRadius: 3, boxShadow: '0 2px 5px 0 rgba(11,20,26,.26),0 2px 10px 0 rgba(11,20,26,.16)', zIndex: 20, minWidth: 120, padding: '8px 0' }}>
+                          <div onClick={() => { setReplyToMessage(msg); setOpenDropdownId(null); }} style={{ padding: '10px 24px', fontSize: 14, color: 'var(--text-2)', cursor: 'pointer' }} className="hover-bg">Reply</div>
                           {isMe && (
                             <>
-                              <div onClick={() => handleEditMessageClick(msg)} style={{ padding: '10px 24px', fontSize: 14, color: '#d1d7db', cursor: 'pointer' }} className="hover-bg">Edit</div>
-                              <div onClick={() => handleDeleteClick(msg.id)} style={{ padding: '10px 24px', fontSize: 14, color: '#d1d7db', cursor: 'pointer' }} className="hover-bg">Delete</div>
+                              <div onClick={() => handleEditMessageClick(msg)} style={{ padding: '10px 24px', fontSize: 14, color: 'var(--text-2)', cursor: 'pointer' }} className="hover-bg">Edit</div>
+                              <div onClick={() => handleDeleteClick(msg.id)} style={{ padding: '10px 24px', fontSize: 14, color: 'var(--text-2)', cursor: 'pointer' }} className="hover-bg">Delete</div>
                             </>
                           )}
                         </div>
@@ -989,20 +1001,50 @@ export default function MessagesPage() {
                               <audio src={msg.mediaUrl} controls style={{ maxWidth: '100%', height: 40 }} />
                             ) : msg.mediaType === 'image' ? (
                               <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                                <img src={msg.mediaUrl} alt="" style={{ maxWidth: 300, maxHeight: 300, borderRadius: 8, cursor: 'pointer', objectFit: 'contain', background: '#111b21' }} onClick={() => window.open(msg.mediaUrl, '_blank')} />
+                                <img src={msg.mediaUrl} alt="" style={{ maxWidth: 300, maxHeight: 300, borderRadius: 8, cursor: 'pointer', objectFit: 'contain', background: 'var(--bg-card)' }} onClick={() => window.open(msg.mediaUrl, '_blank')} />
                                 {msg.text !== 'Voice message' && msg.text !== 'File attachment' && msg.text !== 'Image' && <span style={{ fontSize: 14.2, lineHeight: '19px', whiteSpace: 'pre-wrap', wordWrap: 'break-word' }}>{renderMessageText(msg.text, activeChat.projectId, handleUserClick)}</span>}
                               </div>
                             ) : (
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: isMe ? '#025144' : '#111b21', padding: '8px 12px', borderRadius: 8 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: isMe ? 'var(--accent)' : 'var(--bg-card)', padding: '8px 12px', borderRadius: 8 }}>
                                 <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"></path></svg>
                                 <a href={msg.mediaUrl} target="_blank" rel="noreferrer" style={{ color: 'inherit', textDecoration: 'underline', fontSize: 14 }}>{msg.text}</a>
                               </div>
                             )
-                          ) : (
-                            <div style={{ fontSize: 14.2, lineHeight: '19px', whiteSpace: 'pre-wrap', wordWrap: 'break-word' }}>
-                              {renderMessageText(msg.text, activeChat.projectId, handleUserClick)}
-                            </div>
-                          )}
+                          ) : (() => {
+                            const reply = parseReply(msg.text);
+                            if (reply) {
+                              return (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                  {/* Reply quote block */}
+                                  <div style={{
+                                    borderLeft: `3px solid ${isMe ? 'rgba(255,255,255,0.5)' : 'var(--accent)'}`,
+                                    borderRadius: '0 6px 6px 0',
+                                    background: isMe ? 'rgba(0,0,0,0.15)' : 'var(--bg-card)',
+                                    padding: '6px 10px',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: 2,
+                                  }}>
+                                    <div style={{ fontSize: 12, fontWeight: 700, color: isMe ? 'rgba(255,255,255,0.7)' : 'var(--accent)', marginBottom: 1 }}>
+                                      {reply.replyName}
+                                    </div>
+                                    <div style={{ fontSize: 12.5, color: isMe ? 'rgba(255,255,255,0.55)' : 'var(--text-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 260 }}>
+                                      {renderMessageText(reply.quotedText, activeChat.projectId, handleUserClick)}
+                                    </div>
+                                  </div>
+                                  {/* Actual message */}
+                                  <div style={{ fontSize: 14.2, lineHeight: '19px', whiteSpace: 'pre-wrap', wordWrap: 'break-word' }}>
+                                    {renderMessageText(reply.actualText, activeChat.projectId, handleUserClick)}
+                                  </div>
+                                </div>
+                              );
+                            }
+                            return (
+                              <div style={{ fontSize: 14.2, lineHeight: '19px', whiteSpace: 'pre-wrap', wordWrap: 'break-word' }}>
+                                {renderMessageText(msg.text, activeChat.projectId, handleUserClick)}
+                              </div>
+                            );
+                          })()}
                         </div>
                       )}
 
@@ -1026,27 +1068,62 @@ export default function MessagesPage() {
 
             {/* Replying To / Editing Banner */}
             {(replyToMessage || editingMessage) && (
-              <div style={{ background: '#202c33', padding: '8px 16px', borderBottom: '1px solid #111b21', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div style={{ background: '#0b141a', padding: '8px 12px', borderRadius: 8, borderLeft: '4px solid #00a884', flex: 1, marginRight: 16 }}>
-                  <div style={{ fontSize: 13, color: '#00a884', fontWeight: 600, marginBottom: 4 }}>
-                    {editingMessage ? 'Edit message' : `Replying to ${activeChat.participantDetails?.[replyToMessage!.senderId]?.displayName || 'You'}`}
-                  </div>
-                  <div style={{ fontSize: 13, color: '#aebac1' }} className="truncate-1">
-                    {editingMessage ? editingMessage.text : replyToMessage?.text}
+              <div style={{ 
+                background: 'var(--bg-elevated)', 
+                padding: '10px 16px', 
+                borderBottom: '1px solid var(--border-subtle)', 
+                display: 'flex', 
+                justifyContent: 'space-between', 
+                alignItems: 'center',
+                gap: 12
+              }}>
+                <div style={{ 
+                  display: 'flex',
+                  alignItems: 'stretch',
+                  background: 'var(--bg-card)', 
+                  borderRadius: 10, 
+                  borderLeft: `4px solid ${editingMessage ? '#f59e0b' : 'var(--accent)'}`, 
+                  flex: 1, 
+                  overflow: 'hidden',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+                }}>
+                  <div style={{ padding: '8px 12px', flex: 1, minWidth: 0 }}>
+                    <div style={{ 
+                      fontSize: 11, 
+                      color: editingMessage ? '#f59e0b' : 'var(--accent)', 
+                      fontWeight: 700, 
+                      marginBottom: 3,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 5,
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.06em'
+                    }}>
+                      {editingMessage ? (
+                        <><svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>Editing message</>
+                      ) : (
+                        <><svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><path d="M10 9V5l-7 7 7 7v-4.1c5 0 8.5 1.6 11 5.1-1-5-4-10-11-11z"/></svg>Replying to {activeChat.participantDetails?.[replyToMessage!.senderId]?.displayName || 'You'}</>
+                      )}
+                    </div>
+                    <div style={{ fontSize: 13, color: 'var(--text-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {editingMessage ? editingMessage.text : replyToMessage?.text}
+                    </div>
                   </div>
                 </div>
                 <button 
                   onClick={() => { setReplyToMessage(null); setEditingMessage(null); setMessageText(''); }} 
-                  style={{ background: 'none', border: 'none', color: '#8696a0', cursor: 'pointer' }}
+                  style={{ background: 'none', border: 'none', color: 'var(--text-3)', cursor: 'pointer', padding: 4, flexShrink: 0, borderRadius: 6, transition: 'color 0.15s' }}
+                  onMouseEnter={e => (e.currentTarget.style.color = 'var(--text-1)')}
+                  onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-3)')}
                 >
-                  <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M19.8 5.8l-1.6-1.6-6.2 6.2-6.2-6.2-1.6 1.6 6.2 6.2-6.2 6.2 1.6 1.6 6.2-6.2 6.2 6.2 1.6-1.6-6.2-6.2 6.2-6.2z"></path></svg>
+                  <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M19.8 5.8l-1.6-1.6-6.2 6.2-6.2-6.2-1.6 1.6 6.2 6.2-6.2 6.2 1.6 1.6 6.2-6.2 6.2 6.2 1.6-1.6-6.2-6.2 6.2-6.2z"></path></svg>
                 </button>
               </div>
             )}
 
             {/* Input Area */}
-            <div style={{ padding: '10px 16px', background: '#202c33', display: 'flex', alignItems: 'center', gap: 16 }}>
-              <div style={{ display: 'flex', gap: 16, color: '#8696a0' }}>
+            <div style={{ padding: '10px 16px', background: 'var(--bg-elevated)', display: 'flex', alignItems: 'center', gap: 16 }}>
+              <div style={{ display: 'flex', gap: 16, color: 'var(--text-2)' }}>
                 <input type="file" ref={fileInputRef} onChange={handleFileChange} style={{ display: 'none' }} />
                 <button onClick={() => fileInputRef.current?.click()} style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', padding: 0 }} title="Attach file">
                   <svg viewBox="0 0 24 24" width="26" height="26" fill="currentColor"><path d="M1.816 15.556v.002c0 1.502.584 2.912 1.646 3.972s2.472 1.647 3.974 1.647a5.58 5.58 0 0 0 3.972-1.645l9.547-9.548c.769-.768 1.147-1.767 1.058-2.817-.079-.968-.548-1.927-1.319-2.698-1.594-1.592-4.068-1.711-5.517-.262l-7.916 7.915c-.881.881-.792 2.25.214 3.261.959.958 2.423 1.053 3.263.215l5.511-5.512c.28-.28.267-.722.053-.936l-.244-.244c-.191-.191-.567-.349-.957.04l-5.506 5.506c-.18.18-.635.127-.976-.214-.098-.097-.576-.613-.213-.973l7.915-7.917c.818-.817 2.267-.699 3.23.262.5.501.802 1.1.849 1.685.051.573-.156 1.111-.589 1.543l-9.547 9.549a3.97 3.97 0 0 1-2.829 1.171 3.975 3.975 0 0 1-2.83-1.173 3.973 3.973 0 0 1-1.172-2.828c0-1.071.415-2.076 1.172-2.83l7.209-7.211c.157-.157.264-.579.028-.814L11.5 4.36a.57.57 0 0 0-.834.018l-7.205 7.207a5.577 5.577 0 0 0-1.645 3.971z"></path></svg>
@@ -1060,11 +1137,11 @@ export default function MessagesPage() {
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: 10 }}
-                      style={{ position: 'absolute', bottom: '100%', left: 16, marginBottom: 8, background: '#233138', borderRadius: 8, boxShadow: '0 2px 5px 0 rgba(11,20,26,.26),0 2px 10px 0 rgba(11,20,26,.16)', overflow: 'hidden', zIndex: 10, width: 300 }}
+                      style={{ position: 'absolute', bottom: '100%', left: 16, marginBottom: 8, background: 'var(--bg-elevated)', borderRadius: 8, boxShadow: '0 2px 5px 0 rgba(11,20,26,.26),0 2px 10px 0 rgba(11,20,26,.16)', overflow: 'hidden', zIndex: 10, width: 300 }}
                     >
                       {mentionMode === 'type_select' ? (
                         <div>
-                          <div style={{ padding: '8px 16px', fontSize: 13, color: '#8696a0', borderBottom: '1px solid #313d45' }}>What do you want to mention?</div>
+                          <div style={{ padding: '8px 16px', fontSize: 13, color: 'var(--text-2)', borderBottom: '1px solid #313d45' }}>What do you want to mention?</div>
                           {[
                             { id: 'users', icon: '👤', label: 'User' },
                             { id: 'modules', icon: '🧩', label: 'Module' },
@@ -1073,24 +1150,24 @@ export default function MessagesPage() {
                             <div 
                               key={opt.id} 
                               onClick={() => { setMentionMode(opt.id as any); setMentionQuery(''); }}
-                              style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', cursor: 'pointer', background: mentionIndex === i ? '#111b21' : 'transparent' }}
+                              style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', cursor: 'pointer', background: mentionIndex === i ? 'var(--bg-card)' : 'transparent' }}
                               onMouseEnter={() => setMentionIndex(i)}
                             >
                               <span style={{ fontSize: 18 }}>{opt.icon}</span>
-                              <span style={{ color: '#e9edef', fontSize: 15 }}>Mention {opt.label}</span>
+                              <span style={{ color: 'var(--text-1)', fontSize: 15 }}>Mention {opt.label}</span>
                             </div>
                           ))}
                         </div>
                       ) : (
                         <div style={{ maxHeight: 200, overflowY: 'auto' }}>
                           {mentionableItems.length === 0 ? (
-                            <div style={{ padding: '12px 16px', color: '#8696a0', fontSize: 14 }}>No matches found</div>
+                            <div style={{ padding: '12px 16px', color: 'var(--text-2)', fontSize: 14 }}>No matches found</div>
                           ) : (
                             mentionableItems.map((item, idx) => (
                               <div 
                                 key={idx} 
                                 onClick={() => handleSelectMention(item)}
-                                style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 16px', cursor: 'pointer', background: idx === mentionIndex ? '#111b21' : 'transparent' }}
+                                style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 16px', cursor: 'pointer', background: idx === mentionIndex ? 'var(--bg-card)' : 'transparent' }}
                                 onMouseEnter={() => setMentionIndex(idx)}
                               >
                                 {mentionMode === 'users' ? (
@@ -1102,19 +1179,19 @@ export default function MessagesPage() {
                                         {item?.displayName?.charAt(0).toUpperCase()}
                                       </div>
                                     )}
-                                    <div style={{ color: '#e9edef', fontSize: 15 }}>{item?.displayName}</div>
+                                    <div style={{ color: 'var(--text-1)', fontSize: 15 }}>{item?.displayName}</div>
                                   </>
                                 ) : mentionMode === 'modules' ? (
                                   <>
                                     <span style={{ fontSize: 18 }}>🧩</span>
-                                    <div style={{ color: '#e9edef', fontSize: 15 }}>{item.name}</div>
+                                    <div style={{ color: 'var(--text-1)', fontSize: 15 }}>{item.name}</div>
                                   </>
                                 ) : (
                                   <>
                                     <span style={{ fontSize: 18 }}>📋</span>
                                     <div style={{ display: 'flex', flexDirection: 'column' }}>
                                       <span style={{ color: '#3b82f6', fontSize: 13, fontWeight: 500 }}>{item.id}</span>
-                                      <span style={{ color: '#e9edef', fontSize: 14 }} className="truncate-1">{item.title}</span>
+                                      <span style={{ color: 'var(--text-1)', fontSize: 14 }} className="truncate-1">{item.title}</span>
                                     </div>
                                   </>
                                 )}
@@ -1128,9 +1205,9 @@ export default function MessagesPage() {
                 </AnimatePresence>
                 <form onSubmit={handleSendMessage} style={{ flex: 1, display: 'flex', alignItems: 'center' }}>
                   {isRecording ? (
-                    <div style={{ flex: 1, background: '#2a3942', borderRadius: 8, padding: '9px 12px', display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <div style={{ flex: 1, background: 'var(--bg-hover)', borderRadius: 8, padding: '9px 12px', display: 'flex', alignItems: 'center', gap: 12 }}>
                       <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#ef4444', animation: 'pulse 1.5s infinite' }} />
-                      <span style={{ color: '#d1d7db', fontSize: 15 }}>Recording audio...</span>
+                      <span style={{ color: 'var(--text-2)', fontSize: 15 }}>Recording audio...</span>
                     </div>
                   ) : (
                     <input
@@ -1140,18 +1217,18 @@ export default function MessagesPage() {
                       onKeyDown={handleKeyDown}
                       onPaste={handlePaste}
                       placeholder="Type a message or paste an image"
-                      style={{ width: '100%', background: 'transparent', border: 'none', color: '#e9edef', outline: 'none', fontSize: 15 }}
+                      style={{ width: '100%', background: 'transparent', border: 'none', color: 'var(--text-1)', outline: 'none', fontSize: 15, fontFamily: 'inherit' }}
                     />
                   )}
                 </form>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                 {messageText.trim() ? (
-                  <button onClick={handleSendMessage} disabled={!messageText.trim() || isUploadingMedia} style={{ background: 'none', border: 'none', color: '#8696a0', cursor: 'pointer', padding: 0 }}>
+                  <button onClick={handleSendMessage} disabled={!messageText.trim() || isUploadingMedia} style={{ background: 'none', border: 'none', color: 'var(--text-2)', cursor: 'pointer', padding: 0 }}>
                     <svg viewBox="0 0 24 24" width="26" height="26" fill="currentColor"><path d="M1.101 21.757L23.8 12.028 1.101 2.3l.011 7.912 13.623 1.816-13.623 1.817-.011 7.912z"></path></svg>
                   </button>
                 ) : (
-                  <button onClick={toggleRecording} style={{ background: 'none', border: 'none', color: isRecording ? '#ef4444' : '#8696a0', cursor: 'pointer', padding: 0 }} title="Record voice message">
+                  <button onClick={toggleRecording} style={{ background: 'none', border: 'none', color: isRecording ? '#ef4444' : 'var(--text-2)', cursor: 'pointer', padding: 0 }} title="Record voice message">
                     <svg viewBox="0 0 24 24" width="26" height="26" fill="currentColor"><path d="M11.999 14.942c2.001 0 3.531-1.53 3.531-3.531V4.35c0-2.001-1.53-3.531-3.531-3.531S8.469 2.35 8.469 4.35v7.061c0 2.001 1.53 3.531 3.53 3.531zm6.238-3.53c0 3.531-2.942 6.002-6.237 6.002s-6.237-2.471-6.237-6.002H3.761c0 4.001 3.178 7.297 7.061 7.885v3.884h2.354v-3.884c3.884-.588 7.061-3.884 7.061-7.885h-2.002z"></path></svg>
                   </button>
                 )}
@@ -1159,11 +1236,11 @@ export default function MessagesPage() {
             </div>
           </>
         ) : (
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#8696a0', background: '#222e35' }}>
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'var(--text-2)', background: 'var(--bg-elevated)' }}>
             <div style={{ width: 320, height: 200, marginBottom: 32, position: 'relative' }}>
               {/* Background Arc */}
               <svg viewBox="0 0 320 200" fill="none" style={{ position: 'absolute', inset: 0 }}>
-                <path d="M20 180 A 140 140 0 0 1 300 180" stroke="#111b21" strokeWidth="32" strokeLinecap="round" />
+                <path d="M20 180 A 140 140 0 0 1 300 180" stroke="var(--bg-card)" strokeWidth="32" strokeLinecap="round" />
               </svg>
               {/* Interactive Foreground Arc */}
               <svg viewBox="0 0 320 200" fill="none" style={{ position: 'absolute', inset: 0 }}>
@@ -1178,7 +1255,7 @@ export default function MessagesPage() {
                 />
               </svg>
             </div>
-            <h1 style={{ fontSize: 32, fontWeight: 300, color: '#e9edef', marginBottom: 16 }}>MS-Dev Web</h1>
+            <h1 style={{ fontSize: 32, fontWeight: 300, color: 'var(--text-1)', marginBottom: 16 }}>MS-Dev Web</h1>
             <p style={{ fontSize: 14, lineHeight: 1.5, textAlign: 'center', maxWidth: 400 }}>
               Send and receive messages seamlessly with your team.
             </p>
@@ -1194,30 +1271,30 @@ export default function MessagesPage() {
               initial={{ opacity: 0, scale: 0.95 }} 
               animate={{ opacity: 1, scale: 1 }} 
               exit={{ opacity: 0, scale: 0.95 }} 
-              style={{ width: '100%', maxWidth: 400, background: '#111b21', borderRadius: 12, padding: 24, boxShadow: '0 17px 50px 0 rgba(11,20,26,.19), 0 12px 15px 0 rgba(11,20,26,.24)' }}
+              style={{ width: '100%', maxWidth: 400, background: 'var(--bg-card)', borderRadius: 12, padding: 24, boxShadow: '0 17px 50px 0 rgba(11,20,26,.19), 0 12px 15px 0 rgba(11,20,26,.24)' }}
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-                <h3 style={{ fontSize: 18, fontWeight: 500, color: '#e9edef', margin: 0 }}>New chat</h3>
-                <button onClick={() => setIsSearchModalOpen(false)} style={{ background: 'none', border: 'none', color: '#8696a0', cursor: 'pointer', padding: 4 }}><svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M19.8 5.8l-1.6-1.6-6.2 6.2-6.2-6.2-1.6 1.6 6.2 6.2-6.2 6.2 1.6 1.6 6.2-6.2 6.2 6.2 1.6-1.6-6.2-6.2 6.2-6.2z"></path></svg></button>
+                <h3 style={{ fontSize: 18, fontWeight: 500, color: 'var(--text-1)', margin: 0 }}>New chat</h3>
+                <button onClick={() => setIsSearchModalOpen(false)} style={{ background: 'none', border: 'none', color: 'var(--text-2)', cursor: 'pointer', padding: 4 }}><svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M19.8 5.8l-1.6-1.6-6.2 6.2-6.2-6.2-1.6 1.6 6.2 6.2-6.2 6.2 1.6 1.6 6.2-6.2 6.2 6.2 1.6-1.6-6.2-6.2 6.2-6.2z"></path></svg></button>
               </div>
 
               <form onSubmit={handleSearchUsers} style={{ display: 'flex', gap: 10, marginBottom: 24 }}>
                 <input 
                   type="text" 
-                  style={{ flex: 1, background: '#202c33', border: 'none', borderRadius: 8, padding: '9px 12px', color: '#d1d7db', fontSize: 15, outline: 'none' }} 
+                  style={{ flex: 1, background: 'var(--bg-elevated)', border: 'none', borderRadius: 8, padding: '9px 12px', color: 'var(--text-2)', fontSize: 15, outline: 'none', fontFamily: 'inherit' }} 
                   placeholder="Search by email..." 
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   autoFocus
                 />
-                <button type="submit" disabled={searching || !searchQuery.trim()} style={{ background: '#00a884', color: '#111b21', border: 'none', borderRadius: 8, padding: '0 16px', fontWeight: 600, cursor: 'pointer' }}>
+                <button type="submit" disabled={searching || !searchQuery.trim()} style={{ background: 'var(--accent)', color: 'var(--btn-primary-text)', border: 'none', borderRadius: 8, padding: '0 16px', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
                   {searching ? '...' : 'Search'}
                 </button>
               </form>
 
               <div style={{ maxHeight: 300, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
                 {searchResults.length === 0 ? (
-                  <div style={{ textAlign: 'center', padding: 20, color: '#8696a0', fontSize: 14 }}>
+                  <div style={{ textAlign: 'center', padding: 20, color: 'var(--text-2)', fontSize: 14 }}>
                     {searchQuery ? 'No users found.' : 'Enter an email to find users.'}
                   </div>
                 ) : (
@@ -1226,13 +1303,13 @@ export default function MessagesPage() {
                       {res.photoURL ? (
                         <img src={res.photoURL} alt="" style={{ width: 48, height: 48, borderRadius: '50%', objectFit: 'cover' }} />
                       ) : (
-                        <div style={{ width: 48, height: 48, borderRadius: '50%', background: '#6b7c85', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 600, color: '#fff', fontSize: 18 }}>
+                        <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'var(--text-3)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 600, color: '#fff', fontSize: 18 }}>
                           {res.displayName?.charAt(0).toUpperCase() || '?'}
                         </div>
                       )}
                       <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: 16, color: '#e9edef', marginBottom: 2 }}>{res.displayName}</div>
-                        <div style={{ fontSize: 14, color: '#8696a0' }}>{res.email}</div>
+                        <div style={{ fontSize: 16, color: 'var(--text-1)', marginBottom: 2 }}>{res.displayName}</div>
+                        <div style={{ fontSize: 14, color: 'var(--text-2)' }}>{res.email}</div>
                       </div>
                     </div>
                   ))
@@ -1251,21 +1328,21 @@ export default function MessagesPage() {
               initial={{ opacity: 0, scale: 0.95 }} 
               animate={{ opacity: 1, scale: 1 }} 
               exit={{ opacity: 0, scale: 0.95 }} 
-              style={{ width: '100%', maxWidth: 400, background: '#3b4a54', borderRadius: 3, padding: '22px 24px', boxShadow: '0 17px 50px 0 rgba(11,20,26,.19), 0 12px 15px 0 rgba(11,20,26,.24)' }}
+              style={{ width: '100%', maxWidth: 400, background: 'var(--bg-elevated)', borderRadius: 3, padding: '22px 24px', boxShadow: '0 17px 50px 0 rgba(11,20,26,.19), 0 12px 15px 0 rgba(11,20,26,.24)' }}
             >
-              <div style={{ fontSize: 15, color: '#d1d7db', marginBottom: 32 }}>
+              <div style={{ fontSize: 15, color: 'var(--text-2)', marginBottom: 32 }}>
                 Delete message?
               </div>
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
                 <button 
                   onClick={() => setMessageToDelete(null)}
-                  style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', color: '#00a884', borderRadius: 24, padding: '8px 24px', fontSize: 14, fontWeight: 500, cursor: 'pointer' }}
+                  style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', color: 'var(--accent)', borderRadius: 24, padding: '8px 24px', fontSize: 14, fontWeight: 500, cursor: 'pointer' }}
                 >
                   Cancel
                 </button>
                 <button 
                   onClick={handleConfirmDelete}
-                  style={{ background: '#00a884', border: 'none', color: '#111b21', borderRadius: 24, padding: '8px 24px', fontSize: 14, fontWeight: 500, cursor: 'pointer' }}
+                  style={{ background: 'var(--accent)', border: 'none', color: 'var(--bg-card)', borderRadius: 24, padding: '8px 24px', fontSize: 14, fontWeight: 500, cursor: 'pointer' }}
                 >
                   Delete for me
                 </button>
@@ -1281,21 +1358,21 @@ export default function MessagesPage() {
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             style={{ position: 'fixed', inset: 0, background: 'rgba(11, 20, 26, 0.95)', zIndex: 9999, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 40 }}
           >
-            <div style={{ background: '#202c33', borderRadius: 12, padding: 24, maxWidth: 600, width: '100%', display: 'flex', flexDirection: 'column', gap: 24 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: '#e9edef' }}>
+            <div style={{ background: 'var(--bg-elevated)', borderRadius: 12, padding: 24, maxWidth: 600, width: '100%', display: 'flex', flexDirection: 'column', gap: 24 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: 'var(--text-1)' }}>
                 <h3 style={{ margin: 0, fontSize: 18 }}>Send Media</h3>
-                <button onClick={() => setSelectedMediaPreview(null)} style={{ background: 'none', border: 'none', color: '#8696a0', cursor: 'pointer' }}>
+                <button onClick={() => setSelectedMediaPreview(null)} style={{ background: 'none', border: 'none', color: 'var(--text-2)', cursor: 'pointer' }}>
                   <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M19.8 5.8l-1.6-1.6-6.2 6.2-6.2-6.2-1.6 1.6 6.2 6.2-6.2 6.2 1.6 1.6 6.2-6.2 6.2 6.2 1.6-1.6-6.2-6.2 6.2-6.2z"></path></svg>
                 </button>
               </div>
 
-              <div style={{ background: '#111b21', borderRadius: 8, padding: 16, display: 'flex', justifyContent: 'center' }}>
+              <div style={{ background: 'var(--bg-card)', borderRadius: 8, padding: 16, display: 'flex', justifyContent: 'center' }}>
                 {selectedMediaPreview.type === 'image' ? (
                   <img src={selectedMediaPreview.url} alt="Preview" style={{ maxHeight: 400, maxWidth: '100%', objectFit: 'contain', borderRadius: 8 }} />
                 ) : (
-                  <div style={{ padding: 40, color: '#00a884', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
+                  <div style={{ padding: 40, color: 'var(--accent)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
                     <svg viewBox="0 0 24 24" width="48" height="48" fill="currentColor"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"></path></svg>
-                    <span style={{ color: '#e9edef', fontSize: 15 }}>{selectedMediaPreview.file.name}</span>
+                    <span style={{ color: 'var(--text-1)', fontSize: 15 }}>{selectedMediaPreview.file.name}</span>
                   </div>
                 )}
               </div>
@@ -1306,14 +1383,14 @@ export default function MessagesPage() {
                   placeholder="Add a caption..." 
                   value={messageText}
                   onChange={handleTextChange}
-                  style={{ flex: 1, background: '#2a3942', border: 'none', borderRadius: 8, padding: '12px 16px', color: '#e9edef', outline: 'none', fontSize: 15 }}
+                  style={{ flex: 1, background: 'var(--bg-hover)', border: 'none', borderRadius: 8, padding: '12px 16px', color: 'var(--text-1)', outline: 'none', fontSize: 15, fontFamily: 'inherit' }}
                   autoFocus
                   onKeyDown={e => { if (e.key === 'Enter') confirmSendMedia(); }}
                 />
                 <button 
                   onClick={confirmSendMedia}
                   disabled={isUploadingMedia}
-                  style={{ background: '#00a884', color: '#111b21', border: 'none', borderRadius: 8, width: 48, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: isUploadingMedia ? 'not-allowed' : 'pointer', opacity: isUploadingMedia ? 0.6 : 1 }}
+                  style={{ background: 'var(--accent)', color: 'var(--bg-card)', border: 'none', borderRadius: 8, width: 48, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: isUploadingMedia ? 'not-allowed' : 'pointer', opacity: isUploadingMedia ? 0.6 : 1 }}
                 >
                   <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path></svg>
                 </button>
@@ -1334,11 +1411,11 @@ export default function MessagesPage() {
             <motion.div 
               initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 20 }}
               onClick={e => e.stopPropagation()}
-              style={{ background: '#111b21', borderRadius: 16, width: '100%', maxWidth: 420, overflow: 'hidden', border: '1px solid #222d34', boxShadow: '0 8px 32px rgba(0,0,0,0.5)' }}
+              style={{ background: 'var(--bg-card)', borderRadius: 16, width: '100%', maxWidth: 420, overflow: 'hidden', border: '1px solid var(--border-subtle)', boxShadow: '0 8px 32px rgba(0,0,0,0.5)' }}
             >
               {/* Header */}
-              <div style={{ padding: 32, background: 'linear-gradient(180deg, #202c33 0%, #111b21 100%)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, position: 'relative' }}>
-                <button onClick={() => setSelectedUserProfile(null)} style={{ position: 'absolute', top: 16, right: 16, background: 'none', border: 'none', color: '#8696a0', cursor: 'pointer' }}>
+              <div style={{ padding: 32, background: 'linear-gradient(180deg, var(--bg-elevated) 0%, var(--bg-card) 100%)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, position: 'relative' }}>
+                <button onClick={() => setSelectedUserProfile(null)} style={{ position: 'absolute', top: 16, right: 16, background: 'none', border: 'none', color: 'var(--text-2)', cursor: 'pointer' }}>
                   <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M19.8 5.8l-1.6-1.6-6.2 6.2-6.2-6.2-1.6 1.6 6.2 6.2-6.2 6.2 1.6 1.6 6.2-6.2 6.2 6.2 1.6-1.6-6.2-6.2 6.2-6.2z"></path></svg>
                 </button>
                 
@@ -1351,25 +1428,52 @@ export default function MessagesPage() {
                 )}
                 
                 <div style={{ textAlign: 'center' }}>
-                  <h2 style={{ margin: 0, color: '#e9edef', fontSize: 24, fontWeight: 700 }}>{selectedUserProfile.displayName}</h2>
-                  <div style={{ color: '#8696a0', fontSize: 15, marginTop: 4 }}>{selectedUserProfile.email}</div>
+                  <h2 style={{ margin: 0, color: 'var(--text-1)', fontSize: 22, fontWeight: 700 }}>{selectedUserProfile.displayName}</h2>
+                  <div style={{ color: 'var(--text-3)', fontSize: 13, marginTop: 4 }}>{selectedUserProfile.email}</div>
                 </div>
+
+                {/* Message button - only if not own profile */}
+                {selectedUserProfile.uid !== user.uid && (
+                  <button
+                    onClick={async () => {
+                      if (!user?.uid) return;
+                      const chatId = await startDirectChat(user.uid, selectedUserProfile.uid, user.displayName || '', user.photoURL || '', selectedUserProfile.displayName, selectedUserProfile.photoURL || '');
+                      setSelectedUserProfile(null);
+                      const chat = chats.find(c => c.id === chatId);
+                      if (chat) setActiveChat(chat);
+                    }}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 8,
+                      background: 'var(--accent)', color: 'var(--btn-primary-text)',
+                      border: 'none', borderRadius: 10,
+                      padding: '10px 24px', fontWeight: 700, fontSize: 14,
+                      cursor: 'pointer', fontFamily: 'inherit',
+                      boxShadow: '0 4px 12px rgba(0,168,132,0.3)',
+                      transition: 'opacity 0.2s'
+                    }}
+                    onMouseEnter={e => (e.currentTarget.style.opacity = '0.85')}
+                    onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
+                  >
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>
+                    Message
+                  </button>
+                )}
               </div>
               
               {/* Activity Section */}
               <div style={{ padding: '0 24px 24px' }}>
-                <h3 style={{ margin: '0 0 16px 0', color: '#00a884', fontSize: 13, textTransform: 'uppercase', letterSpacing: 1.2, fontWeight: 600 }}>Project Activity</h3>
+                <h3 style={{ margin: '0 0 16px 0', color: 'var(--accent)', fontSize: 13, textTransform: 'uppercase', letterSpacing: 1.2, fontWeight: 600 }}>Project Activity</h3>
                 
                 {activeProjectTasks.filter(t => t.assigneeId === selectedUserProfile.uid).length === 0 ? (
-                  <div style={{ color: '#8696a0', fontSize: 14, textAlign: 'center', padding: '32px 0', background: '#202c33', borderRadius: 12 }}>
+                  <div style={{ color: 'var(--text-2)', fontSize: 14, textAlign: 'center', padding: '32px 0', background: 'var(--bg-elevated)', borderRadius: 12 }}>
                     No active tasks in this project.
                   </div>
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxHeight: 300, overflowY: 'auto', paddingRight: 8 }}>
                     {activeProjectTasks.filter(t => t.assigneeId === selectedUserProfile.uid).map(task => (
                       <Link href={`/projects/${activeChat?.projectId}/kanban?ticket=${task.ticketId || task.id}`} key={task.id} onClick={() => setSelectedUserProfile(null)} style={{ textDecoration: 'none' }}>
-                        <div style={{ background: '#202c33', padding: 16, borderRadius: 12, border: '1px solid #2a3942', transition: 'all 0.2s' }} className="hover-bg">
-                          <div style={{ color: '#e9edef', fontSize: 15, fontWeight: 500, marginBottom: 8, lineHeight: 1.4 }}>{task.title}</div>
+                        <div style={{ background: 'var(--bg-elevated)', padding: 16, borderRadius: 12, border: '1px solid #2a3942', transition: 'all 0.2s' }} className="hover-bg">
+                          <div style={{ color: 'var(--text-1)', fontSize: 15, fontWeight: 500, marginBottom: 8, lineHeight: 1.4 }}>{task.title}</div>
                           <div style={{ display: 'flex', gap: 8, fontSize: 12, alignItems: 'center' }}>
                             <span style={{ color: '#3b82f6', background: 'rgba(59,130,246,0.1)', padding: '4px 8px', borderRadius: 6, fontWeight: 600 }}>{task.ticketId || task.id}</span>
                             <span style={{ 
