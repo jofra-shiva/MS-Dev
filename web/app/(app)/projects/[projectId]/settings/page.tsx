@@ -183,10 +183,6 @@ export default function SettingsPage() {
                 )}
               </div>
               <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-                <div>
-                  <div className="input-label" style={{ marginBottom: 6 }}>Task Prefix</div>
-                  <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 15, fontWeight: 700, color: 'var(--accent)', background: 'rgba(99,102,241,0.1)', padding: '6px 14px', borderRadius: 8 }}>{project.taskPrefix}-001</div>
-                </div>
                 <div style={{ flex: 1 }}>
                   <div className="input-label" style={{ marginBottom: 6 }}>Project Status</div>
                   {isEditingGeneral ? (

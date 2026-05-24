@@ -272,3 +272,32 @@ export interface ProjectAnalytics {
   velocityByWeek: { week: string; completed: number }[];
   moduleCompletion: { module: string; total: number; completed: number }[];
 }
+
+// ─────────────────────────────────────────────
+// Chat
+// ─────────────────────────────────────────────
+export interface ChatMessage {
+  id: string;
+  chatId: string;
+  senderId: string;
+  text: string;
+  createdAt: Date;
+  readBy: string[]; // array of UIDs who have read the message
+}
+
+export interface Chat {
+  id: string;
+  type: 'direct' | 'group';
+  participants: string[]; // array of UIDs
+  participantDetails: Record<string, { displayName: string; photoURL: string; email: string }>;
+  lastMessage?: {
+    text: string;
+    senderId: string;
+    createdAt: Date;
+  };
+  updatedAt: Date;
+  createdAt: Date;
+  // For group chats
+  name?: string;
+  projectId?: string;
+}
