@@ -6,7 +6,7 @@ import { useState, useEffect } from 'react';
 import { subscribeToUserProjects, subscribeToNotifications } from '@/lib/firebase/firestore';
 import { Project } from '@/types';
 
-const NAV = [
+const NAV: Array<{ href: string; label: string; icon: JSX.Element; badge?: boolean }> = [
   {
     href: '/dashboard',
     label: 'Dashboard',
