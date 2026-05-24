@@ -229,7 +229,7 @@ export default function MessagesPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
     
     if (activeChat && user && messages.length > 0) {
-      if (activeChat.unreadCounts?.[user.uid] > 0) {
+      if ((activeChat.unreadCounts?.[user.uid] || 0) > 0) {
         markChatAsRead(activeChat.id, user.uid).catch(console.error);
       }
       markMessagesAsRead(activeChat.id, user.uid, messages).catch(console.error);
