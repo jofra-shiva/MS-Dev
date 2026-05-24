@@ -104,63 +104,63 @@ export default function GitHubPage() {
           )}
         </div>
 
-        {/* Webhook Setup */}
-        <div className="card">
-          <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 14 }}>Webhook Setup Guide</h3>
-          
-          <div style={{ fontSize: 13, color: 'var(--text-2)', marginBottom: 16 }}>
-            Follow these steps to connect your GitHub repository with this project:
-          </div>
-          
-            <ol style={{ fontSize: 13, color: 'var(--text-2)', paddingLeft: 20, marginBottom: 20, lineHeight: 1.6 }}>
-            <li>Go to your repository on <strong>GitHub</strong>.</li>
-            <li>Navigate to <strong>Settings</strong> {'>'} <strong>Webhooks</strong> {'>'} <strong>Add webhook</strong>.</li>
-            <li>Paste the <strong>Webhook URL</strong> below into the <strong>Payload URL</strong> field.</li>
-            <li>Select <strong>application/json</strong> for the Content type.</li>
-            <li>In the <strong>Secret</strong> field, enter exactly: <code style={{ color: 'var(--accent)', fontWeight: 'bold' }}>naanthandaleo</code></li>
-            <li>Under "Which events would you like to trigger this webhook?", choose <strong>Let me select individual events</strong>.</li>
-            <li>Check <strong>Pushes</strong> and <strong>Pull requests</strong>, then click <strong>Add webhook</strong>.</li>
-          </ol>
-
-          <div style={{ marginBottom: 16 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', marginBottom: 6 }}>Your Webhook URL</div>
-            <div style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 8, padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 8 }}>
-              <code className="mono" style={{ fontSize: 11, color: 'var(--accent)', flex: 1, overflowX: 'auto', whiteSpace: 'nowrap' }}>{webhookUrl}</code>
-              <button className="btn btn-secondary btn-sm" onClick={() => { navigator.clipboard.writeText(webhookUrl); toast.success('Copied!'); }}>Copy</button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Recent Events */}
-      <div className="card">
-        <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 16 }}>Recent GitHub Events</h3>
-        {events.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-3)' }}>
-            <div style={{ fontSize: 36, marginBottom: 10 }}>⚡</div>
-            <div style={{ fontSize: 13 }}>No events yet. Push a commit with a task ID to see it here.</div>
+        {/* Right Column: Setup Guide or Recent Events */}
+        {project?.github?.connected ? (
+          <div className="card" style={{ maxHeight: 600, overflowY: 'auto' }}>
+            <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 16 }}>Recent GitHub Events</h3>
+            {events.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-3)' }}>
+                <div style={{ fontSize: 36, marginBottom: 10 }}>⚡</div>
+                <div style={{ fontSize: 13 }}>No events yet. Push a commit with a task ID to see it here.</div>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {events.map((ev, i) => (
+                  <motion.div key={ev.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }}
+                    style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '12px 14px', background: 'var(--bg-elevated)', borderRadius: 8, border: '1px solid var(--border-subtle)' }}>
+                    <span style={{ fontSize: 18, flexShrink: 0 }}>{ev.type === 'push' ? '⚡' : ev.type === 'pull_request' ? '🔀' : '🎯'}</span>
+                    <div style={{ flex: 1, overflow: 'hidden' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <code className="mono truncate-1" style={{ fontSize: 12, color: 'var(--text-1)', fontWeight: 600 }}>{ev.commitMessage}</code>
+                        <span style={{ fontSize: 11, color: 'var(--text-3)', flexShrink: 0, marginLeft: 12 }}>{ev.processedAt?.toDate ? formatDistanceToNow(ev.processedAt.toDate(), { addSuffix: true }) : ''}</span>
+                      </div>
+                      <div style={{ display: 'flex', gap: 12, marginTop: 5, fontSize: 11.5, color: 'var(--text-3)' }}>
+                        <span>👤 {ev.author}</span>
+                        {ev.taskRefs?.length > 0 && <span style={{ color: 'var(--accent)', fontWeight: 600 }}>🎯 {ev.taskRefs.join(', ')}</span>}
+                        {ev.additions > 0 && <span style={{ color: 'var(--success)' }}>+{ev.additions}</span>}
+                        {ev.deletions > 0 && <span style={{ color: 'var(--danger)' }}>-{ev.deletions}</span>}
+                      </div>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            )}
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {events.map((ev, i) => (
-              <motion.div key={ev.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }}
-                style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '12px 14px', background: 'var(--bg-elevated)', borderRadius: 8, border: '1px solid var(--border-subtle)' }}>
-                <span style={{ fontSize: 18, flexShrink: 0 }}>{ev.type === 'push' ? '⚡' : ev.type === 'pull_request' ? '🔀' : '🎯'}</span>
-                <div style={{ flex: 1, overflow: 'hidden' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <code className="mono truncate-1" style={{ fontSize: 12, color: 'var(--text-1)', fontWeight: 600 }}>{ev.commitMessage}</code>
-                    <span style={{ fontSize: 11, color: 'var(--text-3)', flexShrink: 0, marginLeft: 12 }}>{ev.processedAt?.toDate ? formatDistanceToNow(ev.processedAt.toDate(), { addSuffix: true }) : ''}</span>
-                  </div>
-                  <div style={{ display: 'flex', gap: 12, marginTop: 5, fontSize: 11.5, color: 'var(--text-3)' }}>
-                    <span>👤 {ev.author}</span>
-                    {ev.taskRefs?.length > 0 && <span style={{ color: 'var(--accent)', fontWeight: 600 }}>🎯 {ev.taskRefs.join(', ')}</span>}
-                    {ev.additions > 0 && <span style={{ color: 'var(--success)' }}>+{ev.additions}</span>}
-                    {ev.deletions > 0 && <span style={{ color: 'var(--danger)' }}>-{ev.deletions}</span>}
-                    <span>📄 {ev.filesChanged} files</span>
-                  </div>
-                </div>
-              </motion.div>
-            ))}
+          <div className="card">
+            <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 14 }}>Webhook Setup Guide</h3>
+            
+            <div style={{ fontSize: 13, color: 'var(--text-2)', marginBottom: 16 }}>
+              Follow these steps to connect your GitHub repository with this project:
+            </div>
+            
+            <ol style={{ fontSize: 13, color: 'var(--text-2)', paddingLeft: 20, marginBottom: 20, lineHeight: 1.6 }}>
+              <li>Go to your repository on <strong>GitHub</strong>.</li>
+              <li>Navigate to <strong>Settings</strong> {'>'} <strong>Webhooks</strong> {'>'} <strong>Add webhook</strong>.</li>
+              <li>Paste the <strong>Webhook URL</strong> below into the <strong>Payload URL</strong> field.</li>
+              <li>Select <strong>application/json</strong> for the Content type.</li>
+              <li>In the <strong>Secret</strong> field, enter exactly: <code style={{ color: 'var(--accent)', fontWeight: 'bold' }}>naanthandaleo</code></li>
+              <li>Under "Which events would you like to trigger this webhook?", choose <strong>Let me select individual events</strong>.</li>
+              <li>Check <strong>Pushes</strong> and <strong>Pull requests</strong>, then click <strong>Add webhook</strong>.</li>
+            </ol>
+
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', marginBottom: 6 }}>Your Webhook URL</div>
+              <div style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 8, padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <code className="mono" style={{ fontSize: 11, color: 'var(--accent)', flex: 1, overflowX: 'auto', whiteSpace: 'nowrap' }}>{webhookUrl}</code>
+                <button className="btn btn-secondary btn-sm" onClick={() => { navigator.clipboard.writeText(webhookUrl); toast.success('Copied!'); }}>Copy</button>
+              </div>
+            </div>
           </div>
         )}
       </div>
