@@ -1172,26 +1172,26 @@ export default function MessagesPage() {
                               >
                                 {mentionMode === 'users' ? (
                                   <>
-                                    {item?.photoURL ? (
-                                      <img src={item.photoURL} alt="" style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover' }} />
+                                    {(item as any)?.photoURL ? (
+                                      <img src={(item as any).photoURL} alt="" style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover' }} />
                                     ) : (
-                                      <div style={{ width: 32, height: 32, borderRadius: '50%', background: getColorFromName(item?.displayName || ''), display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 14, fontWeight: 600 }}>
-                                        {item?.displayName?.charAt(0).toUpperCase()}
+                                      <div style={{ width: 32, height: 32, borderRadius: '50%', background: getColorFromName((item as any)?.displayName || ''), display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 14, fontWeight: 600 }}>
+                                        {(item as any)?.displayName?.charAt(0).toUpperCase()}
                                       </div>
                                     )}
-                                    <div style={{ color: 'var(--text-1)', fontSize: 15 }}>{item?.displayName}</div>
+                                    <div style={{ color: 'var(--text-1)', fontSize: 15 }}>{(item as any)?.displayName}</div>
                                   </>
                                 ) : mentionMode === 'modules' ? (
                                   <>
                                     <span style={{ fontSize: 18 }}>🧩</span>
-                                    <div style={{ color: 'var(--text-1)', fontSize: 15 }}>{item.name}</div>
+                                    <div style={{ color: 'var(--text-1)', fontSize: 15 }}>{(item as any).name}</div>
                                   </>
                                 ) : (
                                   <>
                                     <span style={{ fontSize: 18 }}>📋</span>
                                     <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                      <span style={{ color: '#3b82f6', fontSize: 13, fontWeight: 500 }}>{item.id}</span>
-                                      <span style={{ color: 'var(--text-1)', fontSize: 14 }} className="truncate-1">{item.title}</span>
+                                      <span style={{ color: '#3b82f6', fontSize: 13, fontWeight: 500 }}>{(item as any).id}</span>
+                                      <span style={{ color: 'var(--text-1)', fontSize: 14 }} className="truncate-1">{(item as any).title}</span>
                                     </div>
                                   </>
                                 )}
@@ -1437,7 +1437,7 @@ export default function MessagesPage() {
                   <button
                     onClick={async () => {
                       if (!user?.uid) return;
-                      const chatId = await startDirectChat(user.uid, selectedUserProfile.uid, user.displayName || '', user.photoURL || '', selectedUserProfile.displayName, selectedUserProfile.photoURL || '');
+                      const chatId = await startDirectChat(user as any, { uid: selectedUserProfile.uid, displayName: selectedUserProfile.displayName, photoURL: selectedUserProfile.photoURL || '', email: selectedUserProfile.email });
                       setSelectedUserProfile(null);
                       const chat = chats.find(c => c.id === chatId);
                       if (chat) setActiveChat(chat);

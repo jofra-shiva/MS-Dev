@@ -26,7 +26,7 @@ export default function ActivityPage() {
     try {
       const snap = await getDoc(doc(db, 'users', userId));
       if (snap.exists()) {
-        setSelectedUser({ uid: snap.id, ...(snap.data() as MSDEVUser) });
+        setSelectedUser({ ...(snap.data() as MSDEVUser), uid: snap.id });
       } else {
         setSelectedUser({
           uid: userId,

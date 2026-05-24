@@ -144,7 +144,7 @@ export default function SettingsPage() {
                   onMouseEnter={() => setIsHoveringAvatar(true)}
                   onMouseLeave={() => setIsHoveringAvatar(false)}
                 >
-                  {avatarPreview || user?.photoURL ? <img src={avatarPreview || user?.photoURL} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} /> : formData.displayName.charAt(0).toUpperCase()}
+                  {avatarPreview || user?.photoURL ? <img src={avatarPreview || user?.photoURL || undefined} alt="Avatar" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} referrerPolicy="no-referrer" /> : formData.displayName.charAt(0).toUpperCase()}
                   
                   {isEditing && (
                     <label style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: isHoveringAvatar ? 1 : 0, cursor: 'pointer', transition: 'opacity 0.2s', fontSize: 12, fontWeight: 600, color: '#fff', margin: 0, zIndex: 10 }}>
