@@ -288,15 +288,7 @@ export default function MeetingsPage({ params }: { params: Promise<{ projectId: 
               projectMembers={members}
               defaultLink={suggestedLink}
               defaultName={suggestedName}
-              onCancel={() => {
-                setShowDailyMeetingPrompt(false);
-                const linkElement = document.querySelector('input[name="meeting-link-input"]') as HTMLInputElement;
-                if (linkElement && linkElement.value) {
-                  window.open(linkElement.value, '_blank');
-                } else if (suggestedLink) {
-                  window.open(suggestedLink, '_blank');
-                }
-              }}
+              onCancel={() => setShowDailyMeetingPrompt(false)}
               onSave={(data: any) => {
                 handleSaveDailyMeeting(data);
               }}
@@ -367,17 +359,7 @@ function MeetingEditor({ initialData, projectMembers, onCancel, onSave, defaultL
     }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
         <h3 style={{ fontSize: 18, fontWeight: 700 }}>{isQuickLog ? "Log Today's Session?" : initialData ? 'Edit Meeting' : 'New Meeting'}</h3>
-        <button type="button" className="btn-icon btn-ghost" onClick={() => {
-           if (isQuickLog) {
-             const linkElement = document.querySelector('input[name="meeting-link-input"]') as HTMLInputElement;
-             if (linkElement && linkElement.value) {
-               window.open(linkElement.value, '_blank');
-             } else if (form.link) {
-               window.open(form.link, '_blank');
-             }
-           }
-           onCancel();
-        }}>✕</button>
+        <button type="button" className="btn-icon btn-ghost" onClick={() => onCancel()}>✕</button>
       </div>
 
       {isQuickLog && (

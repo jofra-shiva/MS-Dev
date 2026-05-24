@@ -26,17 +26,6 @@ const NAV = [
       </svg>
     ),
   },
-  {
-    href: '/notifications',
-    label: 'Notifications',
-    icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
-        <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
-      </svg>
-    ),
-    badge: true, // will show unread count
-  },
 ];
 
 interface SidebarProps { open: boolean; onClose: () => void; }
@@ -88,7 +77,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
             onClick={onClose}
           >
             <div style={{ width: 36, height: 36, borderRadius: 10, overflow: 'hidden', flexShrink: 0 }}>
-              <img src="/MSDEV.png" alt="MSDEV" style={{ width: 36, height: 36, objectFit: 'cover', display: 'block' }} />
+              <img src="/logo.png" alt="MSDEV" style={{ width: 36, height: 36, objectFit: 'cover', display: 'block' }} />
             </div>
             <span className="nav-label" style={{ fontSize: 17, fontWeight: 800, color: 'var(--text-1)', letterSpacing: '-0.02em' }}>
               MS Dev

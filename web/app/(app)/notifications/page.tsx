@@ -68,8 +68,8 @@ export default function NotificationsPage() {
   const unread = notifs.filter(n => !n.read).length + invitations.length;
 
   return (
-    <div className="animate-fadeIn" style={{ maxWidth: 680 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+    <div className="animate-fadeIn w-full max-w-[680px]">
+      <div className="flex flex-wrap justify-between items-center gap-4 mb-6">
         <div>
           <h1 style={{ fontSize: 22, fontWeight: 800 }}>Notifications</h1>
           <p style={{ color: 'var(--text-2)', fontSize: 13, marginTop: 3 }}>
@@ -88,7 +88,7 @@ export default function NotificationsPage() {
           {[1,2,3,4,5].map(i => <div key={i} className="skeleton" style={{ height: 72, borderRadius: 10 }} />)}
         </div>
       ) : notifs.length === 0 && invitations.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: 60, background: 'var(--bg-card)', borderRadius: 12, border: '1px solid var(--border-subtle)' }}>
+        <div className="text-center p-8 sm:p-[60px]" style={{ background: 'var(--bg-card)', borderRadius: 12, border: '1px solid var(--border-subtle)' }}>
           <div style={{ fontSize: 48, marginBottom: 12 }}>🔔</div>
           <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 6 }}>No notifications yet</div>
           <div style={{ color: 'var(--text-2)', fontSize: 13 }}>You'll be notified about task updates, commits, and team activity</div>
@@ -103,7 +103,7 @@ export default function NotificationsPage() {
                 🤝
               </div>
               <div style={{ flex: 1, overflow: 'hidden' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
                   <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text-1)' }}>Project Invitation: {inv.projectName}</div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
                     <div style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--accent)' }} />
@@ -113,7 +113,7 @@ export default function NotificationsPage() {
                 <div style={{ fontSize: 12.5, color: 'var(--text-2)', marginTop: 3 }}>
                   <strong>{inv.invitedByName}</strong> invited you to join the project as a {inv.role}.
                 </div>
-                <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 12 }}>
                   <button className="btn btn-primary btn-sm" onClick={() => handleAccept(inv)}>Accept Invitation</button>
                   <button className="btn btn-secondary btn-sm" onClick={() => handleDecline(inv)}>Decline</button>
                 </div>
@@ -130,7 +130,7 @@ export default function NotificationsPage() {
                 {NOTIF_ICONS[n.type] || '🔔'}
               </div>
               <div style={{ flex: 1, overflow: 'hidden' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
                   <div style={{ fontSize: 13.5, fontWeight: n.read ? 500 : 700, color: 'var(--text-1)' }}>{n.title}</div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
                     {!n.read && <div style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--accent)' }} />}

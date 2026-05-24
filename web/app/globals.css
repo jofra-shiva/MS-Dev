@@ -710,15 +710,15 @@ textarea.input { resize: vertical; min-height: 80px; }
    AG GRID OVERRIDES
 ──────────────────────────────────────────────────────────── */
 .ag-theme-msdev {
-  --ag-background-color: var(--bg-card);
-  --ag-header-background-color: var(--bg-elevated);
+  --ag-background-color: #ffffff;
+  --ag-header-background-color: #f3f4f6;
   --ag-odd-row-background-color: transparent;
-  --ag-border-color: var(--border-subtle);
-  --ag-row-border-color: var(--border-subtle);
-  --ag-foreground-color: var(--text-1);
-  --ag-header-foreground-color: var(--text-2);
-  --ag-selected-row-background-color: var(--accent-glow);
-  --ag-row-hover-color: var(--bg-elevated);
+  --ag-border-color: #e5e7eb;
+  --ag-row-border-color: #e5e7eb;
+  --ag-foreground-color: #111827;
+  --ag-header-foreground-color: #111827;
+  --ag-selected-row-background-color: #e0f2fe;
+  --ag-row-hover-color: #f9fafb;
   --ag-input-focus-border-color: var(--accent);
   --ag-font-family: 'Inter', sans-serif;
   --ag-font-size: 13px;
@@ -726,19 +726,19 @@ textarea.input { resize: vertical; min-height: 80px; }
   min-height: 0;
   border-radius: var(--radius);
   overflow: hidden;
-  color: var(--text-1);
+  color: #111827;
 }
 
 .ag-theme-msdev .ag-cell, 
 .ag-theme-msdev .ag-row {
-  color: var(--text-1);
+  color: #111827;
 }
 
 .ag-theme-msdev .ag-root-wrapper,
 .ag-theme-msdev .ag-root,
 .ag-theme-msdev .ag-body-viewport,
 .ag-theme-msdev .ag-center-cols-viewport {
-  background: var(--bg-card);
+  background: #ffffff;
 }
 
 .ag-theme-msdev .ag-header {
@@ -746,6 +746,12 @@ textarea.input { resize: vertical; min-height: 80px; }
   position: sticky;
   top: 0;
   z-index: 1;
+  background: #f3f4f6;
+  font-weight: 700;
+}
+
+.ag-theme-msdev .ag-header-cell-text {
+  font-weight: 700;
 }
 
 .ag-theme-msdev .ag-body-viewport::-webkit-scrollbar,

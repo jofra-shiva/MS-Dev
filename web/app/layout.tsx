@@ -13,6 +13,9 @@ export const metadata: Metadata = {
     description: 'Project Management for Teams',
     type: 'website',
   },
+  icons: {
+    icon: '/logo.png',
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

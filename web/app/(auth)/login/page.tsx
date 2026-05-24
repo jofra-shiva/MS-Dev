@@ -32,7 +32,7 @@ export default function LoginPage() {
       >
         <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 24 }}>
           <div style={{ width: 48, height: 48, borderRadius: 12, overflow: 'hidden', boxShadow: '0 0 30px rgba(147,51,234,0.4)' }}>
-            <img src="/MSDEV.png" alt="MSDEV" width={48} height={48} style={{ display: 'block', objectFit: 'cover' }} />
+            <img src="/logo.png" alt="MSDEV" width={48} height={48} style={{ display: 'block', objectFit: 'cover' }} />
           </div>
         </div>
         

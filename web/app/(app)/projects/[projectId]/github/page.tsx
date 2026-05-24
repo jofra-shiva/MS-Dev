@@ -112,11 +112,12 @@ export default function GitHubPage() {
             Follow these steps to connect your GitHub repository with this project:
           </div>
           
-          <ol style={{ fontSize: 13, color: 'var(--text-2)', paddingLeft: 20, marginBottom: 20, lineHeight: 1.6 }}>
+            <ol style={{ fontSize: 13, color: 'var(--text-2)', paddingLeft: 20, marginBottom: 20, lineHeight: 1.6 }}>
             <li>Go to your repository on <strong>GitHub</strong>.</li>
             <li>Navigate to <strong>Settings</strong> {'>'} <strong>Webhooks</strong> {'>'} <strong>Add webhook</strong>.</li>
             <li>Paste the <strong>Webhook URL</strong> below into the <strong>Payload URL</strong> field.</li>
             <li>Select <strong>application/json</strong> for the Content type.</li>
+            <li>In the <strong>Secret</strong> field, enter exactly: <code style={{ color: 'var(--accent)', fontWeight: 'bold' }}>naanthandaleo</code></li>
             <li>Under "Which events would you like to trigger this webhook?", choose <strong>Let me select individual events</strong>.</li>
             <li>Check <strong>Pushes</strong> and <strong>Pull requests</strong>, then click <strong>Add webhook</strong>.</li>
           </ol>

@@ -1,7 +1,8 @@
 'use client';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { useState, useEffect, useRef } from 'react';
-import { subscribeToNotifications, markNotificationRead, subscribeToUserProjects } from '@/lib/firebase/firestore';
+import { subscribeToNotifications, markNotificationRead, subscribeToUserProjects, subscribeToMyInvitations, acceptInvitation, declineInvitation } from '@/lib/firebase/firestore';
+import toast from 'react-hot-toast';
 import { Project } from '@/types';
 import { usePathname, useRouter } from 'next/navigation';
 import { signOutUser } from '@/lib/firebase/auth';
@@ -150,6 +151,7 @@ export default function Topbar({ onMenuClick }: TopbarProps) {
   const router    = useRouter();
 
   const [notifs, setNotifs]           = useState<any[]>([]);
+  const [invitations, setInvitations] = useState<any[]>([]);
   const [projects, setProjects]       = useState<Project[]>([]);
   const [notifOpen, setNotifOpen]     = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
@@ -162,9 +164,14 @@ export default function Topbar({ onMenuClick }: TopbarProps) {
     if (!user) return;
     const unsubNotifs = subscribeToNotifications(user.uid, setNotifs as any);
     const unsubProjects = subscribeToUserProjects(user.uid, setProjects);
+    let unsubInvites: any = () => {};
+    if (user.email) {
+      unsubInvites = subscribeToMyInvitations(user.email.toLowerCase(), setInvitations);
+    }
     return () => {
       unsubNotifs();
       unsubProjects();
+      unsubInvites();
     };
   }, [user]);
 
@@ -178,7 +185,28 @@ export default function Topbar({ onMenuClick }: TopbarProps) {
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  const unread = notifs.filter((n: any) => !n.read).length;
+  const handleAccept = async (inv: any) => {
+    if (!user || !user.email) return;
+    try {
+      await acceptInvitation(inv.id, user.uid, user.displayName || 'User', user.photoURL || '', user.email);
+      toast.success(`Joined ${inv.projectName}!`);
+    } catch (e: any) {
+      toast.error('Failed to accept invitation');
+      console.error(e);
+    }
+  };
+
+  const handleDecline = async (inv: any) => {
+    try {
+      await declineInvitation(inv.id);
+      toast.success(`Declined invitation to ${inv.projectName}`);
+    } catch (e: any) {
+      toast.error('Failed to decline invitation');
+      console.error(e);
+    }
+  };
+
+  const unread = notifs.filter((n: any) => !n.read).length + invitations.length;
   const lastNotif = notifs[0]; // most recent
 
   const pathParts = pathname.split('/').filter(Boolean);
@@ -282,22 +310,41 @@ export default function Topbar({ onMenuClick }: TopbarProps) {
                 </div>
               </div>
 
-              {/* Last notification preview */}
-              {lastNotif && (
-                <div style={{
-                  padding: '10px 16px 4px',
-                  fontSize: 10, fontWeight: 700, color: 'var(--text-3)',
-                  textTransform: 'uppercase', letterSpacing: '0.06em',
-                }}>Latest</div>
-              )}
-
               <div style={{ maxHeight: 340, overflowY: 'auto' }}>
-                {notifs.length === 0 ? (
+                {notifs.length === 0 && invitations.length === 0 ? (
                   <div style={{ padding: 28, textAlign: 'center', color: 'var(--text-3)', fontSize: 13 }}>
                     <div style={{ fontSize: 28, marginBottom: 8 }}>🔔</div>
                     No notifications yet
                   </div>
-                ) : notifs.slice(0, 12).map((n: any) => (
+                ) : (
+                  <>
+                    {invitations.length > 0 && (
+                      <div style={{ padding: '10px 16px 4px', fontSize: 10, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                        Invitations
+                      </div>
+                    )}
+                    {invitations.map((inv: any) => (
+                      <div key={inv.id} style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-subtle)', background: 'rgba(99,102,241,0.06)', display: 'flex', gap: 10 }}>
+                        <div style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--accent)', marginTop: 5, flexShrink: 0 }} />
+                        <div style={{ flex: 1, overflow: 'hidden' }}>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-1)' }} className="truncate-1">Project Invitation: {inv.projectName}</div>
+                          <div style={{ fontSize: 12, color: 'var(--text-2)', marginTop: 2, whiteSpace: 'normal' }}>
+                            <strong>{inv.invitedByName}</strong> invited you to join the project as a {inv.role}.
+                          </div>
+                          <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
+                            <button className="btn btn-primary btn-sm" onClick={() => handleAccept(inv)}>Accept</button>
+                            <button className="btn btn-secondary btn-sm" onClick={() => handleDecline(inv)}>Decline</button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+
+                    {notifs.length > 0 && (
+                      <div style={{ padding: '10px 16px 4px', fontSize: 10, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                        Notifications
+                      </div>
+                    )}
+                    {notifs.slice(0, 15).map((n: any) => (
                   <div
                     key={n.id}
                     onClick={() => { markNotificationRead(user!.uid, n.id); }}
@@ -325,6 +372,8 @@ export default function Topbar({ onMenuClick }: TopbarProps) {
                     </div>
                   </div>
                 ))}
+                  </>
+                )}
               </div>
             </div>
           )}

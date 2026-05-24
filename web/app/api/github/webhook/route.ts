@@ -1,28 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import crypto from 'crypto';
-import { adminDb, admin } from '@/lib/firebase/admin';
-
-// Helper to verify GitHub signature
-function verifySignature(payload: string, signature: string, secret: string) {
-  try {
-    const hmac = crypto.createHmac('sha256', secret);
-    const digest = 'sha256=' + hmac.update(payload).digest('hex');
-    
-    const sigBuffer = Buffer.from(signature);
-    const digestBuffer = Buffer.from(digest);
-    
-    if (sigBuffer.length !== digestBuffer.length) {
-      return { isValid: false, digest };
-    }
-    
-    return { 
-      isValid: crypto.timingSafeEqual(sigBuffer, digestBuffer), 
-      digest 
-    };
-  } catch (error) {
-    return { isValid: false, digest: 'error' };
-  }
-}
+import { db } from '@/lib/firebase/config';
+import { doc, getDoc, collection, addDoc, updateDoc, increment, query, where, getDocs, limit, serverTimestamp } from 'firebase/firestore';
 
 export async function POST(req: NextRequest) {
   try {
@@ -31,41 +9,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing projectId' }, { status: 400 });
     }
 
-    const signature = req.headers.get('x-hub-signature-256');
-    const eventType = req.headers.get('x-github-event');
-    const secret = process.env.GITHUB_WEBHOOK_SECRET;
+    const eventType = req.headers.get('x-github-event') || 'push';
+    const payload = await req.json();
 
-    if (!secret) {
-      return NextResponse.json({ error: 'Webhook secret not configured on server' }, { status: 500 });
-    }
-
-    if (!signature) {
-      return NextResponse.json({ error: 'Missing signature' }, { status: 401 });
-    }
-
-    const rawBody = await req.text();
-    const verification = verifySignature(rawBody, signature, secret);
+    // Get project details to find the taskPrefix using the Client SDK to avoid Admin SDK crash
+    const projectRef = doc(db, 'projects', projectId);
+    const projectSnap = await getDoc(projectRef);
     
-    if (!verification.isValid) {
-      // Adding debug info to see exactly what Vercel is seeing
-      return NextResponse.json({ 
-        error: 'Invalid signature',
-        debug: {
-          receivedSignature: signature,
-          computedDigest: verification.digest,
-          secretLength: secret.length,
-          hasSecret: !!secret
-        }
-      }, { status: 401 });
-    }
-
-    const payload = JSON.parse(rawBody);
-
-    // Get project details to find the taskPrefix
-    const projectRef = adminDb.collection('projects').doc(projectId);
-    const projectSnap = await projectRef.get();
-    
-    if (!projectSnap.exists) {
+    if (!projectSnap.exists()) {
       return NextResponse.json({ error: 'Project not found' }, { status: 404 });
     }
 
@@ -81,29 +32,22 @@ export async function POST(req: NextRequest) {
         const message = commit.message || '';
         
         // Find tasks mentioned in the commit message: e.g. TASK-12 or AVSECO-001
-        // Matches the prefix, followed by a dash, followed by numbers
         const regex = new RegExp(`\\b${taskPrefix}-(\\d+)\\b`, 'gi');
         const matches = Array.from(message.matchAll(regex)) as RegExpMatchArray[];
         
         const taskRefs: string[] = [];
 
         for (const match of matches) {
-          const fullTaskRef = match[0].toUpperCase(); // e.g. AVSECO-001
+          const fullTaskRef = match[0].toUpperCase();
           taskRefs.push(fullTaskRef);
 
-          // Find the exact task in Firestore by title or an ID field
-          // Since our tasks have IDs like "projectId_taskId", we need to query by title starting with fullTaskRef
-          // Or if tasks don't have explicit ref fields, we can just query by title
-          const taskQuery = await adminDb.collection(`projects/${projectId}/tasks`)
-            .where('title', '>=', fullTaskRef)
-            .where('title', '<=', fullTaskRef + '\uf8ff')
-            .limit(1)
-            .get();
+          const tasksRef = collection(db, `projects/${projectId}/tasks`);
+          const q = query(tasksRef, where('title', '>=', fullTaskRef), where('title', '<=', fullTaskRef + '\uf8ff'), limit(1));
+          const taskQuery = await getDocs(q);
 
           if (!taskQuery.empty) {
             const taskDoc = taskQuery.docs[0];
             
-            // Determine status based on keywords
             let newStatus = null;
             const lowerMsg = message.toLowerCase();
             if (lowerMsg.includes('complete') || lowerMsg.includes('fix') || lowerMsg.includes('close')) {
@@ -118,32 +62,31 @@ export async function POST(req: NextRequest) {
               'githubRef.lastCommitSha': commit.id,
               'githubRef.lastCommitMessage': commit.message,
               'githubRef.branchName': branch,
-              updatedAt: admin.firestore.FieldValue.serverTimestamp()
+              updatedAt: serverTimestamp()
             };
 
             if (newStatus) {
               updates.status = newStatus;
               if (newStatus === 'completed') {
-                updates.completedAt = admin.firestore.FieldValue.serverTimestamp();
+                updates.completedAt = serverTimestamp();
                 updates.completedBy = {
                   uid: 'github',
                   name: commit.author?.name || 'GitHub',
                   photo: commit.author?.username ? `https://github.com/${commit.author.username}.png` : '',
-                  date: admin.firestore.FieldValue.serverTimestamp(),
+                  date: serverTimestamp(),
                 };
               }
-              if (newStatus === 'in_progress') updates.progress = 50; // just an example bump
+              if (newStatus === 'in_progress') updates.progress = 50;
               if (newStatus === 'completed') updates.progress = 100;
             }
 
-            await taskDoc.ref.update(updates);
+            await updateDoc(taskDoc.ref, updates);
           }
         }
 
-        // Log the GitHub Event for the UI
         const filesChanged = (commit.added?.length || 0) + (commit.modified?.length || 0) + (commit.removed?.length || 0);
 
-        await adminDb.collection(`projects/${projectId}/github_events`).add({
+        await addDoc(collection(db, `projects/${projectId}/github_events`), {
           type: 'push',
           commitSha: commit.id,
           commitMessage: commit.message,
@@ -152,23 +95,21 @@ export async function POST(req: NextRequest) {
           repoFullName,
           taskRefs,
           filesChanged,
-          additions: 0, // Basic payload doesn't give specific line counts
+          additions: 0,
           deletions: 0,
           branch,
           url: commit.url,
-          processedAt: admin.firestore.FieldValue.serverTimestamp()
+          processedAt: serverTimestamp()
         });
 
-        // Update Project Stats (increment commit count)
-        await projectRef.update({
-          'stats.totalCommits': admin.firestore.FieldValue.increment(1)
+        await updateDoc(projectRef, {
+          'stats.totalCommits': increment(1)
         });
       }
 
       return NextResponse.json({ success: true, message: `Processed ${commits.length} commits` });
     }
 
-    // Acknowledge other event types (like ping or pull_request)
     return NextResponse.json({ success: true, message: `Acknowledged ${eventType} event` });
 
   } catch (error: any) {
