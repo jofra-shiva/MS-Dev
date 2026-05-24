@@ -1,7 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { continueOnWebStore } from '@/lib/store/uiStore';
 import { AuraOrb } from '@/components/ui/AuraOrb';
 import { useAuth } from '@/lib/hooks/useAuth';
 import Sidebar from '@/components/ui/Sidebar';
