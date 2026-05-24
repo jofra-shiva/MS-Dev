@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState, useRef } from 'react';
 import { useAuth } from '@/lib/hooks/useAuth';
-import { Chat, ChatMessage, Project } from '@/types';
+import { Chat, ChatMessage, Project, Task } from '@/types';
 import { 
   subscribeToUserChats, 
   subscribeToChatMessages, 
