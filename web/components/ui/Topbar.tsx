@@ -1,7 +1,7 @@
 'use client';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { useState, useEffect, useRef } from 'react';
-import { subscribeToNotifications, markNotificationRead, subscribeToUserProjects, subscribeToMyInvitations, acceptInvitation, declineInvitation } from '@/lib/firebase/firestore';
+import { subscribeToNotifications, markNotificationRead, subscribeToUserProjects, subscribeToMyInvitations, acceptInvitation, declineInvitation, approveTaskMovePermission } from '@/lib/firebase/firestore';
 import toast from 'react-hot-toast';
 import { Project } from '@/types';
 import { usePathname, useRouter } from 'next/navigation';
@@ -155,6 +155,7 @@ export default function Topbar({ onMenuClick }: TopbarProps) {
   const [projects, setProjects]       = useState<Project[]>([]);
   const [notifOpen, setNotifOpen]     = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [approvingNotifId, setApprovingNotifId] = useState<string | null>(null);
 
   const notifRef   = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
@@ -203,6 +204,33 @@ export default function Topbar({ onMenuClick }: TopbarProps) {
     } catch (e: any) {
       toast.error('Failed to decline invitation');
       console.error(e);
+    }
+  };
+
+  const handleApproveMoveRequest = async (notif: any) => {
+    if (!user) return;
+    const requesterId = notif.metadata?.requesterId;
+    const projectId = notif.projectId;
+    const taskId = notif.taskId;
+    const taskTitle = notif.metadata?.taskTitle || 'Unknown';
+
+    if (!requesterId || !projectId || !taskId) {
+      toast.error('This request is missing approval details');
+      return;
+    }
+
+    setApprovingNotifId(notif.id);
+    try {
+      await approveTaskMovePermission(projectId, taskId, requesterId, taskTitle);
+      await markNotificationRead(user.uid, notif.id);
+      setNotifs(prev => prev.map(item => item.id === notif.id ? { ...item, read: true } : item));
+      setNotifOpen(false);
+      toast.success('Permission granted. They can move the task now.');
+    } catch (e: any) {
+      toast.error('Failed to approve move request');
+      console.error(e);
+    } finally {
+      setApprovingNotifId(null);
     }
   };
 
@@ -345,33 +373,50 @@ export default function Topbar({ onMenuClick }: TopbarProps) {
                       </div>
                     )}
                     {notifs.slice(0, 15).map((n: any) => (
-                  <div
-                    key={n.id}
-                    onClick={() => { markNotificationRead(user!.uid, n.id); }}
-                    style={{
-                      padding: '11px 16px',
-                      borderBottom: '1px solid var(--border-subtle)',
-                      cursor: 'pointer',
-                      background: n.read ? 'transparent' : 'rgba(52,211,153,0.04)',
-                      display: 'flex', gap: 10,
-                      transition: 'background 0.15s',
-                    }}
-                  >
-                    {!n.read && (
-                      <div style={{
-                        width: 7, height: 7, borderRadius: '50%',
-                        background: 'var(--accent)', marginTop: 5, flexShrink: 0,
-                      }} />
-                    )}
-                    <div style={{ flex: 1, overflow: 'hidden', paddingLeft: n.read ? 17 : 0 }}>
-                      <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-1)' }} className="truncate-1">{n.title}</div>
-                      <div style={{ fontSize: 12, color: 'var(--text-2)', marginTop: 2 }} className="truncate-1">{n.body}</div>
-                      <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 4 }}>
-                        {n.createdAt?.toDate ? formatDistanceToNow(n.createdAt.toDate(), { addSuffix: true }) : ''}
+                      <div
+                        key={n.id}
+                        onClick={() => {
+                          if (n.type !== 'task_move_request') {
+                            markNotificationRead(user!.uid, n.id);
+                          }
+                        }}
+                        style={{
+                          padding: '11px 16px',
+                          borderBottom: '1px solid var(--border-subtle)',
+                          cursor: n.type === 'task_move_request' ? 'default' : 'pointer',
+                          background: n.read ? 'transparent' : 'rgba(52,211,153,0.04)',
+                          display: 'flex', gap: 10,
+                          transition: 'background 0.15s',
+                        }}
+                      >
+                        {!n.read && (
+                          <div style={{
+                            width: 7, height: 7, borderRadius: '50%',
+                            background: 'var(--accent)', marginTop: 5, flexShrink: 0,
+                          }} />
+                        )}
+                        <div style={{ flex: 1, overflow: 'hidden', paddingLeft: n.read ? 17 : 0 }}>
+                          <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-1)' }} className="truncate-1">{n.title}</div>
+                          <div style={{ fontSize: 12, color: 'var(--text-2)', marginTop: 2 }} className="truncate-1">{n.body}</div>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginTop: 8 }}>
+                            <div style={{ fontSize: 11, color: 'var(--text-3)' }}>
+                              {n.createdAt?.toDate ? formatDistanceToNow(n.createdAt.toDate(), { addSuffix: true }) : ''}
+                            </div>
+                            {n.type === 'task_move_request' && (
+                              <button
+                                type="button"
+                                className="btn btn-primary btn-sm"
+                                onClick={(e) => { e.stopPropagation(); handleApproveMoveRequest(n); }}
+                                disabled={approvingNotifId === n.id}
+                                style={{ padding: '6px 10px', height: 30 }}
+                              >
+                                {approvingNotifId === n.id ? 'Approving...' : 'Accept'}
+                              </button>
+                            )}
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  </div>
-                ))}
+                    ))}
                   </>
                 )}
               </div>

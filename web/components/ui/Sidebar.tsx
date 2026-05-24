@@ -6,9 +6,23 @@ import { useState, useEffect } from 'react';
 import { subscribeToUserProjects, subscribeToNotifications } from '@/lib/firebase/firestore';
 import { Project } from '@/types';
 
-import React from 'react';
+import { subscribeToUserChats } from '@/lib/firebase/chat';
+import { Chat } from '@/types';
 
-const NAV: Array<{ href: string; label: string; icon: React.ReactNode; badge?: boolean }> = [
+const getAuraGradient = (name: string) => {
+  const hash = Array.from(name || '').reduce((acc, char) => acc + char.charCodeAt(0), 0) % 6;
+  const gradients = [
+    'linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)', // Blue to Purple
+    'linear-gradient(135deg, #10b981 0%, #059669 100%)', // Emerald
+    'linear-gradient(135deg, #f59e0b 0%, #ea580c 100%)', // Amber to Orange
+    'linear-gradient(135deg, #ec4899 0%, #e11d48 100%)', // Pink to Rose
+    'linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%)', // Sky to Blue
+    'linear-gradient(135deg, #8b5cf6 0%, #d946ef 100%)', // Violet to Fuchsia
+  ];
+  return gradients[hash];
+};
+
+const NAV: Array<{ href: string; label: string; icon: React.ReactNode; badgeType?: 'notifications' | 'messages' }> = [
   {
     href: '/dashboard',
     label: 'Dashboard',
@@ -31,7 +45,7 @@ const NAV: Array<{ href: string; label: string; icon: React.ReactNode; badge?: b
   {
     href: '/messages',
     label: 'Messages',
-    badge: true,
+    badgeType: 'messages',
     icon: (
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
@@ -47,6 +61,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
   const { user } = useAuth();
   const [projects, setProjects] = useState<Project[]>([]);
   const [notifs, setNotifs] = useState<any[]>([]);
+  const [chats, setChats] = useState<Chat[]>([]);
 
   useEffect(() => {
     if (!user) return;
@@ -60,7 +75,14 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
     return unsub;
   }, [user]);
 
-  const unreadCount = notifs.filter((n: any) => !n.read).length;
+  useEffect(() => {
+    if (!user) return;
+    const unsub = subscribeToUserChats(user.uid, setChats);
+    return unsub;
+  }, [user]);
+
+  const unreadNotifsCount = notifs.filter((n: any) => !n.read).length;
+  const unreadChatsCount = chats.reduce((sum, chat) => sum + (chat.unreadCounts?.[user?.uid || ''] || 0), 0);
 
   return (
     <>
@@ -102,6 +124,8 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
           <div style={{ marginBottom: 4 }}>
             {NAV.map(item => {
               const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href));
+              const badgeCount = item.badgeType === 'messages' ? unreadChatsCount : (item.badgeType === 'notifications' ? unreadNotifsCount : 0);
+              
               return (
                 <Link
                   key={item.href}
@@ -113,7 +137,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
                 >
                   <span style={{ flexShrink: 0 }}>{item.icon}</span>
                   <span className="nav-label">{item.label}</span>
-                  {item.badge && unreadCount > 0 && (
+                  {badgeCount > 0 && (
                     <span
                       className="nav-badge"
                       style={{
@@ -129,11 +153,11 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
                         flexShrink: 0,
                       }}
                     >
-                      {unreadCount}
+                      {badgeCount}
                     </span>
                   )}
                   {/* Collapsed badge dot */}
-                  {item.badge && unreadCount > 0 && (
+                  {badgeCount > 0 && (
                     <span style={{
                       position: 'absolute',
                       top: 6,
@@ -192,15 +216,15 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
                     title={p.name}
                   >
                     <div style={{
-                      width: 24, height: 24, borderRadius: 4, flexShrink: 0,
-                      background: '#090a0f', color: '#0ff',
+                      width: 24, height: 24, borderRadius: 6, flexShrink: 0,
+                      background: getAuraGradient(p.name),
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontSize: 14, fontWeight: 900, fontFamily: 'var(--mono), monospace', textTransform: 'uppercase',
-                      border: '1px solid #0ff',
-                      boxShadow: '0 0 8px rgba(0, 255, 255, 0.5), inset 0 0 4px rgba(0, 255, 255, 0.3)',
-                      textShadow: '0 0 5px #0ff'
+                      boxShadow: '0 2px 5px rgba(0,0,0,0.2), inset 0 1px 1px rgba(255,255,255,0.3)',
+                      border: '1px solid rgba(0,0,0,0.1)'
                     }}>
-                      {p.name.charAt(0)}
+                      <span style={{ color: '#fff', fontSize: 13, fontWeight: 700, textShadow: '0 1px 2px rgba(0,0,0,0.3)' }}>
+                        {p.name.charAt(0).toUpperCase()}
+                      </span>
                     </div>
                     <span className="nav-label truncate-1" style={{ fontSize: 13 }}>{p.name}</span>
                   </Link>

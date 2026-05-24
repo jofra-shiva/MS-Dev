@@ -181,7 +181,8 @@ export default function KanbanBoard({ tasks, projectId, project, onStatusChange,
                 <h3 style={{ fontSize: 18, fontWeight: 700, margin: 0 }}>Permission Required</h3>
               </div>
               <p style={{ color: 'var(--text-2)', fontSize: 14, lineHeight: 1.5, marginBottom: 24 }}>
-                This task is assigned to <strong>{taskToRequest.assigneeName || 'someone else'}</strong>. You need their permission to move it.
+                <strong>{currentUser?.displayName || 'Someone'}</strong> is trying to move this task, but it is assigned to <strong>{taskToRequest.assigneeName || 'someone else'}</strong>.
+                You need their permission to move it.
                 Would you like to send them a request?
               </p>
               <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>

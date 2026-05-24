@@ -13,7 +13,8 @@ import {
   serverTimestamp,
   arrayUnion,
   Unsubscribe,
-  limit
+  limit,
+  increment
 } from 'firebase/firestore';
 import { db } from './config';
 import { Chat, ChatMessage, MSDEVUser } from '@/types';
@@ -69,29 +70,199 @@ export const startDirectChat = async (currentUser: MSDEVUser, targetUser: { uid:
   return chatRef.id;
 };
 
-export const sendMessage = async (chatId: string, senderId: string, text: string) => {
-  if (!text.trim()) return;
-
+export const sendMessage = async (
+  chatId: string, 
+  senderId: string, 
+  text: string, 
+  mediaUrl?: string, 
+  mediaType?: 'image' | 'audio' | 'file'
+) => {
   const messagesRef = collection(db, `chats/${chatId}/messages`);
-  
-  // Add the message
   await addDoc(messagesRef, {
     chatId,
     senderId,
-    text: text.trim(),
+    text,
+    ...(mediaUrl ? { mediaUrl } : {}),
+    ...(mediaType ? { mediaType } : {}),
     readBy: [senderId],
-    createdAt: serverTimestamp()
+    createdAt: serverTimestamp(),
   });
 
-  // Update the parent chat document with the last message
-  await updateDoc(doc(db, 'chats', chatId), {
-    lastMessage: {
-      text: text.trim(),
-      senderId,
-      createdAt: serverTimestamp()
-    },
-    updatedAt: serverTimestamp()
+  // Update the parent chat document with the last message and increment unread counts
+  const chatRef = doc(db, 'chats', chatId);
+  const chatSnap = await getDoc(chatRef);
+  if (chatSnap.exists()) {
+    const chatData = chatSnap.data() as Chat;
+    const updates: Record<string, any> = {
+      lastMessage: {
+        text: text.trim(),
+        senderId,
+        createdAt: serverTimestamp()
+      },
+      updatedAt: serverTimestamp()
+    };
+    
+    // Increment unread count for everyone except the sender
+    chatData.participants.forEach(p => {
+      if (p !== senderId) {
+        updates[`unreadCounts.${p}`] = increment(1);
+      }
+    });
+
+    await updateDoc(chatRef, updates);
+  }
+};
+
+export const sendProjectSystemMessage = async (
+  projectId: string,
+  systemType: 'task_update' | 'task_assignment' | 'meeting_invite',
+  text: string,
+  systemData: any,
+  actorId?: string // Optional: if an actor is responsible, their ID is the senderId so it appears on the right side if it's the current user
+) => {
+  const chatId = `project_${projectId}`;
+  const senderId = actorId || 'system';
+  const messagesRef = collection(db, `chats/${chatId}/messages`);
+  
+  await addDoc(messagesRef, {
+    chatId,
+    senderId,
+    text,
+    isSystem: true,
+    systemType,
+    systemData,
+    readBy: [senderId],
+    createdAt: serverTimestamp(),
   });
+
+  const chatRef = doc(db, 'chats', chatId);
+  const chatSnap = await getDoc(chatRef);
+  if (chatSnap.exists()) {
+    const chatData = chatSnap.data() as Chat;
+    const updates: Record<string, any> = {
+      lastMessage: {
+        text: text.trim(),
+        senderId,
+        createdAt: serverTimestamp()
+      },
+      updatedAt: serverTimestamp()
+    };
+    
+    chatData.participants.forEach(p => {
+      if (p !== senderId) {
+        updates[`unreadCounts.${p}`] = increment(1);
+      }
+    });
+
+    await updateDoc(chatRef, updates);
+  }
+};
+
+export const markChatAsRead = async (chatId: string, userId: string) => {
+  await updateDoc(doc(db, 'chats', chatId), {
+    [`unreadCounts.${userId}`]: 0
+  });
+};
+
+import { writeBatch, deleteDoc } from 'firebase/firestore';
+
+export const markMessagesAsRead = async (chatId: string, userId: string, messages: ChatMessage[]) => {
+  const unreadMessages = messages.filter(m => !m.readBy?.includes(userId));
+  if (unreadMessages.length === 0) return;
+  
+  const batch = writeBatch(db);
+  unreadMessages.slice(0, 500).forEach(m => {
+    const ref = doc(db, `chats/${chatId}/messages`, m.id);
+    batch.update(ref, {
+      readBy: arrayUnion(userId)
+    });
+  });
+  
+  await batch.commit();
+};
+
+export const deleteMessage = async (chatId: string, messageId: string) => {
+  await updateDoc(doc(db, `chats/${chatId}/messages`, messageId), {
+    isDeleted: true,
+    text: '' // Optional: clear the text to save space and ensure privacy
+  });
+};
+
+export const editMessage = async (chatId: string, messageId: string, newText: string) => {
+  await updateDoc(doc(db, `chats/${chatId}/messages`, messageId), {
+    text: newText,
+    isEdited: true
+  });
+};
+
+export const clearChatMessages = async (chatId: string) => {
+  const messagesRef = collection(db, `chats/${chatId}/messages`);
+  const snapshot = await getDocs(messagesRef);
+  const batch = writeBatch(db);
+  snapshot.docs.forEach(docSnap => {
+    batch.delete(docSnap.ref);
+  });
+  await batch.commit();
+};
+
+import { getStorageInstance } from './config';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+
+export const uploadChatMedia = async (chatId: string, file: File, type: 'image' | 'audio' | 'file'): Promise<string> => {
+  const storage = await getStorageInstance();
+  if (!storage) throw new Error('Firebase Storage is not available');
+  
+  const ext = file.name ? file.name.split('.').pop() : (type === 'audio' ? 'webm' : 'bin');
+  const filename = `${Date.now()}_${Math.random().toString(36).substring(7)}.${ext}`;
+  const fileRef = ref(storage, `chats/${chatId}/${filename}`);
+  
+  await uploadBytes(fileRef, file);
+  return getDownloadURL(fileRef);
+};
+
+import { Project } from '@/types';
+
+export const syncProjectGroupChats = async (projects: Project[]) => {
+  for (const project of projects) {
+    if (!project || !project.id || !project.members) continue;
+
+    const chatId = `project_${project.id}`;
+    const chatRef = doc(db, 'chats', chatId);
+    const snap = await getDoc(chatRef);
+    
+    const memberUids = Object.keys(project.members).filter(uid => project.members[uid] !== null);
+    const participantDetails: Record<string, any> = {};
+    for (const uid of memberUids) {
+      const m = project.members[uid];
+      participantDetails[uid] = {
+        displayName: m.displayName,
+        photoURL: m.photoURL,
+        email: m.email
+      };
+    }
+
+    if (!snap.exists()) {
+      await setDoc(chatRef, {
+        id: chatId,
+        type: 'group',
+        projectId: project.id,
+        name: `${project.name} Team`,
+        participants: memberUids,
+        participantDetails,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+    } else {
+      const chatData = snap.data() as Chat;
+      const newParticipants = Array.from(new Set([...(chatData.participants || []), ...memberUids]));
+      
+      await updateDoc(chatRef, {
+        participants: newParticipants,
+        participantDetails: { ...(chatData.participantDetails || {}), ...participantDetails },
+        name: `${project.name} Team`
+      });
+    }
+  }
 };
 
 export const subscribeToUserChats = (
@@ -145,8 +316,6 @@ export const subscribeToChatMessages = (
 export const searchUsersByEmail = async (emailQuery: string): Promise<any[]> => {
   if (!emailQuery.trim()) return [];
   
-  // Basic substring search is hard in Firestore, so we do a prefix search or fetch all and filter if small.
-  // Assuming a smallish user base for now, or just prefix search on email.
   const lowerQuery = emailQuery.toLowerCase();
   
   const q = query(

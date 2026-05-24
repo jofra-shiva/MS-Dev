@@ -1,59 +1,456 @@
 'use client';
 import { useEffect, useState, useRef } from 'react';
 import { useAuth } from '@/lib/hooks/useAuth';
-import { Chat, ChatMessage } from '@/types';
-import { subscribeToUserChats, subscribeToChatMessages, sendMessage, startDirectChat, searchUsersByEmail } from '@/lib/firebase/chat';
-import { format } from 'date-fns';
+import { Chat, ChatMessage, Project } from '@/types';
+import { 
+  subscribeToUserChats, 
+  subscribeToChatMessages, 
+  sendMessage, 
+  startDirectChat, 
+  searchUsersByEmail, 
+  markChatAsRead, 
+  syncProjectGroupChats,
+  markMessagesAsRead,
+  deleteMessage,
+  editMessage,
+  clearChatMessages,
+  uploadChatMedia
+} from '@/lib/firebase/chat';
+import { subscribeToUserProjects, subscribeToTasks } from '@/lib/firebase/firestore';
+import { format, isToday, isYesterday } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
+import Link from 'next/link';
+import MSLoader from '@/components/ui/MSLoader';
+
+// Helper to format date like WhatsApp
+const formatMessageDate = (date: Date) => {
+  if (isToday(date)) return format(date, 'HH:mm');
+  if (isYesterday(date)) return 'Yesterday';
+  return format(date, 'dd/MM/yyyy');
+};
+
+// Helper to generate dynamic colors from string
+const getColorFromName = (name: string) => {
+  const colors = [
+    '#3b82f6', '#10b981', '#f59e0b', '#ef4444', 
+    '#8b5cf6', '#ec4899', '#06b6d4', '#6366f1'
+  ];
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  return colors[Math.abs(hash) % colors.length];
+};
+
+// Helper to get up to 2 initials from a name
+const getInitials = (name: string) => {
+  if (!name) return 'G';
+  const parts = name.trim().split(/\s+/);
+  if (parts.length >= 2) {
+    return (parts[0][0] + parts[1][0]).toUpperCase();
+  }
+  return name.substring(0, 2).toUpperCase();
+};
+
+const getAuraGradient = (name: string) => {
+  const hash = Array.from(name || '').reduce((acc, char) => acc + char.charCodeAt(0), 0) % 6;
+  const gradients = [
+    'linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)', // Blue to Purple
+    'linear-gradient(135deg, #10b981 0%, #059669 100%)', // Emerald
+    'linear-gradient(135deg, #f59e0b 0%, #ea580c 100%)', // Amber to Orange
+    'linear-gradient(135deg, #ec4899 0%, #e11d48 100%)', // Pink to Rose
+    'linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%)', // Sky to Blue
+    'linear-gradient(135deg, #8b5cf6 0%, #d946ef 100%)', // Violet to Fuchsia
+  ];
+  return gradients[hash];
+};
+
+// Helper to parse Task Mentions in text (e.g. TASK-123 or task-123) and @mentions
+const renderMessageText = (text: string, projectId?: string, onUserClick?: (name: string) => void) => {
+  const regex = /(\[Module:\s*[^\]]+\]|\[Task:\s*[^\]]+\]|(?:#)?TASK-\d+|@[^\s]+)/gi;
+  const parts = text.split(regex);
+  
+  return parts.map((part, i) => {
+    if (part.startsWith('[Module:')) {
+      const moduleName = part.replace('[Module:', '').replace(']', '').trim();
+      return <span key={i} style={{ color: '#d946ef', fontWeight: 600, background: 'rgba(217,70,239,0.1)', padding: '2px 6px', borderRadius: 6 }}>🧩 {moduleName}</span>;
+    }
+    if (part.startsWith('[Task:')) {
+      const taskId = part.replace('[Task:', '').replace(']', '').trim();
+      const url = projectId ? `/projects/${projectId}/kanban?ticket=${taskId}` : '#';
+      return (
+        <Link key={i} href={url} style={{ color: '#3b82f6', textDecoration: 'none', fontWeight: 600, background: 'rgba(59,130,246,0.1)', padding: '2px 6px', borderRadius: 6 }}>
+          📋 {taskId}
+        </Link>
+      );
+    }
+    if (part.toUpperCase().startsWith('TASK-') || part.toUpperCase().startsWith('#TASK-')) {
+      const url = projectId ? `/projects/${projectId}/kanban?ticket=${part.replace('#', '').toUpperCase()}` : '#';
+      return (
+        <Link key={i} href={url} style={{ color: '#53bdeb', textDecoration: 'none', fontWeight: 600 }}>
+          {part.toUpperCase()}
+        </Link>
+      );
+    }
+    if (part.startsWith('@')) {
+      const name = part.slice(1);
+      return (
+        <span 
+          key={i} 
+          onClick={() => onUserClick?.(name)}
+          style={{ color: '#00a884', fontWeight: 600, background: 'rgba(0,168,132,0.1)', padding: '0 4px', borderRadius: 4, cursor: 'pointer' }}
+        >
+          {part}
+        </span>
+      );
+    }
+    return <span key={i}>{part}</span>;
+  });
+};
+
+const AuraOrb = () => (
+  <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+    {/* Outer Ring Animation */}
+    <svg viewBox="0 0 100 100" style={{ position: 'absolute', width: 140, height: 140 }}>
+      <motion.circle 
+        cx="50" cy="50" r="48"
+        fill="none"
+        stroke="rgba(83, 189, 235, 0.4)"
+        strokeWidth="1.5"
+        strokeDasharray="300"
+        initial={{ strokeDashoffset: 300, rotate: -90 }}
+        animate={{ strokeDashoffset: 0, rotate: 270 }}
+        transition={{ duration: 1.2, ease: "easeInOut" }}
+      />
+    </svg>
+
+    {/* Aura Glow */}
+    <motion.div
+      initial={{ opacity: 0, scale: 0.5 }}
+      animate={{ opacity: 0.6, scale: 1 }}
+      transition={{ delay: 0.3, duration: 0.8, ease: "easeOut" }}
+      style={{
+        position: 'absolute',
+        width: 80, height: 80,
+        borderRadius: '50%',
+        background: 'linear-gradient(135deg, #3b82f6, #14b8a6)',
+        filter: 'blur(20px)',
+      }}
+    />
+    
+    {/* Logo Text */}
+    <motion.div
+      initial={{ opacity: 0, scale: 0.9, y: 5 }}
+      animate={{ opacity: 1, scale: 1, y: 0 }}
+      transition={{ delay: 0.5, duration: 0.5, ease: "easeOut" }}
+      style={{
+        color: '#e9edef',
+        fontSize: 26,
+        fontWeight: 600,
+        letterSpacing: 1.5,
+        zIndex: 1,
+        textShadow: '0 2px 10px rgba(0,0,0,0.5)'
+      }}
+    >
+      <span style={{ color: '#53bdeb' }}>MS</span>-Dev
+    </motion.div>
+  </div>
+);
 
 export default function MessagesPage() {
   const { user } = useAuth();
   const [chats, setChats] = useState<Chat[]>([]);
   const [activeChat, setActiveChat] = useState<Chat | null>(null);
+  const [loadingChatId, setLoadingChatId] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [messageText, setMessageText] = useState('');
+  
+  // Advanced features state
+  const [replyToMessage, setReplyToMessage] = useState<ChatMessage | null>(null);
+  const [editingMessage, setEditingMessage] = useState<ChatMessage | null>(null);
+  const [hoveredMessageId, setHoveredMessageId] = useState<string | null>(null);
+  const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
+  const [messageToDelete, setMessageToDelete] = useState<string | null>(null);
+  
+  // Projects sync
+  const [projects, setProjects] = useState<Project[]>([]);
+  
+  // Filter state
+  const [filter, setFilter] = useState<'all' | 'unread' | 'groups'>('all');
   
   // Search state
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [searching, setSearching] = useState(false);
+  
+  // Chat List Filtering
+  const [chatListQuery, setChatListQuery] = useState('');
+
+  // Message Search
+  const [isMessageSearchOpen, setIsMessageSearchOpen] = useState(false);
+  const [messageSearchQuery, setMessageSearchQuery] = useState('');
+  const [isChatMenuOpen, setIsChatMenuOpen] = useState(false);
+
+  // Media & Recording State
+  const [isUploadingMedia, setIsUploadingMedia] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Media Preview State
+  const [selectedMediaPreview, setSelectedMediaPreview] = useState<{file: File, url: string, type: 'image'|'file'} | null>(null);
+
+  // Advanced Mentions
+  const [mentionMode, setMentionMode] = useState<'idle' | 'type_select' | 'users' | 'modules' | 'tasks'>('idle');
+  const [mentionQuery, setMentionQuery] = useState('');
+  const [mentionIndex, setMentionIndex] = useState(0);
+
+  // Active Project Data
+  const [activeProjectTasks, setActiveProjectTasks] = useState<Task[]>([]);
+  const [selectedUserProfile, setSelectedUserProfile] = useState<any | null>(null);
+
+  // Mouse Interactive Animation State
+  const [fillAmount, setFillAmount] = useState(0);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const visitedChats = useRef<Set<string>>(new Set());
+  const [initialLoadFinished, setInitialLoadFinished] = useState(false);
 
+  // Load user projects and sync group chats
+  useEffect(() => {
+    if (!user) return;
+    return subscribeToUserProjects(user.uid, (projs) => {
+      setProjects(projs);
+      syncProjectGroupChats(projs).catch(console.error);
+    });
+  }, [user]);
+
+  // Load user chats
   useEffect(() => {
     if (!user) return;
     const unsub = subscribeToUserChats(user.uid, setChats);
     return unsub;
   }, [user]);
 
+  // Handle Active Chat changes
   useEffect(() => {
-    if (!activeChat) {
+    if (!activeChat || !user) {
       setMessages([]);
+      setReplyToMessage(null);
+      setEditingMessage(null);
+      setMentionQuery(null);
       return;
     }
-    const unsub = subscribeToChatMessages(activeChat.id, setMessages);
-    return unsub;
-  }, [activeChat]);
+    
+    if (activeChat.unreadCounts?.[user.uid] > 0) {
+      markChatAsRead(activeChat.id, user.uid).catch(console.error);
+    }
 
-  // Scroll to bottom when messages change
+    const unsub = subscribeToChatMessages(activeChat.id, (fetchedMessages) => {
+      setMessages(fetchedMessages);
+    });
+
+    let unsubTasks: any = null;
+    if (activeChat.type === 'group' && activeChat.projectId) {
+      unsubTasks = subscribeToTasks(activeChat.projectId, setActiveProjectTasks);
+    } else {
+      setActiveProjectTasks([]);
+    }
+
+    return () => {
+      unsub();
+      if (unsubTasks) unsubTasks();
+    };
+  }, [activeChat, user]);
+
+  // Scroll to bottom and mark messages as read
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+    messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
+    
+    if (activeChat && user && messages.length > 0) {
+      if (activeChat.unreadCounts?.[user.uid] > 0) {
+        markChatAsRead(activeChat.id, user.uid).catch(console.error);
+      }
+      markMessagesAsRead(activeChat.id, user.uid, messages).catch(console.error);
+    }
+  }, [messages, activeChat, user]);
+
+  // MS Cinematic Loader Timer
+  useEffect(() => {
+    if (loadingChatId) {
+      const timer = setTimeout(() => {
+        setLoadingChatId(null);
+      }, 2800);
+      return () => clearTimeout(timer);
+    }
+  }, [loadingChatId]);
+
+  // Initial Landing Page Animation Timer
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setInitialLoadFinished(true);
+    }, 2800);
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Mouse Interactive Animation (Landing Page)
+  useEffect(() => {
+    if (activeChat) return;
+    
+    let lastX = 0;
+    let lastY = 0;
+    let lastTime = Date.now();
+    let currentFill = 0;
+    let animationFrameId: number;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const now = Date.now();
+      const dt = Math.max(1, now - lastTime);
+      const dx = e.clientX - lastX;
+      const dy = e.clientY - lastY;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      const speed = distance / dt; 
+
+      currentFill = Math.min(1, currentFill + speed * 0.08);
+      
+      lastX = e.clientX;
+      lastY = e.clientY;
+      lastTime = now;
+    };
+
+    const loop = () => {
+      currentFill = Math.max(0, currentFill - 0.003); // Slow decay
+      setFillAmount(currentFill);
+      animationFrameId = requestAnimationFrame(loop);
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    animationFrameId = requestAnimationFrame(loop);
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      cancelAnimationFrame(animationFrameId);
+    };
+  }, [activeChat]);
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!activeChat || !user || !messageText.trim()) return;
 
-    const text = messageText;
-    setMessageText(''); // Optimistic clear
-    
+    let finalMessage = messageText.trim();
+    if (replyToMessage) {
+      finalMessage = `> Replying to ${activeChat.participantDetails?.[replyToMessage.senderId]?.displayName || 'You'}:\n> ${replyToMessage.text}\n\n${finalMessage}`;
+    }
+
+    const currentText = messageText;
+    setMessageText('');
+    setReplyToMessage(null);
+
     try {
-      await sendMessage(activeChat.id, user.uid, text);
+      if (editingMessage) {
+        await editMessage(activeChat.id, editingMessage.id, currentText);
+        setEditingMessage(null);
+      } else {
+        await sendMessage(activeChat.id, user.uid, finalMessage);
+      }
     } catch (err: any) {
       toast.error('Failed to send message');
-      setMessageText(text); // Revert
+      setMessageText(currentText);
+    }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !activeChat || !user) return;
+    
+    const isImage = file.type.startsWith('image/');
+    const url = URL.createObjectURL(file);
+    setSelectedMediaPreview({ file, url, type: isImage ? 'image' : 'file' });
+    
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    if (!activeChat || !user) return;
+    const items = e.clipboardData.items;
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.indexOf('image') !== -1) {
+        const file = items[i].getAsFile();
+        if (file) {
+          const url = URL.createObjectURL(file);
+          setSelectedMediaPreview({ file, url, type: 'image' });
+          e.preventDefault();
+          break;
+        }
+      }
+    }
+  };
+
+  const confirmSendMedia = async () => {
+    if (!selectedMediaPreview || !activeChat || !user) return;
+    
+    setIsUploadingMedia(true);
+    const textToSend = messageText.trim() || selectedMediaPreview.file.name;
+    const currentPreview = selectedMediaPreview;
+    setSelectedMediaPreview(null);
+    setMessageText('');
+    
+    try {
+      const url = await uploadChatMedia(activeChat.id, currentPreview.file, currentPreview.type);
+      await sendMessage(activeChat.id, user.uid, textToSend, url, currentPreview.type);
+    } catch (err: any) {
+      toast.error('Failed to upload media');
+      console.error(err);
+    } finally {
+      setIsUploadingMedia(false);
+      URL.revokeObjectURL(currentPreview.url);
+    }
+  };
+
+  const toggleRecording = async () => {
+    if (!activeChat || !user) return;
+
+    if (isRecording) {
+      // Stop recording
+      if (mediaRecorderRef.current) {
+        mediaRecorderRef.current.stop();
+      }
+      setIsRecording(false);
+    } else {
+      // Start recording
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const mediaRecorder = new MediaRecorder(stream);
+        mediaRecorderRef.current = mediaRecorder;
+        audioChunksRef.current = [];
+
+        mediaRecorder.ondataavailable = (e) => {
+          if (e.data.size > 0) audioChunksRef.current.push(e.data);
+        };
+
+        mediaRecorder.onstop = async () => {
+          const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+          const file = new File([audioBlob], 'audio_message.webm', { type: 'audio/webm' });
+          stream.getTracks().forEach(track => track.stop()); // Stop mic usage
+
+          setIsUploadingMedia(true);
+          try {
+            const url = await uploadChatMedia(activeChat.id, file, 'audio');
+            await sendMessage(activeChat.id, user.uid, 'Voice message', url, 'audio');
+          } catch (err: any) {
+            toast.error('Failed to send audio message');
+          } finally {
+            setIsUploadingMedia(false);
+          }
+        };
+
+        mediaRecorder.start();
+        setIsRecording(true);
+      } catch (err) {
+        toast.error('Microphone access denied or unavailable');
+        console.error(err);
+      }
     }
   };
 
@@ -63,7 +460,6 @@ export default function MessagesPage() {
     setSearching(true);
     try {
       const results = await searchUsersByEmail(searchQuery);
-      // Filter out self
       setSearchResults(results.filter(r => r.uid !== user?.uid));
     } catch (err: any) {
       toast.error('Search failed');
@@ -80,89 +476,306 @@ export default function MessagesPage() {
         targetUser
       );
       
-      // Close modal and find the chat
       setIsSearchModalOpen(false);
       setSearchQuery('');
       setSearchResults([]);
       
-      // Automatically select the chat if it's already in the list
       const chat = chats.find(c => c.id === chatId);
-      if (chat) {
-        setActiveChat(chat);
-      } else {
-        // Will be picked up by the listener shortly
-        toast.success('Chat started!');
-      }
+      if (chat) setActiveChat(chat);
     } catch (err: any) {
       toast.error('Failed to start chat');
     }
+  };
+
+  const handleDeleteClick = (messageId: string) => {
+    setMessageToDelete(messageId);
+    setOpenDropdownId(null);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!activeChat || !messageToDelete) return;
+    try {
+      await deleteMessage(activeChat.id, messageToDelete);
+    } catch (e) {
+      toast.error('Failed to delete message');
+    } finally {
+      setMessageToDelete(null);
+    }
+  };
+
+  const handleEditMessageClick = (msg: ChatMessage) => {
+    setEditingMessage(msg);
+    setMessageText(msg.text);
+    setOpenDropdownId(null);
   };
 
   const getOtherParticipant = (chat: Chat) => {
     if (!user) return null;
     const otherId = chat.participants.find(p => p !== user.uid);
     if (!otherId) return null;
-    return chat.participantDetails[otherId];
+    return chat.participantDetails?.[otherId];
+  };
+
+  const getSenderName = (senderId: string) => {
+    if (senderId === user?.uid) return 'You';
+    return activeChat?.participantDetails?.[senderId]?.displayName?.split(' ')[0] || 'Unknown';
+  };
+
+  const handleClearChat = async () => {
+    setIsChatMenuOpen(false);
+    if (!activeChat || !confirm('Are you sure you want to clear this chat? This will delete all messages for everyone.')) return;
+    try {
+      await clearChatMessages(activeChat.id);
+      toast.success('Chat cleared');
+    } catch (e) {
+      toast.error('Failed to clear chat');
+    }
+  };
+
+  const handleTextChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setMessageText(val);
+    
+    if (activeChat?.type === 'group') {
+      const lastAtPos = val.lastIndexOf('@');
+      if (lastAtPos !== -1 && (lastAtPos === 0 || val[lastAtPos - 1] === ' ')) {
+        const query = val.slice(lastAtPos + 1);
+        if (!query.includes(' ')) {
+          if (mentionMode === 'idle' || mentionMode === 'type_select') {
+            if (query === '') setMentionMode('type_select');
+            else setMentionMode('users'); // default fallback if they keep typing
+          }
+          setMentionQuery(query.toLowerCase());
+          setMentionIndex(0);
+          return;
+        }
+      }
+    }
+    setMentionMode('idle');
+  };
+
+  const getMentionableItems = () => {
+    if (mentionMode === 'users') {
+      return activeChat?.participants
+        .filter(uid => uid !== user?.uid)
+        .map(uid => activeChat?.participantDetails?.[uid])
+        .filter(p => p?.displayName?.toLowerCase().includes(mentionQuery)) || [];
+    }
+    if (mentionMode === 'modules') {
+      const activeProject = projects.find(p => p.id === activeChat?.projectId);
+      const allModules = activeProject?.customModules || [];
+      return allModules.filter(m => m.toLowerCase().includes(mentionQuery)).map(m => ({ type: 'module', name: m }));
+    }
+    if (mentionMode === 'tasks') {
+      return activeProjectTasks.filter(t => 
+        t.title.toLowerCase().includes(mentionQuery) || 
+        (t.ticketId || t.id).toLowerCase().includes(mentionQuery)
+      ).map(t => ({ type: 'task', id: t.ticketId || t.id, title: t.title }));
+    }
+    return [];
+  };
+
+  const mentionableItems = getMentionableItems();
+
+  const handleSelectMention = (item: any) => {
+    const lastAtPos = messageText.lastIndexOf('@');
+    let replacement = '';
+    
+    if (mentionMode === 'users' || item.email) { // user object
+      const mentionName = item.displayName.replace(/\s+/g, '');
+      replacement = `@${mentionName}`;
+    } else if (mentionMode === 'modules' || item.type === 'module') {
+      replacement = `[Module: ${item.name}]`;
+    } else if (mentionMode === 'tasks' || item.type === 'task') {
+      replacement = `[Task: ${item.id}]`;
+    }
+
+    const newText = messageText.slice(0, lastAtPos) + replacement + ' ' + messageText.slice(lastAtPos + mentionQuery.length + 1);
+    setMessageText(newText);
+    setMentionMode('idle');
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (mentionMode !== 'idle') {
+      if (mentionMode === 'type_select') {
+        if (e.key === 'Escape') setMentionMode('idle');
+        return;
+      }
+      if (mentionableItems.length > 0) {
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          setMentionIndex(prev => (prev + 1) % mentionableItems.length);
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          setMentionIndex(prev => (prev - 1 + mentionableItems.length) % mentionableItems.length);
+        } else if (e.key === 'Enter' || e.key === 'Tab') {
+          e.preventDefault();
+          handleSelectMention(mentionableItems[mentionIndex]);
+        } else if (e.key === 'Escape') {
+          setMentionMode('idle');
+        }
+      }
+    }
+  };
+
+  const handleUserClick = (mentionName: string) => {
+    if (activeChat?.type !== 'group') return;
+    const matchedUser = activeChat.participants
+      .map(uid => activeChat.participantDetails?.[uid])
+      .find(p => p?.displayName?.replace(/\s+/g, '') === mentionName);
+    
+    if (matchedUser) {
+      // Find the matched user's full UID by looking up in participantDetails
+      const matchedUid = activeChat.participants.find(uid => activeChat.participantDetails?.[uid]?.email === matchedUser.email);
+      setSelectedUserProfile({ ...matchedUser, uid: matchedUid });
+    }
   };
 
   if (!user) return null;
 
+  const filteredChats = chats.filter(chat => {
+    if (filter === 'unread' && (chat.unreadCounts?.[user.uid] || 0) === 0) return false;
+    if (filter === 'groups' && chat.type !== 'group') return false;
+    
+    if (chatListQuery.trim()) {
+      const isGroup = chat.type === 'group';
+      const q = chatListQuery.toLowerCase();
+      const other = !isGroup ? getOtherParticipant(chat) : null;
+      const displayName = isGroup ? chat.name || '' : (other?.displayName || 'Unknown');
+      if (!displayName.toLowerCase().includes(q)) return false;
+    }
+    return true;
+  });
+
   return (
-    <div style={{ height: 'calc(100dvh - 60px)', display: 'flex', overflow: 'hidden', background: 'var(--bg-primary)', margin: '-24px', borderTop: '1px solid var(--border-subtle)' }}>
+    <div style={{ 
+      height: 'calc(100dvh - 60px)', display: 'flex', overflow: 'hidden', 
+      margin: '-24px', background: '#0b141a'
+    }}>
       
-      {/* Sidebar (Chat List) */}
-      <div style={{ width: 340, borderRight: '1px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', background: 'var(--bg-elevated)', flexShrink: 0 }}>
-        <div style={{ padding: '16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border-subtle)' }}>
-          <h2 style={{ fontSize: 18, fontWeight: 800, margin: 0 }}>Messages</h2>
-          <button 
-            className="btn btn-secondary btn-sm" 
-            style={{ width: 32, height: 32, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%' }}
-            onClick={() => setIsSearchModalOpen(true)}
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 5v14M5 12h14"/></svg>
-          </button>
+      {/* ----------------------------- LEFT PANE (Chat List) ----------------------------- */}
+      <div style={{ width: 340, borderRight: '1px solid #222d34', display: 'flex', flexDirection: 'column', background: '#111b21', flexShrink: 0 }}>
+        
+        {/* Top Header */}
+        <div style={{ padding: '10px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#202c33', height: 59 }}>
+          <h2 style={{ fontSize: 22, fontWeight: 600, color: '#e9edef', margin: 0 }}>Chats</h2>
+          <div style={{ display: 'flex', gap: 16, color: '#aebac1' }}>
+            <button onClick={() => setIsSearchModalOpen(true)} style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', padding: 4 }}>
+              <div style={{ background: '#00a884', color: '#111b21', borderRadius: '50%', width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"></path></svg>
+              </div>
+            </button>
+          </div>
+        </div>
+
+        {/* Search Bar */}
+        <div style={{ padding: '8px 12px', borderBottom: '1px solid #222d34' }}>
+          <div style={{ background: '#202c33', borderRadius: 8, display: 'flex', alignItems: 'center', padding: '0 12px', height: 36 }}>
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="#aebac1"><path d="M15.009 13.805h-.636l-.22-.219a5.184 5.184 0 0 0 1.256-3.386 5.207 5.207 0 1 0-5.207 5.208 5.183 5.183 0 0 0 3.385-1.255l.221.22v.635l4.004 3.999 1.194-1.195-3.997-4.007zm-4.608 0a3.606 3.606 0 1 1 0-7.212 3.606 3.606 0 0 1 0 7.212z"></path></svg>
+            <input 
+              type="text" 
+              placeholder="Search or start new chat" 
+              value={chatListQuery}
+              onChange={(e) => setChatListQuery(e.target.value)}
+              style={{ background: 'transparent', border: 'none', color: '#d1d7db', fontSize: 14, marginLeft: 16, width: '100%', outline: 'none' }} 
+            />
+          </div>
+        </div>
+
+        {/* Filter Pills */}
+        <div style={{ padding: '8px 12px', display: 'flex', gap: 8, borderBottom: '1px solid #222d34' }}>
+          {(['all', 'unread', 'groups'] as const).map(f => (
+            <button 
+              key={f}
+              onClick={() => setFilter(f)}
+              style={{
+                background: filter === f ? '#0a332c' : '#202c33',
+                color: filter === f ? '#00a884' : '#8696a0',
+                border: 'none', borderRadius: 16, padding: '6px 14px', fontSize: 13, fontWeight: 500, cursor: 'pointer', textTransform: 'capitalize', transition: 'all 0.2s'
+              }}
+            >
+              {f}
+            </button>
+          ))}
         </div>
         
+        {/* Chat List */}
         <div style={{ overflowY: 'auto', flex: 1 }}>
-          {chats.length === 0 ? (
-            <div style={{ padding: 32, textAlign: 'center', color: 'var(--text-3)' }}>
-              <div style={{ fontSize: 32, marginBottom: 12 }}>💬</div>
-              <div style={{ fontSize: 13 }}>No conversations yet.</div>
-              <button className="btn btn-primary btn-sm" style={{ marginTop: 12 }} onClick={() => setIsSearchModalOpen(true)}>Start a Chat</button>
+          {filteredChats.length === 0 ? (
+            <div style={{ padding: 32, textAlign: 'center', color: '#8696a0' }}>
+              <div style={{ fontSize: 13 }}>No conversations found.</div>
             </div>
           ) : (
-            chats.map(chat => {
-              const other = getOtherParticipant(chat);
+            filteredChats.map(chat => {
+              const isGroup = chat.type === 'group';
+              const baseName = isGroup ? (chat.name || '').replace(' Team', '') : '';
+              const other = !isGroup ? getOtherParticipant(chat) : null;
               const isActive = activeChat?.id === chat.id;
+              const unread = chat.unreadCounts?.[user.uid] || 0;
+              
+              const displayName = isGroup ? chat.name || '' : (other?.displayName || 'Unknown');
+              const displayLastMessage = chat.lastMessage?.text || '';
               
               return (
                 <div 
                   key={chat.id} 
-                  onClick={() => setActiveChat(chat)}
+                  onClick={() => {
+                    if (activeChat?.id !== chat.id) {
+                      if (!visitedChats.current.has(chat.id)) {
+                        visitedChats.current.add(chat.id);
+                        setLoadingChatId(chat.id);
+                      }
+                      setActiveChat(chat);
+                    }
+                  }}
                   style={{ 
-                    display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', 
-                    cursor: 'pointer', borderBottom: '1px solid var(--border-subtle)',
-                    background: isActive ? 'var(--bg-active)' : 'transparent',
+                    display: 'flex', alignItems: 'center', gap: 14, padding: '0 12px', height: 72,
+                    cursor: 'pointer',
+                    background: isActive ? '#2a3942' : 'transparent',
                     transition: 'background 0.2s'
                   }}
-                  className="hover:bg-active"
+                  onMouseEnter={e => { if(!isActive) e.currentTarget.style.background = '#202c33' }}
+                  onMouseLeave={e => { if(!isActive) e.currentTarget.style.background = 'transparent' }}
                 >
-                  {other?.photoURL ? (
-                    <img src={other.photoURL} alt="" style={{ width: 44, height: 44, borderRadius: '50%', objectFit: 'cover' }} />
+                  {/* Avatar */}
+                  {isGroup ? (
+                    <div style={{
+                      width: 48, height: 48, borderRadius: '50%', flexShrink: 0,
+                      background: getAuraGradient(baseName),
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      boxShadow: '0 2px 8px rgba(0,0,0,0.3), inset 0 2px 2px rgba(255,255,255,0.2)',
+                      border: '1px solid rgba(255,255,255,0.1)'
+                    }}>
+                      <span style={{ color: '#fff', fontSize: 20, fontWeight: 700, textShadow: '0 2px 4px rgba(0,0,0,0.4)' }}>
+                        {baseName.charAt(0).toUpperCase()}
+                      </span>
+                    </div>
+                  ) : other?.photoURL ? (
+                    <img src={other.photoURL} alt="" style={{ width: 48, height: 48, borderRadius: '50%', objectFit: 'cover' }} />
                   ) : (
-                    <div style={{ width: 44, height: 44, borderRadius: '50%', background: 'var(--bg-elevated)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, color: 'var(--text-2)' }}>
-                      {other?.displayName?.charAt(0).toUpperCase() || '?'}
+                    <div style={{ width: 48, height: 48, borderRadius: '50%', background: '#6b7c85', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 600, color: '#fff', fontSize: 18 }}>
+                      {displayName.charAt(0).toUpperCase()}
                     </div>
                   )}
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                      <div className="truncate-1" style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-1)' }}>{other?.displayName || 'Unknown User'}</div>
-                      <div style={{ fontSize: 11, color: 'var(--text-3)' }}>
-                        {chat.lastMessage ? format(chat.lastMessage.createdAt, 'HH:mm') : ''}
+
+                  {/* Text Content */}
+                  <div style={{ flex: 1, minWidth: 0, paddingRight: 4, display: 'flex', flexDirection: 'column', justifyContent: 'center', height: '100%', borderBottom: isActive ? 'none' : '1px solid #222d34' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
+                      <div className="truncate-1" style={{ fontSize: 16, color: '#e9edef' }}>{displayName}</div>
+                      <div style={{ fontSize: 12, color: unread > 0 ? '#00a884' : '#8696a0' }}>
+                        {chat.lastMessage ? formatMessageDate(chat.lastMessage.createdAt) : ''}
                       </div>
                     </div>
-                    <div className="truncate-1" style={{ fontSize: 13, color: 'var(--text-2)' }}>
-                      {chat.lastMessage?.text || 'No messages yet'}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div className="truncate-1" style={{ fontSize: 14, color: '#8696a0' }}>
+                        {isGroup && chat.lastMessage && chat.lastMessage.senderId !== user.uid ? `${getSenderName(chat.lastMessage.senderId)}: ` : ''}
+                        {displayLastMessage}
+                      </div>
+                      {unread > 0 && (
+                        <div style={{ background: '#00a884', color: '#111b21', fontSize: 12, fontWeight: 600, borderRadius: 10, minWidth: 20, height: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 5px' }}>
+                          {unread}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -172,91 +785,403 @@ export default function MessagesPage() {
         </div>
       </div>
 
-      {/* Main Chat Area */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: 'var(--bg-primary)' }}>
+      {/* ----------------------------- RIGHT PANE (Active Chat) ----------------------------- */}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#0b141a', backgroundImage: 'url("https://static.whatsapp.net/rsrc.php/v3/yl/r/rTpj1hXF1wB.png")', backgroundRepeat: 'repeat', backgroundSize: '400px', position: 'relative', overflow: 'hidden' }}>
+        
+        {/* Cinematic MS Loader */}
+        <AnimatePresence>
+          {loadingChatId && (
+            <motion.div 
+              key="loader"
+              initial={{ opacity: 1 }}
+              exit={{ opacity: 0, scale: 2, filter: 'blur(15px)' }}
+              transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', width: '100%', position: 'absolute', inset: 0, background: '#0b141a', zIndex: 100 }}
+            >
+              <AuraOrb />
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Global Landing Page Aura Animation (First Load Only) */}
+        {!activeChat && !initialLoadFinished && (
+          <div style={{ position: 'absolute', inset: 0, background: '#0b141a', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
+            <AuraOrb />
+          </div>
+        )}
+
         {activeChat ? (
           <>
-            {/* Chat Header */}
-            <div style={{ padding: '12px 24px', borderBottom: '1px solid var(--border-subtle)', background: 'var(--bg-elevated)', display: 'flex', alignItems: 'center', gap: 12 }}>
-              {getOtherParticipant(activeChat)?.photoURL ? (
-                <img src={getOtherParticipant(activeChat)!.photoURL} alt="" style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover' }} />
-              ) : (
-                <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'var(--bg-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, color: 'var(--text-2)' }}>
-                  {getOtherParticipant(activeChat)?.displayName?.charAt(0).toUpperCase() || '?'}
+            {/* Header */}
+            <div style={{ padding: '10px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#202c33', height: 59, borderLeft: '1px solid #313d45' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                {activeChat.type === 'group' ? (
+                  <div style={{
+                    width: 40, height: 40, borderRadius: '50%', flexShrink: 0,
+                    background: getAuraGradient((activeChat.name || '').replace(' Team', '')),
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    boxShadow: '0 2px 6px rgba(0,0,0,0.2), inset 0 1px 1px rgba(255,255,255,0.3)',
+                    border: '1px solid rgba(0,0,0,0.1)'
+                  }}>
+                    <span style={{ color: '#fff', fontSize: 17, fontWeight: 700, textShadow: '0 1px 2px rgba(0,0,0,0.3)' }}>
+                      {(activeChat.name || '').replace(' Team', '').charAt(0).toUpperCase()}
+                    </span>
+                  </div>
+                ) : getOtherParticipant(activeChat)?.photoURL ? (
+                  <img src={getOtherParticipant(activeChat)!.photoURL} alt="" style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover' }} />
+                ) : (
+                  <div style={{ width: 40, height: 40, borderRadius: '50%', background: '#6b7c85', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 600, color: '#fff', fontSize: 16 }}>
+                    {getOtherParticipant(activeChat)?.displayName?.charAt(0).toUpperCase() || '?'}
+                  </div>
+                )}
+                
+                {/* Clickable Header */}
+                <div style={{ cursor: 'pointer' }}>
+                  {activeChat.type === 'group' ? (
+                    <Link href={`/projects/${activeChat.projectId}`} style={{ textDecoration: 'none' }}>
+                      <div style={{ fontSize: 16, color: '#e9edef' }}>{activeChat.name}</div>
+                      <div style={{ fontSize: 13, color: '#8696a0', marginTop: 1 }} className="truncate-1">
+                        {activeChat.participants.map(uid => uid === user.uid ? 'You' : activeChat.participantDetails?.[uid]?.displayName?.split(' ')[0]).join(', ')}
+                      </div>
+                    </Link>
+                  ) : (
+                    <>
+                      <div style={{ fontSize: 16, color: '#e9edef' }}>{getOtherParticipant(activeChat)?.displayName}</div>
+                    </>
+                  )}
                 </div>
-              )}
-              <div>
-                <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-1)' }}>{getOtherParticipant(activeChat)?.displayName}</div>
-                <div style={{ fontSize: 12, color: 'var(--text-3)' }}>{getOtherParticipant(activeChat)?.email}</div>
+              </div>
+
+              <div style={{ display: 'flex', gap: 16, color: '#aebac1', position: 'relative' }}>
+                <button onClick={() => setIsMessageSearchOpen(!isMessageSearchOpen)} style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', padding: 4 }}>
+                  <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M15.9 14.3H15l-.3-.3c1-1.1 1.6-2.7 1.6-4.3 0-3.7-3-6.7-6.7-6.7S3 6 3 9.7s3 6.7 6.7 6.7c1.6 0 3.2-.6 4.3-1.6l.3.3v.8l5.1 5.1 1.5-1.5-5-5.2zm-6.2 0c-2.6 0-4.6-2.1-4.6-4.6s2.1-4.6 4.6-4.6 4.6 2.1 4.6 4.6-2 4.6-4.6 4.6z"></path></svg>
+                </button>
+                <button onClick={() => setIsChatMenuOpen(!isChatMenuOpen)} style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', padding: 4 }}>
+                  <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M12 7a2 2 0 1 0-.001-4.001A2 2 0 0 0 12 7zm0 2a2 2 0 1 0-.001 3.999A2 2 0 0 0 12 9zm0 6a2 2 0 1 0-.001 3.999A2 2 0 0 0 12 15z"></path></svg>
+                </button>
+                
+                {/* Chat Menu */}
+                {isChatMenuOpen && (
+                  <div style={{ position: 'absolute', top: 32, right: 0, background: '#233138', borderRadius: 3, boxShadow: '0 2px 5px 0 rgba(11,20,26,.26),0 2px 10px 0 rgba(11,20,26,.16)', zIndex: 20, minWidth: 160, padding: '8px 0' }}>
+                    <div onClick={handleClearChat} style={{ padding: '10px 24px', fontSize: 14, color: '#d1d7db', cursor: 'pointer' }} className="hover-bg">Clear chat</div>
+                  </div>
+                )}
               </div>
             </div>
 
+            {/* Message Search Bar */}
+            {isMessageSearchOpen && (
+              <div style={{ background: '#202c33', padding: '8px 16px', display: 'flex', alignItems: 'center', borderLeft: '1px solid #313d45' }}>
+                <div style={{ flex: 1, background: '#2a3942', borderRadius: 8, display: 'flex', alignItems: 'center', padding: '0 12px', height: 36 }}>
+                  <input 
+                    type="text" 
+                    placeholder="Search messages..." 
+                    value={messageSearchQuery}
+                    onChange={(e) => setMessageSearchQuery(e.target.value)}
+                    style={{ background: 'transparent', border: 'none', color: '#d1d7db', fontSize: 14, width: '100%', outline: 'none' }}
+                    autoFocus
+                  />
+                  <button onClick={() => { setIsMessageSearchOpen(false); setMessageSearchQuery(''); }} style={{ background: 'none', border: 'none', color: '#8696a0', cursor: 'pointer', padding: 4 }}>
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M19.8 5.8l-1.6-1.6-6.2 6.2-6.2-6.2-1.6 1.6 6.2 6.2-6.2 6.2 1.6 1.6 6.2-6.2 6.2 6.2 1.6-1.6-6.2-6.2 6.2-6.2z"></path></svg>
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Messages Area */}
-            <div style={{ flex: 1, overflowY: 'auto', padding: '24px', display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {messages.map((msg, idx) => {
+            <div style={{ flex: 1, overflowY: 'auto', padding: '20px 4% 10px', display: 'flex', flexDirection: 'column', gap: 4 }} onClick={() => { setOpenDropdownId(null); setIsChatMenuOpen(false); }}>
+              {messages.filter(m => !messageSearchQuery || m.text.toLowerCase().includes(messageSearchQuery.toLowerCase())).map((msg, idx, arr) => {
                 const isMe = msg.senderId === user.uid;
-                const showAvatar = !isMe && (idx === 0 || messages[idx - 1].senderId !== msg.senderId);
+                const showTail = idx === 0 || messages[idx - 1].senderId !== msg.senderId;
+                const showName = !isMe && activeChat.type === 'group' && showTail;
+                const isHovered = hoveredMessageId === msg.id;
+                const isDropdownOpen = openDropdownId === msg.id;
                 
+                // Read receipts
+                const hasRead = msg.readBy && msg.readBy.length > 1;
+
+                if (msg.isSystem) {
+                  return (
+                    <div key={msg.id} style={{ display: 'flex', justifyContent: 'center', margin: '12px 0' }}>
+                      <div style={{ background: '#182229', padding: '12px 16px', borderRadius: 12, maxWidth: '85%', color: '#e9edef', fontSize: 14, textAlign: 'center', border: '1px solid #2a3942', boxShadow: '0 2px 8px rgba(0,0,0,0.15)' }}>
+                        {msg.systemType === 'meeting_invite' && msg.systemData ? (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'center' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#00a884', fontWeight: 600 }}>
+                              <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"></path></svg>
+                              Meeting Scheduled
+                            </div>
+                            <div style={{ fontSize: 16 }}>{msg.systemData.name}</div>
+                            <div style={{ color: '#8696a0', fontSize: 12 }}>{format(msg.createdAt, 'MMM d, yyyy h:mm a')}</div>
+                            <Link href={`/projects/${activeChat.projectId}/meetings/${msg.systemData.meetingId}`} style={{ background: '#00a884', color: '#111b21', textDecoration: 'none', padding: '8px 24px', borderRadius: 20, fontWeight: 600, marginTop: 4 }}>
+                              Join Meeting
+                            </Link>
+                          </div>
+                        ) : (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'center' }}>
+                            {msg.systemType === 'task_assignment' && <svg viewBox="0 0 24 24" width="18" height="18" fill="#53bdeb" style={{ flexShrink: 0 }}><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"></path></svg>}
+                            {msg.systemType === 'task_update' && <svg viewBox="0 0 24 24" width="18" height="18" fill="#00a884" style={{ flexShrink: 0 }}><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"></path></svg>}
+                            <span style={{ lineHeight: 1.4 }}>{renderMessageText(msg.text, activeChat.projectId, handleUserClick)}</span>
+                          </div>
+                        )}
+                        <div style={{ fontSize: 11, color: '#8696a0', marginTop: 8 }}>{format(msg.createdAt, 'HH:mm')}</div>
+                      </div>
+                    </div>
+                  );
+                }
+
                 return (
-                  <div key={msg.id} style={{ display: 'flex', flexDirection: 'column', alignItems: isMe ? 'flex-end' : 'flex-start' }}>
+                  <div 
+                    key={msg.id} 
+                    onMouseEnter={() => setHoveredMessageId(msg.id)}
+                    onMouseLeave={() => setHoveredMessageId(null)}
+                    style={{ display: 'flex', flexDirection: 'column', alignItems: isMe ? 'flex-end' : 'flex-start', marginBottom: showTail ? 8 : 2 }}
+                  >
                     <div style={{ 
-                      maxWidth: '70%', 
-                      padding: '10px 14px', 
-                      borderRadius: 16,
-                      borderBottomRightRadius: isMe ? 4 : 16,
-                      borderBottomLeftRadius: !isMe ? 4 : 16,
-                      background: isMe ? 'var(--accent)' : 'var(--bg-elevated)',
-                      color: isMe ? '#fff' : 'var(--text-1)',
-                      border: isMe ? 'none' : '1px solid var(--border-subtle)',
-                      boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
+                      maxWidth: '65%', 
+                      padding: '6px 7px 8px 9px', 
+                      borderRadius: 7.5,
+                      borderTopRightRadius: isMe && showTail ? 0 : 7.5,
+                      borderTopLeftRadius: !isMe && showTail ? 0 : 7.5,
+                      background: isMe ? '#005c4b' : '#202c33',
+                      color: '#e9edef',
+                      boxShadow: '0 1px 0.5px rgba(11,20,26,.13)',
                       position: 'relative'
                     }}>
-                      <div style={{ fontSize: 14, lineHeight: 1.5, wordBreak: 'break-word' }}>{msg.text}</div>
-                      <div style={{ fontSize: 10, color: isMe ? 'rgba(255,255,255,0.7)' : 'var(--text-3)', textAlign: 'right', marginTop: 4 }}>
+                      
+                      {/* Down Arrow for Dropdown */}
+                      {(isHovered || isDropdownOpen) && (
+                        <div 
+                          onClick={(e) => { e.stopPropagation(); setOpenDropdownId(isDropdownOpen ? null : msg.id); }}
+                          style={{ position: 'absolute', top: 0, right: 0, padding: '4px 6px', background: isMe ? 'linear-gradient(to right, transparent, #005c4b 20%)' : 'linear-gradient(to right, transparent, #202c33 20%)', borderRadius: '0 7.5px 0 0', cursor: 'pointer', zIndex: 10 }}
+                        >
+                          <svg viewBox="0 0 18 18" width="18" height="18" fill="rgba(255,255,255,0.6)"><path d="M3.3 4.6L9 10.3l5.7-5.7 1.6 1.6L9 13.6 1.7 6.2z"></path></svg>
+                        </div>
+                      )}
+
+                      {/* Dropdown Menu */}
+                      {isDropdownOpen && !msg.isDeleted && (
+                        <div style={{ position: 'absolute', top: 24, right: 0, background: '#233138', borderRadius: 3, boxShadow: '0 2px 5px 0 rgba(11,20,26,.26),0 2px 10px 0 rgba(11,20,26,.16)', zIndex: 20, minWidth: 120, padding: '8px 0' }}>
+                          <div onClick={() => { setReplyToMessage(msg); setOpenDropdownId(null); }} style={{ padding: '10px 24px', fontSize: 14, color: '#d1d7db', cursor: 'pointer' }} className="hover-bg">Reply</div>
+                          {isMe && (
+                            <>
+                              <div onClick={() => handleEditMessageClick(msg)} style={{ padding: '10px 24px', fontSize: 14, color: '#d1d7db', cursor: 'pointer' }} className="hover-bg">Edit</div>
+                              <div onClick={() => handleDeleteClick(msg.id)} style={{ padding: '10px 24px', fontSize: 14, color: '#d1d7db', cursor: 'pointer' }} className="hover-bg">Delete</div>
+                            </>
+                          )}
+                        </div>
+                      )}
+
+                      {showName && !msg.isDeleted && (
+                        <div style={{ fontSize: 13, fontWeight: 500, color: '#53bdeb', marginBottom: 2 }}>
+                          {activeChat.participantDetails?.[msg.senderId]?.displayName}
+                        </div>
+                      )}
+                      
+                      {msg.isDeleted ? (
+                        <div style={{ fontSize: 14.2, lineHeight: '19px', paddingRight: 30, fontStyle: 'italic', color: 'rgba(255,255,255,0.6)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5 11H7v-2h10v2z"></path></svg>
+                          {isMe ? 'You deleted this message' : `${activeChat.participantDetails?.[msg.senderId]?.displayName?.split(' ')[0]} deleted this message`}
+                        </div>
+                      ) : (
+                        <div style={{ paddingRight: 60, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                          {msg.mediaUrl ? (
+                            msg.mediaType === 'audio' ? (
+                              <audio src={msg.mediaUrl} controls style={{ maxWidth: '100%', height: 40 }} />
+                            ) : msg.mediaType === 'image' ? (
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                <img src={msg.mediaUrl} alt="" style={{ maxWidth: 300, maxHeight: 300, borderRadius: 8, cursor: 'pointer', objectFit: 'contain', background: '#111b21' }} onClick={() => window.open(msg.mediaUrl, '_blank')} />
+                                {msg.text !== 'Voice message' && msg.text !== 'File attachment' && msg.text !== 'Image' && <span style={{ fontSize: 14.2, lineHeight: '19px', whiteSpace: 'pre-wrap', wordWrap: 'break-word' }}>{renderMessageText(msg.text, activeChat.projectId, handleUserClick)}</span>}
+                              </div>
+                            ) : (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: isMe ? '#025144' : '#111b21', padding: '8px 12px', borderRadius: 8 }}>
+                                <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"></path></svg>
+                                <a href={msg.mediaUrl} target="_blank" rel="noreferrer" style={{ color: 'inherit', textDecoration: 'underline', fontSize: 14 }}>{msg.text}</a>
+                              </div>
+                            )
+                          ) : (
+                            <div style={{ fontSize: 14.2, lineHeight: '19px', whiteSpace: 'pre-wrap', wordWrap: 'break-word' }}>
+                              {renderMessageText(msg.text, activeChat.projectId, handleUserClick)}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', position: 'absolute', right: 7, bottom: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
+                        {!msg.isDeleted && msg.isEdited && <span style={{ fontStyle: 'italic', marginRight: 4 }}>Edited</span>}
                         {format(msg.createdAt, 'HH:mm')}
+                        {isMe && (
+                          hasRead ? (
+                            <svg viewBox="0 0 16 15" width="16" height="15" fill="#53bdeb"><path d="M15.01 3.316l-.478-.372a.365.365 0 0 0-.51.063L8.666 9.879a.32.32 0 0 1-.484.033l-.358-.325a.319.319 0 0 0-.484.032l-.378.483a.418.418 0 0 0 .036.541l1.32 1.266c.143.14.361.125.484-.033l6.272-8.048a.366.366 0 0 0-.064-.512zm-4.1 0l-.478-.372a.365.365 0 0 0-.51.063L4.566 9.879a.32.32 0 0 1-.484.033L1.891 7.769a.366.366 0 0 0-.515.006l-.423.433a.364.364 0 0 0 .006.514l3.258 3.185c.143.14.361.125.484-.033l6.272-8.048a.365.365 0 0 0-.063-.51z"></path></svg>
+                          ) : (
+                            <svg viewBox="0 0 16 15" width="16" height="15" fill="rgba(255,255,255,0.6)"><path d="M15.01 3.316l-.478-.372a.365.365 0 0 0-.51.063L8.666 9.879a.32.32 0 0 1-.484.033l-.358-.325a.319.319 0 0 0-.484.032l-.378.483a.418.418 0 0 0 .036.541l1.32 1.266c.143.14.361.125.484-.033l6.272-8.048a.366.366 0 0 0-.064-.512z"></path></svg>
+                          )
+                        )}
                       </div>
                     </div>
                   </div>
                 );
               })}
-              <div ref={messagesEndRef} />
+              <div ref={messagesEndRef} style={{ height: 1 }} />
             </div>
 
-            {/* Message Input */}
-            <div style={{ padding: '16px 24px', borderTop: '1px solid var(--border-subtle)', background: 'var(--bg-elevated)' }}>
-              <form onSubmit={handleSendMessage} style={{ display: 'flex', gap: 12 }}>
-                <input 
-                  type="text" 
-                  className="input" 
-                  style={{ flex: 1, borderRadius: 24, padding: '12px 20px' }} 
-                  placeholder="Type a message..." 
-                  value={messageText}
-                  onChange={(e) => setMessageText(e.target.value)}
-                  autoFocus
-                />
+            {/* Replying To / Editing Banner */}
+            {(replyToMessage || editingMessage) && (
+              <div style={{ background: '#202c33', padding: '8px 16px', borderBottom: '1px solid #111b21', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ background: '#0b141a', padding: '8px 12px', borderRadius: 8, borderLeft: '4px solid #00a884', flex: 1, marginRight: 16 }}>
+                  <div style={{ fontSize: 13, color: '#00a884', fontWeight: 600, marginBottom: 4 }}>
+                    {editingMessage ? 'Edit message' : `Replying to ${activeChat.participantDetails?.[replyToMessage!.senderId]?.displayName || 'You'}`}
+                  </div>
+                  <div style={{ fontSize: 13, color: '#aebac1' }} className="truncate-1">
+                    {editingMessage ? editingMessage.text : replyToMessage?.text}
+                  </div>
+                </div>
                 <button 
-                  type="submit" 
-                  className="btn btn-primary" 
-                  style={{ borderRadius: '50%', width: 48, height: 48, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                  disabled={!messageText.trim()}
+                  onClick={() => { setReplyToMessage(null); setEditingMessage(null); setMessageText(''); }} 
+                  style={{ background: 'none', border: 'none', color: '#8696a0', cursor: 'pointer' }}
                 >
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ transform: 'translateX(-1px) translateY(1px)' }}>
-                    <line x1="22" y1="2" x2="11" y2="13"></line>
-                    <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
-                  </svg>
+                  <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M19.8 5.8l-1.6-1.6-6.2 6.2-6.2-6.2-1.6 1.6 6.2 6.2-6.2 6.2 1.6 1.6 6.2-6.2 6.2 6.2 1.6-1.6-6.2-6.2 6.2-6.2z"></path></svg>
                 </button>
-              </form>
+              </div>
+            )}
+
+            {/* Input Area */}
+            <div style={{ padding: '10px 16px', background: '#202c33', display: 'flex', alignItems: 'center', gap: 16 }}>
+              <div style={{ display: 'flex', gap: 16, color: '#8696a0' }}>
+                <input type="file" ref={fileInputRef} onChange={handleFileChange} style={{ display: 'none' }} />
+                <button onClick={() => fileInputRef.current?.click()} style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', padding: 0 }} title="Attach file">
+                  <svg viewBox="0 0 24 24" width="26" height="26" fill="currentColor"><path d="M1.816 15.556v.002c0 1.502.584 2.912 1.646 3.972s2.472 1.647 3.974 1.647a5.58 5.58 0 0 0 3.972-1.645l9.547-9.548c.769-.768 1.147-1.767 1.058-2.817-.079-.968-.548-1.927-1.319-2.698-1.594-1.592-4.068-1.711-5.517-.262l-7.916 7.915c-.881.881-.792 2.25.214 3.261.959.958 2.423 1.053 3.263.215l5.511-5.512c.28-.28.267-.722.053-.936l-.244-.244c-.191-.191-.567-.349-.957.04l-5.506 5.506c-.18.18-.635.127-.976-.214-.098-.097-.576-.613-.213-.973l7.915-7.917c.818-.817 2.267-.699 3.23.262.5.501.802 1.1.849 1.685.051.573-.156 1.111-.589 1.543l-9.547 9.549a3.97 3.97 0 0 1-2.829 1.171 3.975 3.975 0 0 1-2.83-1.173 3.973 3.973 0 0 1-1.172-2.828c0-1.071.415-2.076 1.172-2.83l7.209-7.211c.157-.157.264-.579.028-.814L11.5 4.36a.57.57 0 0 0-.834.018l-7.205 7.207a5.577 5.577 0 0 0-1.645 3.971z"></path></svg>
+                </button>
+              </div>
+              <div style={{ flex: 1, position: 'relative', display: 'flex' }}>
+                {/* Mentions Dropdown */}
+                <AnimatePresence>
+                  {mentionMode !== 'idle' && (
+                    <motion.div 
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: 10 }}
+                      style={{ position: 'absolute', bottom: '100%', left: 16, marginBottom: 8, background: '#233138', borderRadius: 8, boxShadow: '0 2px 5px 0 rgba(11,20,26,.26),0 2px 10px 0 rgba(11,20,26,.16)', overflow: 'hidden', zIndex: 10, width: 300 }}
+                    >
+                      {mentionMode === 'type_select' ? (
+                        <div>
+                          <div style={{ padding: '8px 16px', fontSize: 13, color: '#8696a0', borderBottom: '1px solid #313d45' }}>What do you want to mention?</div>
+                          {[
+                            { id: 'users', icon: '👤', label: 'User' },
+                            { id: 'modules', icon: '🧩', label: 'Module' },
+                            { id: 'tasks', icon: '📋', label: 'Task' }
+                          ].map((opt, i) => (
+                            <div 
+                              key={opt.id} 
+                              onClick={() => { setMentionMode(opt.id as any); setMentionQuery(''); }}
+                              style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', cursor: 'pointer', background: mentionIndex === i ? '#111b21' : 'transparent' }}
+                              onMouseEnter={() => setMentionIndex(i)}
+                            >
+                              <span style={{ fontSize: 18 }}>{opt.icon}</span>
+                              <span style={{ color: '#e9edef', fontSize: 15 }}>Mention {opt.label}</span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div style={{ maxHeight: 200, overflowY: 'auto' }}>
+                          {mentionableItems.length === 0 ? (
+                            <div style={{ padding: '12px 16px', color: '#8696a0', fontSize: 14 }}>No matches found</div>
+                          ) : (
+                            mentionableItems.map((item, idx) => (
+                              <div 
+                                key={idx} 
+                                onClick={() => handleSelectMention(item)}
+                                style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 16px', cursor: 'pointer', background: idx === mentionIndex ? '#111b21' : 'transparent' }}
+                                onMouseEnter={() => setMentionIndex(idx)}
+                              >
+                                {mentionMode === 'users' ? (
+                                  <>
+                                    {item?.photoURL ? (
+                                      <img src={item.photoURL} alt="" style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover' }} />
+                                    ) : (
+                                      <div style={{ width: 32, height: 32, borderRadius: '50%', background: getColorFromName(item?.displayName || ''), display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 14, fontWeight: 600 }}>
+                                        {item?.displayName?.charAt(0).toUpperCase()}
+                                      </div>
+                                    )}
+                                    <div style={{ color: '#e9edef', fontSize: 15 }}>{item?.displayName}</div>
+                                  </>
+                                ) : mentionMode === 'modules' ? (
+                                  <>
+                                    <span style={{ fontSize: 18 }}>🧩</span>
+                                    <div style={{ color: '#e9edef', fontSize: 15 }}>{item.name}</div>
+                                  </>
+                                ) : (
+                                  <>
+                                    <span style={{ fontSize: 18 }}>📋</span>
+                                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                      <span style={{ color: '#3b82f6', fontSize: 13, fontWeight: 500 }}>{item.id}</span>
+                                      <span style={{ color: '#e9edef', fontSize: 14 }} className="truncate-1">{item.title}</span>
+                                    </div>
+                                  </>
+                                )}
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      )}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+                <form onSubmit={handleSendMessage} style={{ flex: 1, display: 'flex', alignItems: 'center' }}>
+                  {isRecording ? (
+                    <div style={{ flex: 1, background: '#2a3942', borderRadius: 8, padding: '9px 12px', display: 'flex', alignItems: 'center', gap: 12 }}>
+                      <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#ef4444', animation: 'pulse 1.5s infinite' }} />
+                      <span style={{ color: '#d1d7db', fontSize: 15 }}>Recording audio...</span>
+                    </div>
+                  ) : (
+                    <input
+                      type="text"
+                      value={messageText}
+                      onChange={handleTextChange}
+                      onKeyDown={handleKeyDown}
+                      onPaste={handlePaste}
+                      placeholder="Type a message or paste an image"
+                      style={{ width: '100%', background: 'transparent', border: 'none', color: '#e9edef', outline: 'none', fontSize: 15 }}
+                    />
+                  )}
+                </form>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                {messageText.trim() ? (
+                  <button onClick={handleSendMessage} disabled={!messageText.trim() || isUploadingMedia} style={{ background: 'none', border: 'none', color: '#8696a0', cursor: 'pointer', padding: 0 }}>
+                    <svg viewBox="0 0 24 24" width="26" height="26" fill="currentColor"><path d="M1.101 21.757L23.8 12.028 1.101 2.3l.011 7.912 13.623 1.816-13.623 1.817-.011 7.912z"></path></svg>
+                  </button>
+                ) : (
+                  <button onClick={toggleRecording} style={{ background: 'none', border: 'none', color: isRecording ? '#ef4444' : '#8696a0', cursor: 'pointer', padding: 0 }} title="Record voice message">
+                    <svg viewBox="0 0 24 24" width="26" height="26" fill="currentColor"><path d="M11.999 14.942c2.001 0 3.531-1.53 3.531-3.531V4.35c0-2.001-1.53-3.531-3.531-3.531S8.469 2.35 8.469 4.35v7.061c0 2.001 1.53 3.531 3.53 3.531zm6.238-3.53c0 3.531-2.942 6.002-6.237 6.002s-6.237-2.471-6.237-6.002H3.761c0 4.001 3.178 7.297 7.061 7.885v3.884h2.354v-3.884c3.884-.588 7.061-3.884 7.061-7.885h-2.002z"></path></svg>
+                  </button>
+                )}
+              </div>
             </div>
           </>
         ) : (
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'var(--text-3)' }}>
-            <div style={{ width: 120, height: 120, borderRadius: '50%', background: 'var(--bg-elevated)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 24 }}>
-              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#8696a0', background: '#222e35' }}>
+            <div style={{ width: 320, height: 200, marginBottom: 32, position: 'relative' }}>
+              {/* Background Arc */}
+              <svg viewBox="0 0 320 200" fill="none" style={{ position: 'absolute', inset: 0 }}>
+                <path d="M20 180 A 140 140 0 0 1 300 180" stroke="#111b21" strokeWidth="32" strokeLinecap="round" />
+              </svg>
+              {/* Interactive Foreground Arc */}
+              <svg viewBox="0 0 320 200" fill="none" style={{ position: 'absolute', inset: 0 }}>
+                <motion.path 
+                  d="M20 180 A 140 140 0 0 1 300 180" 
+                  stroke="#00a884" 
+                  strokeWidth="32" 
+                  strokeLinecap="round" 
+                  initial={{ pathLength: 0 }}
+                  animate={{ pathLength: fillAmount }}
+                  transition={{ type: 'tween', ease: 'easeOut', duration: 0.1 }}
+                />
               </svg>
             </div>
-            <h2 style={{ fontSize: 24, fontWeight: 700, color: 'var(--text-1)', marginBottom: 8 }}>MS-Dev Messages</h2>
-            <p style={{ fontSize: 14 }}>Select a conversation or start a new one.</p>
+            <h1 style={{ fontSize: 32, fontWeight: 300, color: '#e9edef', marginBottom: 16 }}>MS-Dev Web</h1>
+            <p style={{ fontSize: 14, lineHeight: 1.5, textAlign: 'center', maxWidth: 400 }}>
+              Send and receive messages seamlessly with your team.
+            </p>
           </div>
         )}
       </div>
@@ -264,60 +1189,205 @@ export default function MessagesPage() {
       {/* New Chat Modal */}
       <AnimatePresence>
         {isSearchModalOpen && (
-          <div className="modal-overlay" style={{ zIndex: 9999 }}>
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(11,20,26,0.85)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <motion.div 
               initial={{ opacity: 0, scale: 0.95 }} 
               animate={{ opacity: 1, scale: 1 }} 
               exit={{ opacity: 0, scale: 0.95 }} 
-              className="modal" 
-              style={{ width: '100%', maxWidth: 480, padding: 24 }}
+              style={{ width: '100%', maxWidth: 400, background: '#111b21', borderRadius: 12, padding: 24, boxShadow: '0 17px 50px 0 rgba(11,20,26,.19), 0 12px 15px 0 rgba(11,20,26,.24)' }}
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-                <h3 style={{ fontSize: 18, fontWeight: 700, margin: 0 }}>New Chat</h3>
-                <button className="btn btn-secondary btn-sm" onClick={() => setIsSearchModalOpen(false)}>Close</button>
+                <h3 style={{ fontSize: 18, fontWeight: 500, color: '#e9edef', margin: 0 }}>New chat</h3>
+                <button onClick={() => setIsSearchModalOpen(false)} style={{ background: 'none', border: 'none', color: '#8696a0', cursor: 'pointer', padding: 4 }}><svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M19.8 5.8l-1.6-1.6-6.2 6.2-6.2-6.2-1.6 1.6 6.2 6.2-6.2 6.2 1.6 1.6 6.2-6.2 6.2 6.2 1.6-1.6-6.2-6.2 6.2-6.2z"></path></svg></button>
               </div>
 
               <form onSubmit={handleSearchUsers} style={{ display: 'flex', gap: 10, marginBottom: 24 }}>
                 <input 
                   type="text" 
-                  className="input" 
-                  style={{ flex: 1 }} 
-                  placeholder="Search by email prefix..." 
+                  style={{ flex: 1, background: '#202c33', border: 'none', borderRadius: 8, padding: '9px 12px', color: '#d1d7db', fontSize: 15, outline: 'none' }} 
+                  placeholder="Search by email..." 
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   autoFocus
                 />
-                <button type="submit" className="btn btn-primary" disabled={searching || !searchQuery.trim()}>
+                <button type="submit" disabled={searching || !searchQuery.trim()} style={{ background: '#00a884', color: '#111b21', border: 'none', borderRadius: 8, padding: '0 16px', fontWeight: 600, cursor: 'pointer' }}>
                   {searching ? '...' : 'Search'}
                 </button>
               </form>
 
-              <div style={{ maxHeight: 300, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div style={{ maxHeight: 300, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
                 {searchResults.length === 0 ? (
-                  <div style={{ textAlign: 'center', padding: 20, color: 'var(--text-3)', fontSize: 13 }}>
+                  <div style={{ textAlign: 'center', padding: 20, color: '#8696a0', fontSize: 14 }}>
                     {searchQuery ? 'No users found.' : 'Enter an email to find users.'}
                   </div>
                 ) : (
                   searchResults.map(res => (
-                    <div key={res.uid} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', background: 'var(--bg-elevated)', borderRadius: 8, border: '1px solid var(--border-subtle)' }}>
+                    <div key={res.uid} onClick={() => handleStartChat(res)} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '12px 0', borderBottom: '1px solid #222d34', cursor: 'pointer' }}>
                       {res.photoURL ? (
-                        <img src={res.photoURL} alt="" style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover' }} />
+                        <img src={res.photoURL} alt="" style={{ width: 48, height: 48, borderRadius: '50%', objectFit: 'cover' }} />
                       ) : (
-                        <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'var(--bg-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, color: 'var(--text-2)' }}>
+                        <div style={{ width: 48, height: 48, borderRadius: '50%', background: '#6b7c85', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 600, color: '#fff', fontSize: 18 }}>
                           {res.displayName?.charAt(0).toUpperCase() || '?'}
                         </div>
                       )}
                       <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-1)' }}>{res.displayName}</div>
-                        <div style={{ fontSize: 12, color: 'var(--text-3)' }}>{res.email}</div>
+                        <div style={{ fontSize: 16, color: '#e9edef', marginBottom: 2 }}>{res.displayName}</div>
+                        <div style={{ fontSize: 14, color: '#8696a0' }}>{res.email}</div>
                       </div>
-                      <button className="btn btn-primary btn-sm" onClick={() => handleStartChat(res)}>Chat</button>
                     </div>
                   ))
                 )}
               </div>
             </motion.div>
           </div>
+        )}
+      </AnimatePresence>
+
+      {/* Custom Delete Confirmation Modal */}
+      <AnimatePresence>
+        {messageToDelete && (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(11,20,26,0.85)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }} 
+              animate={{ opacity: 1, scale: 1 }} 
+              exit={{ opacity: 0, scale: 0.95 }} 
+              style={{ width: '100%', maxWidth: 400, background: '#3b4a54', borderRadius: 3, padding: '22px 24px', boxShadow: '0 17px 50px 0 rgba(11,20,26,.19), 0 12px 15px 0 rgba(11,20,26,.24)' }}
+            >
+              <div style={{ fontSize: 15, color: '#d1d7db', marginBottom: 32 }}>
+                Delete message?
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
+                <button 
+                  onClick={() => setMessageToDelete(null)}
+                  style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', color: '#00a884', borderRadius: 24, padding: '8px 24px', fontSize: 14, fontWeight: 500, cursor: 'pointer' }}
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={handleConfirmDelete}
+                  style={{ background: '#00a884', border: 'none', color: '#111b21', borderRadius: 24, padding: '8px 24px', fontSize: 14, fontWeight: 500, cursor: 'pointer' }}
+                >
+                  Delete for me
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {selectedMediaPreview && (
+          <motion.div 
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            style={{ position: 'fixed', inset: 0, background: 'rgba(11, 20, 26, 0.95)', zIndex: 9999, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 40 }}
+          >
+            <div style={{ background: '#202c33', borderRadius: 12, padding: 24, maxWidth: 600, width: '100%', display: 'flex', flexDirection: 'column', gap: 24 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: '#e9edef' }}>
+                <h3 style={{ margin: 0, fontSize: 18 }}>Send Media</h3>
+                <button onClick={() => setSelectedMediaPreview(null)} style={{ background: 'none', border: 'none', color: '#8696a0', cursor: 'pointer' }}>
+                  <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M19.8 5.8l-1.6-1.6-6.2 6.2-6.2-6.2-1.6 1.6 6.2 6.2-6.2 6.2 1.6 1.6 6.2-6.2 6.2 6.2 1.6-1.6-6.2-6.2 6.2-6.2z"></path></svg>
+                </button>
+              </div>
+
+              <div style={{ background: '#111b21', borderRadius: 8, padding: 16, display: 'flex', justifyContent: 'center' }}>
+                {selectedMediaPreview.type === 'image' ? (
+                  <img src={selectedMediaPreview.url} alt="Preview" style={{ maxHeight: 400, maxWidth: '100%', objectFit: 'contain', borderRadius: 8 }} />
+                ) : (
+                  <div style={{ padding: 40, color: '#00a884', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
+                    <svg viewBox="0 0 24 24" width="48" height="48" fill="currentColor"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"></path></svg>
+                    <span style={{ color: '#e9edef', fontSize: 15 }}>{selectedMediaPreview.file.name}</span>
+                  </div>
+                )}
+              </div>
+
+              <div style={{ display: 'flex', gap: 12 }}>
+                <input 
+                  type="text" 
+                  placeholder="Add a caption..." 
+                  value={messageText}
+                  onChange={handleTextChange}
+                  style={{ flex: 1, background: '#2a3942', border: 'none', borderRadius: 8, padding: '12px 16px', color: '#e9edef', outline: 'none', fontSize: 15 }}
+                  autoFocus
+                  onKeyDown={e => { if (e.key === 'Enter') confirmSendMedia(); }}
+                />
+                <button 
+                  onClick={confirmSendMedia}
+                  disabled={isUploadingMedia}
+                  style={{ background: '#00a884', color: '#111b21', border: 'none', borderRadius: 8, width: 48, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: isUploadingMedia ? 'not-allowed' : 'pointer', opacity: isUploadingMedia ? 0.6 : 1 }}
+                >
+                  <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path></svg>
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* User Profile Modal */}
+      <AnimatePresence>
+        {selectedUserProfile && (
+          <motion.div 
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} 
+            style={{ position: 'fixed', inset: 0, background: 'rgba(11,20,26,0.85)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
+            onClick={() => setSelectedUserProfile(null)}
+          >
+            <motion.div 
+              initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 20 }}
+              onClick={e => e.stopPropagation()}
+              style={{ background: '#111b21', borderRadius: 16, width: '100%', maxWidth: 420, overflow: 'hidden', border: '1px solid #222d34', boxShadow: '0 8px 32px rgba(0,0,0,0.5)' }}
+            >
+              {/* Header */}
+              <div style={{ padding: 32, background: 'linear-gradient(180deg, #202c33 0%, #111b21 100%)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, position: 'relative' }}>
+                <button onClick={() => setSelectedUserProfile(null)} style={{ position: 'absolute', top: 16, right: 16, background: 'none', border: 'none', color: '#8696a0', cursor: 'pointer' }}>
+                  <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M19.8 5.8l-1.6-1.6-6.2 6.2-6.2-6.2-1.6 1.6 6.2 6.2-6.2 6.2 1.6 1.6 6.2-6.2 6.2 6.2 1.6-1.6-6.2-6.2 6.2-6.2z"></path></svg>
+                </button>
+                
+                {selectedUserProfile.photoURL ? (
+                  <img src={selectedUserProfile.photoURL} alt="" style={{ width: 96, height: 96, borderRadius: '50%', objectFit: 'cover', border: '4px solid #111b21', boxShadow: '0 4px 12px rgba(0,0,0,0.3)' }} />
+                ) : (
+                  <div style={{ width: 96, height: 96, borderRadius: '50%', background: getColorFromName(selectedUserProfile.displayName || ''), display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 36, color: '#fff', fontWeight: 'bold', border: '4px solid #111b21', boxShadow: '0 4px 12px rgba(0,0,0,0.3)' }}>
+                    {selectedUserProfile.displayName?.substring(0, 2).toUpperCase()}
+                  </div>
+                )}
+                
+                <div style={{ textAlign: 'center' }}>
+                  <h2 style={{ margin: 0, color: '#e9edef', fontSize: 24, fontWeight: 700 }}>{selectedUserProfile.displayName}</h2>
+                  <div style={{ color: '#8696a0', fontSize: 15, marginTop: 4 }}>{selectedUserProfile.email}</div>
+                </div>
+              </div>
+              
+              {/* Activity Section */}
+              <div style={{ padding: '0 24px 24px' }}>
+                <h3 style={{ margin: '0 0 16px 0', color: '#00a884', fontSize: 13, textTransform: 'uppercase', letterSpacing: 1.2, fontWeight: 600 }}>Project Activity</h3>
+                
+                {activeProjectTasks.filter(t => t.assigneeId === selectedUserProfile.uid).length === 0 ? (
+                  <div style={{ color: '#8696a0', fontSize: 14, textAlign: 'center', padding: '32px 0', background: '#202c33', borderRadius: 12 }}>
+                    No active tasks in this project.
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxHeight: 300, overflowY: 'auto', paddingRight: 8 }}>
+                    {activeProjectTasks.filter(t => t.assigneeId === selectedUserProfile.uid).map(task => (
+                      <Link href={`/projects/${activeChat?.projectId}/kanban?ticket=${task.ticketId || task.id}`} key={task.id} onClick={() => setSelectedUserProfile(null)} style={{ textDecoration: 'none' }}>
+                        <div style={{ background: '#202c33', padding: 16, borderRadius: 12, border: '1px solid #2a3942', transition: 'all 0.2s' }} className="hover-bg">
+                          <div style={{ color: '#e9edef', fontSize: 15, fontWeight: 500, marginBottom: 8, lineHeight: 1.4 }}>{task.title}</div>
+                          <div style={{ display: 'flex', gap: 8, fontSize: 12, alignItems: 'center' }}>
+                            <span style={{ color: '#3b82f6', background: 'rgba(59,130,246,0.1)', padding: '4px 8px', borderRadius: 6, fontWeight: 600 }}>{task.ticketId || task.id}</span>
+                            <span style={{ 
+                              color: task.status === 'completed' ? '#10b981' : task.status === 'in_progress' ? '#f59e0b' : '#8b5cf6',
+                              background: task.status === 'completed' ? 'rgba(16,185,129,0.1)' : task.status === 'in_progress' ? 'rgba(245,158,11,0.1)' : 'rgba(139,92,246,0.1)',
+                              padding: '4px 8px', borderRadius: 6, fontWeight: 600, textTransform: 'capitalize'
+                            }}>
+                              {task.status.replace('_', ' ')}
+                            </span>
+                          </div>
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          </motion.div>
         )}
       </AnimatePresence>
 

@@ -1,21 +1,28 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { subscribeToProject, subscribeToTasks, updateTask, deleteTask, logActivity, subscribeToMeetings } from '@/lib/firebase/firestore';
 import { Task, TaskStatus, Project, Meeting } from '@/types';
 import { useAuth } from '@/lib/hooks/useAuth';
 import KanbanBoard from '@/components/kanban/KanbanBoard';
 import CreateTaskModal from '@/components/tasks/CreateTaskModal';
+import TaskDetailModal from '@/components/tasks/TaskDetailModal';
 import toast from 'react-hot-toast';
 
 export default function KanbanPage() {
   const { projectId } = useParams<{ projectId: string }>();
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+  const ticketParam = searchParams.get('ticket');
+  
   const { user } = useAuth();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [selectedMeetingId, setSelectedMeetingId] = useState<string>('');
   const [project, setProject] = useState<Project | null>(null);
   const [showCreate, setShowCreate] = useState(false);
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -28,6 +35,14 @@ export default function KanbanPage() {
     });
     return () => { u1(); u2(); u3(); };
   }, [projectId]);
+
+  // Open TaskDetailModal if ticket param is present
+  useEffect(() => {
+    if (ticketParam && tasks.length > 0 && !selectedTask) {
+      const matchingTask = tasks.find(task => task.ticketId === ticketParam || task.id === ticketParam);
+      if (matchingTask) setSelectedTask(matchingTask);
+    }
+  }, [ticketParam, tasks, selectedTask]);
 
   const handleDeleteTask = async (taskId: string) => {
     try {
@@ -76,6 +91,13 @@ export default function KanbanPage() {
   const filteredTasks = selectedMeetingId === 'all' 
     ? tasks 
     : tasks.filter(t => t.meetingId === selectedMeetingId);
+
+  const handleCloseModal = () => {
+    setSelectedTask(null);
+    if (ticketParam) {
+      router.replace(pathname, { scroll: false });
+    }
+  };
 
   return (
     <div className="animate-fadeIn" style={{ display:'flex', flexDirection:'column', height:'calc(100vh - 64px)' }}>
@@ -127,9 +149,17 @@ export default function KanbanPage() {
         ? <div style={{ display:'flex', gap:16, flex:1 }}>
             {[1,2,3,4].map(i => <div key={i} className="skeleton" style={{ width:300, flexShrink:0, borderRadius:12 }} />)}
           </div>
-        : <KanbanBoard tasks={filteredTasks} projectId={projectId} project={project} onStatusChange={handleStatusChange} onDeleteTask={handleDeleteTask} />
+        : <KanbanBoard
+            tasks={filteredTasks}
+            projectId={projectId}
+            project={project}
+            currentUser={user ? { uid: user.uid, displayName: user.displayName || '' } : undefined}
+            onStatusChange={handleStatusChange}
+            onDeleteTask={handleDeleteTask}
+          />
       }
       {showCreate && <CreateTaskModal projectId={projectId} project={project} onClose={() => setShowCreate(false)} preselectedMeetingId={selectedMeetingId} />}
+      {selectedTask && <TaskDetailModal task={selectedTask} projectId={projectId} onClose={handleCloseModal} />}
     </div>
   );
 }

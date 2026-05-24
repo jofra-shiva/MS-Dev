@@ -21,6 +21,7 @@ import {
 } from 'firebase/firestore';
 import { db } from './config';
 import { Project, Task, ActivityLog, ActivityType, Comment } from '@/types';
+import { sendProjectSystemMessage } from './chat';
 
 // ─────────────────────────────────────────────
 // PROJECTS
@@ -132,6 +133,16 @@ export async function createTask(projectId: string, data: Omit<Task, 'id' | 'pro
     updatedAt: serverTimestamp()
   });
   
+  if (data.assigneeId) {
+    await sendProjectSystemMessage(
+      projectId, 
+      'task_assignment', 
+      `Assigned [Task: ${taskId}] to ${data.assigneeName}`, 
+      { taskId, title: data.title, assigneeId: data.assigneeId, assigneeName: data.assigneeName },
+      data.createdBy
+    );
+  }
+
   return taskId;
 }
 
@@ -140,6 +151,10 @@ export const updateTask = async (
   taskId: string,
   data: Partial<Task>
 ) => {
+  const taskRef = doc(db, `projects/${projectId}/tasks/${taskId}`);
+  const oldSnap = await getDoc(taskRef);
+  const oldTask = oldSnap.exists() ? (oldSnap.data() as Task) : null;
+
   const updates: Record<string, unknown> = {
     ...data,
     updatedAt: serverTimestamp(),
@@ -151,7 +166,32 @@ export const updateTask = async (
     updates.completedAt = null;
     updates.completedBy = null;
   }
-  await updateDoc(doc(db, `projects/${projectId}/tasks/${taskId}`), updates);
+  await updateDoc(taskRef, updates);
+
+  if (oldTask) {
+    if (data.status && oldTask.status !== data.status) {
+      const actorId = data.lastMovedBy?.uid || data.completedBy?.uid || undefined;
+      await sendProjectSystemMessage(
+        projectId,
+        'task_update',
+        `Moved [Task: ${taskId}] to ${data.status.replace('_', ' ')}`,
+        { taskId, title: data.title || oldTask.title, from: oldTask.status, to: data.status },
+        actorId
+      );
+    }
+    
+    if (data.assigneeId !== undefined && oldTask.assigneeId !== data.assigneeId) {
+      if (data.assigneeId) {
+        await sendProjectSystemMessage(
+          projectId,
+          'task_assignment',
+          `Reassigned [Task: ${taskId}] to ${data.assigneeName}`,
+          { taskId, title: data.title || oldTask.title, assigneeId: data.assigneeId, assigneeName: data.assigneeName },
+          data.lastMovedBy?.uid
+        );
+      }
+    }
+  }
 };
 
 export const deleteTask = async (projectId: string, taskId: string) => {
@@ -193,7 +233,13 @@ export const requestTaskMovePermission = async (
     title: 'Task Move Permission Requested',
     body: `${requesterName} wants to move your task "${taskTitle || 'Unknown'}". Please review and approve.`,
     projectId,
-    taskId
+    taskId,
+    metadata: {
+      requesterId,
+      requesterName,
+      assigneeId,
+      taskTitle: taskTitle || 'Unknown',
+    }
   });
 
   // Send email if assigneeEmail is provided
@@ -488,6 +534,15 @@ export async function createMeeting(projectId: string, data: Omit<import('@/type
       }
     }
   }
+
+  // Send meeting invite to group chat
+  await sendProjectSystemMessage(
+    projectId,
+    'meeting_invite',
+    `Scheduled a meeting: ${data.name}`,
+    { meetingId: ref.id, name: data.name, date: data.date, link: data.link },
+    data.createdBy
+  );
 
   return ref.id;
 }

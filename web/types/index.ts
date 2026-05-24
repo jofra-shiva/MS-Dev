@@ -281,8 +281,15 @@ export interface ChatMessage {
   chatId: string;
   senderId: string;
   text: string;
+  readBy: string[]; // array of UIDs who have read it
   createdAt: Date;
-  readBy: string[]; // array of UIDs who have read the message
+  isEdited?: boolean;
+  isDeleted?: boolean;
+  mediaUrl?: string;
+  mediaType?: 'image' | 'audio' | 'file';
+  isSystem?: boolean;
+  systemType?: 'task_update' | 'task_assignment' | 'meeting_invite';
+  systemData?: any;
 }
 
 export interface Chat {
@@ -290,6 +297,7 @@ export interface Chat {
   type: 'direct' | 'group';
   participants: string[]; // array of UIDs
   participantDetails: Record<string, { displayName: string; photoURL: string; email: string }>;
+  unreadCounts?: Record<string, number>;
   lastMessage?: {
     text: string;
     senderId: string;
