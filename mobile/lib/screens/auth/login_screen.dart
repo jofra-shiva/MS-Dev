@@ -1,3 +1,5 @@
+import 'package:msdev_mobile/widgets/ms_dev_loader.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -18,7 +20,13 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _googleSignIn() async {
     setState(() => _googleLoading = true);
     try {
-      final googleUser = await GoogleSignIn().signIn();
+      // Web requires explicit clientId; Android reads from google-services.json
+      final googleSignIn = GoogleSignIn(
+        clientId: kIsWeb
+            ? '332300816650-j80ocb0atipk2i9u304kgrth5du9f7rd.apps.googleusercontent.com'
+            : null,
+      );
+      final googleUser = await googleSignIn.signIn();
       if (googleUser == null) return;
       final googleAuth = await googleUser.authentication;
       final credential = GoogleAuthProvider.credential(
@@ -124,7 +132,7 @@ class _GoogleButton extends StatelessWidget {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
           foregroundColor: Colors.white,
         ),
-        icon: loading ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : Image.network('https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Google_%22G%22_logo.svg/768px-Google_%22G%22_logo.svg.png', width: 18, height: 18, errorBuilder: (_, __, ___) => const Icon(Icons.g_mobiledata)),
+        icon: loading ? const SizedBox(width: 18, height: 18, child: MsDevLoader(small: true, color: Colors.white)) : Image.network('https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Google_%22G%22_logo.svg/768px-Google_%22G%22_logo.svg.png', width: 18, height: 18, errorBuilder: (_, __, ___) => const Icon(Icons.g_mobiledata)),
         label: const Text('Continue with Google', style: TextStyle(fontWeight: FontWeight.w600)),
       ),
     );

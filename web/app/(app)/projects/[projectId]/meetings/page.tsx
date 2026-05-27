@@ -1,19 +1,21 @@
 'use client';
 
 import { use, useEffect, useState } from 'react';
-import { subscribeToProject, subscribeToMeetings, subscribeToTasks, updateMeeting, deleteMeeting, createMeeting } from '@/lib/firebase/firestore';
+import { subscribeToProject, subscribeToMeetings, subscribeToTasks, updateMeeting, deleteMeeting, createMeeting, endMeetingGlobally } from '@/lib/firebase/firestore';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { Project, Meeting, Task } from '@/types';
 import toast from 'react-hot-toast';
+import { motion, AnimatePresence } from 'framer-motion';
+
 
 const suggestNextName = (lastName: string) => {
-  if (!lastName) return '';
+  if (!lastName) return 'Phase 1';
   const match = lastName.match(/^(.*?)(\d+)$/);
   if (match) {
     const num = parseInt(match[2], 10);
     return `${match[1]}${num + 1}`;
   }
-  return '';
+  return `${lastName} 2`;
 };
 
 export default function MeetingsPage({ params }: { params: Promise<{ projectId: string }> | { projectId: string } }) {
@@ -28,6 +30,7 @@ export default function MeetingsPage({ params }: { params: Promise<{ projectId: 
   const [isCreating, setIsCreating] = useState(false);
   const [showDailyMeetingPrompt, setShowDailyMeetingPrompt] = useState(false);
   const [meetingToDelete, setMeetingToDelete] = useState<string | null>(null);
+  const [meetingToEnd, setMeetingToEnd] = useState<string | null>(null);
 
   useEffect(() => {
     const unsubProject = subscribeToProject(projectId, setProject);
@@ -47,7 +50,7 @@ export default function MeetingsPage({ params }: { params: Promise<{ projectId: 
   const sortedMeetings = [...meetings].sort((a, b) => b.date.getTime() - a.date.getTime());
   const lastMeetingName = sortedMeetings.length > 0 ? sortedMeetings[0].name : '';
   const lastMeetingLink = sortedMeetings.length > 0 ? sortedMeetings[0].link : '';
-  const suggestedName = suggestNextName(lastMeetingName) || `Daily Sync - ${new Date().toLocaleDateString('en-US', { weekday: 'short' })}`;
+  const suggestedName = suggestNextName(lastMeetingName);
   const suggestedLink = lastMeetingLink || project.liveUrl || '';
 
   const handleSaveMeeting = async (e: React.FormEvent, meetingData: any, isNew: boolean) => {
@@ -164,14 +167,32 @@ export default function MeetingsPage({ params }: { params: Promise<{ projectId: 
                         {m.date.toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
                       </span>
                     </div>
-                    {m.link && (
+                    {m.link && !m.endedAt && (
                       <a href={m.link} target="_blank" rel="noreferrer" style={{ 
                         display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, 
                         color: '#38bdf8', textDecoration: 'none', background: 'rgba(56, 189, 248, 0.1)', 
-                        padding: '4px 10px', borderRadius: 6, fontWeight: 600, marginBottom: 12
+                        padding: '4px 10px', borderRadius: 6, fontWeight: 600, marginBottom: 12, marginRight: 8
                       }}>
                         🌐 Join Meeting / Live Link
                       </a>
+                    )}
+                    
+                    {!m.endedAt && m.createdBy === user?.uid && (
+                      <button 
+                        onClick={() => setMeetingToEnd(m.id)}
+                        style={{ 
+                          display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, cursor: 'pointer', border: 'none',
+                          color: '#ef4444', background: 'rgba(239, 68, 68, 0.1)', 
+                          padding: '4px 10px', borderRadius: 6, fontWeight: 600, marginBottom: 12
+                        }}>
+                        End Meeting
+                      </button>
+                    )}
+
+                    {m.endedAt && (
+                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, background: 'rgba(16,185,129,0.1)', color: 'var(--success)', padding: '4px 10px', borderRadius: 6, fontWeight: 600, marginBottom: 12 }}>
+                        ✓ Meeting Ended {Math.floor((new Date(m.endedAt).getTime() - new Date(m.createdAt).getTime()) / 60000)}m
+                      </div>
                     )}
                     
                     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 4 }}>
@@ -322,6 +343,51 @@ export default function MeetingsPage({ params }: { params: Promise<{ projectId: 
           </div>
         </div>
       )}
+
+      {/* End Meeting Confirmation Modal */}
+      <AnimatePresence>
+        {meetingToEnd && (
+          <motion.div 
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            onClick={() => setMeetingToEnd(null)}
+            style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)' }}
+          >
+            <motion.div 
+              initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 20 }}
+              onClick={e => e.stopPropagation()}
+              style={{ background: 'var(--bg-card)', borderRadius: 16, width: '100%', maxWidth: 400, padding: 24, border: '1px solid var(--border)', boxShadow: '0 8px 32px rgba(0,0,0,0.5)' }}
+            >
+              <h3 style={{ margin: '0 0 12px 0', fontSize: 18, fontWeight: 700, color: 'var(--text-1)' }}>End Meeting?</h3>
+              <p style={{ margin: '0 0 24px 0', fontSize: 14, color: 'var(--text-2)', lineHeight: 1.5 }}>
+                Are you sure you want to end this meeting? This will record the end time and duration for everyone.
+              </p>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
+                <button 
+                  onClick={() => setMeetingToEnd(null)}
+                  style={{ background: 'var(--bg-elevated)', color: 'var(--text-1)', border: 'none', padding: '10px 20px', borderRadius: 8, fontWeight: 600, cursor: 'pointer' }}
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={async () => {
+                    if (!meetingToEnd) return;
+                    try {
+                      await endMeetingGlobally(projectId, meetingToEnd);
+                      toast.success('Meeting ended successfully');
+                      setMeetingToEnd(null);
+                    } catch (e) {
+                      toast.error('Failed to end meeting');
+                    }
+                  }}
+                  style={{ background: '#ef4444', color: '#fff', border: 'none', padding: '10px 20px', borderRadius: 8, fontWeight: 600, cursor: 'pointer', boxShadow: '0 4px 12px rgba(239,68,68,0.3)' }}
+                >
+                  End Meeting
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </>
   );
 }
@@ -429,17 +495,7 @@ function MeetingEditor({ initialData, projectMembers, onCancel, onSave, defaultL
       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, marginTop: 24 }}>
         {isQuickLog ? (
           <>
-            <button type="button" className="btn btn-secondary" onClick={() => {
-              const linkElement = document.querySelector('input[name="meeting-link-input"]') as HTMLInputElement;
-              if (linkElement && linkElement.value) {
-                window.open(linkElement.value, '_blank');
-              } else if (form.link) {
-                window.open(form.link, '_blank');
-              }
-              onCancel();
-            }}>
-              Skip & Just Join
-            </button>
+            <button type="button" className="btn btn-secondary" onClick={onCancel}>Cancel</button>
             <button type="submit" className="btn btn-primary">Save & Join</button>
           </>
         ) : (

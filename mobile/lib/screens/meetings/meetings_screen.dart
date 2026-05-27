@@ -1,3 +1,4 @@
+import 'package:msdev_mobile/widgets/ms_dev_loader.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:go_router/go_router.dart';
@@ -77,7 +78,7 @@ class MeetingsScreen extends StatelessWidget {
               stream: FirebaseFirestore.instance.collection('projects/$projectId/meetings').orderBy('createdAt', descending: true).snapshots(),
               builder: (context, snap) {
                 if (snap.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator(color: Color(0xFF10B981)));
+                  return const Center(child: MsDevLoader(color: Color(0xFF10B981)));
                 }
 
                 final docs = snap.data?.docs ?? [];

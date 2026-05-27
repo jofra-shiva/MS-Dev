@@ -1,3 +1,4 @@
+import 'package:msdev_mobile/widgets/ms_dev_loader.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -476,7 +477,7 @@ class _CreateTaskBottomSheetState extends State<CreateTaskBottomSheet> {
                       ),
                       onPressed: _isLoading ? null : _submit,
                       child: _isLoading 
-                        ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) 
+                        ? const SizedBox(height: 18, width: 18, child: MsDevLoader(small: true, color: Colors.white)) 
                         : Text(widget.initialTask != null ? 'Save Changes' : 'Create Task', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
                     ),
                   ),

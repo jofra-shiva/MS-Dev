@@ -139,6 +139,7 @@ export interface Meeting {
   createdBy: string;
   createdAt: Date;
   updatedAt: Date;
+  endedAt?: Date;
 }
 
 export interface Task {
@@ -290,6 +291,8 @@ export interface ChatMessage {
   mediaType?: 'image' | 'audio' | 'file';
   isSystem?: boolean;
   systemType?: 'task_update' | 'task_assignment' | 'meeting_invite';
+  // systemData for meeting_invite:
+  //   { meetingId, name, startedAt (ISO string), joinedBy: [{uid, displayName, photoURL, joinedAt}], endedAt (ISO string) }
   systemData?: any;
 }
 

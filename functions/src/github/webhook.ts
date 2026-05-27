@@ -124,7 +124,7 @@ export const githubWebhook = functions.https.onRequest(async (req, res) => {
 
           for (const taskDoc of tasksSnap.docs) {
             const task = taskDoc.data();
-            const taskId = `${taskPrefix}-${taskDoc.id}`;
+
 
             // Match by prefix number or check if any taskRef matches the pattern
             const matches = taskRefs.some(ref => {

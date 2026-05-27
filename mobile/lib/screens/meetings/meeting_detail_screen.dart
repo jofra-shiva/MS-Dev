@@ -1,3 +1,4 @@
+import 'package:msdev_mobile/widgets/ms_dev_loader.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -129,7 +130,7 @@ class _MeetingDetailScreenState extends State<MeetingDetailScreen> {
         if (!meetingSnap.hasData) {
           return const Scaffold(
             backgroundColor: Color(0xFF070B14),
-            body: Center(child: CircularProgressIndicator(color: Color(0xFFF59E0B))),
+            body: Center(child: MsDevLoader(color: Color(0xFFF59E0B))),
           );
         }
 
@@ -332,7 +333,7 @@ class _MeetingDetailScreenState extends State<MeetingDetailScreen> {
                               borderRadius: BorderRadius.circular(99),
                             ),
                             child: _notesSaving
-                                ? const SizedBox(width: 12, height: 12, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                                ? const SizedBox(width: 12, height: 12, child: MsDevLoader(small: true, color: Colors.white))
                                 : const Text('Save', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w700)),
                           ),
                         ),
@@ -747,7 +748,7 @@ class _AddTaskSheetState extends State<_AddTaskSheet> {
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
               child: _isSaving
-                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                  ? const SizedBox(width: 20, height: 20, child: MsDevLoader(small: true, color: Colors.white))
                   : Text('Create & Assign', style: GoogleFonts.raleway(fontWeight: FontWeight.w800, fontSize: 15)),
             ),
           ),

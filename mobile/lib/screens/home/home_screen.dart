@@ -5,7 +5,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-final bottomNavIndexProvider = StateProvider<int>((ref) => 0);
+class BottomNavIndexNotifier extends Notifier<int> {
+  @override
+  int build() => 0;
+  void setIndex(int i) => state = i;
+}
+
+final bottomNavIndexProvider = NotifierProvider<BottomNavIndexNotifier, int>(BottomNavIndexNotifier.new);
 
 class HomeScreen extends ConsumerStatefulWidget {
   final Widget child;
@@ -19,6 +25,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     {'icon': Icons.home_rounded, 'path': '/'},
     {'icon': Icons.folder_outlined, 'path': '/projects'},
     {'icon': Icons.add, 'path': ''},
+    {'icon': Icons.chat_bubble_outline_rounded, 'path': '/messages'},
     {'icon': Icons.notifications_outlined, 'path': '/notifications'},
   ];
 
@@ -27,6 +34,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final selectedIndex = ref.watch(bottomNavIndexProvider);
 
     final user = FirebaseAuth.instance.currentUser;
+    final userPhoto = user?.photoURL;
     final initials = (user?.displayName ?? 'U').isNotEmpty ? (user?.displayName ?? 'U')[0].toUpperCase() : 'U';
 
     return Scaffold(
@@ -42,15 +50,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ],
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.settings_outlined, color: Colors.white60, size: 22),
+            onPressed: () => context.push('/settings'),
+          ),
           GestureDetector(
             onTap: () => context.push('/profile'),
             child: CircleAvatar(
               radius: 16,
               backgroundColor: const Color(0xFF1E2740),
-              backgroundImage: user?.photoURL != null && !user!.photoURL!.startsWith('/') 
-                  ? NetworkImage(user!.photoURL!) 
-                  : (user?.photoURL?.startsWith('/') == true ? AssetImage('assets/images${user!.photoURL}') : null) as ImageProvider?,
-              child: user?.photoURL == null 
+              backgroundImage: userPhoto != null && !userPhoto.startsWith('/')
+                  ? NetworkImage(userPhoto)
+                  : (userPhoto != null && userPhoto.startsWith('/') ? AssetImage('assets/images$userPhoto') : null) as ImageProvider?,
+              child: userPhoto == null
                   ? Text(initials, style: GoogleFonts.raleway(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.white))
                   : null,
             ),
@@ -73,15 +85,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         )).toList(),
         onTap: (i) {
           if (i == 2) {
-            // It's the "+" button, don't change screen, just push
-            setState(() {}); 
+            // It's the "+" button — push create project
             context.push('/create-project');
-            
-            Future.delayed(const Duration(milliseconds: 100), () {
-              if (mounted) {}
-            });
           } else {
-            ref.read(bottomNavIndexProvider.notifier).state = i;
+            ref.read(bottomNavIndexProvider.notifier).setIndex(i);
             context.go(_items[i]['path'] as String);
           }
         },

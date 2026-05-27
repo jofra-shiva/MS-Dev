@@ -1,3 +1,4 @@
+import 'package:msdev_mobile/widgets/ms_dev_loader.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:go_router/go_router.dart';
@@ -54,7 +55,7 @@ class _ProjectSettingsScreenState extends State<ProjectSettingsScreen> {
       body: StreamBuilder<DocumentSnapshot>(
         stream: FirebaseFirestore.instance.doc('projects/${widget.projectId}').snapshots(),
         builder: (context, snap) {
-          if (!snap.hasData) return const Center(child: CircularProgressIndicator(color: Color(0xFF10B981)));
+          if (!snap.hasData) return const Center(child: MsDevLoader(color: Color(0xFF10B981)));
           final p = snap.data!.data() as Map<String, dynamic>? ?? {};
           final name = p['name'] as String? ?? 'Project';
           final desc = p['description'] as String? ?? 'No description';

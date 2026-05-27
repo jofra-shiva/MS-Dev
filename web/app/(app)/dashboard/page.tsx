@@ -286,7 +286,7 @@ export default function DashboardPage() {
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12, flex: 1, overflowY: 'auto', paddingRight: 4, marginRight: -4 }} className="custom-scrollbar">
               {allTasks.filter(t => t.status !== 'completed' && t.status !== 'deployed').map((t, i) => (
-                <div key={t.id || i} onClick={() => router.push(`/projects/${t.projectId}`)} style={{ display: 'flex', gap: 12, padding: 12, background: 'rgba(255,255,255,0.02)', borderRadius: 8, border: '1px solid rgba(255,255,255,0.03)', cursor: 'pointer', transition: 'background 0.2s', flexShrink: 0 }} className="group hover:bg-white/5">
+                <div key={`${t.id || 'task'}-${i}`} onClick={() => router.push(`/projects/${t.projectId}`)} style={{ display: 'flex', gap: 12, padding: 12, background: 'rgba(255,255,255,0.02)', borderRadius: 8, border: '1px solid rgba(255,255,255,0.03)', cursor: 'pointer', transition: 'background 0.2s', flexShrink: 0 }} className="group hover:bg-white/5">
                   <div style={{ width: 8, height: 8, borderRadius: '50%', background: i === 0 ? 'var(--danger)' : 'var(--warning)', marginTop: 4, flexShrink: 0 }} />
                   <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center' }}>
                     <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-1)' }} className="truncate-1">{t.title}</div>
@@ -326,7 +326,7 @@ export default function DashboardPage() {
             <h2 style={{ fontSize: 14, fontWeight: 700, margin: 0, color: 'var(--text-1)', marginBottom: 16 }}>Recent Activity</h2>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16, flex: 1, overflowY: 'auto' }}>
               {allTasks.slice(0, 4).map((t, i) => (
-                <div key={t.id || i} style={{ display: 'flex', gap: 12 }}>
+                <div key={`${t.id || 'task'}-${i}`} style={{ display: 'flex', gap: 12 }}>
                   <div style={{ position: 'relative' }}>
                     <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, zIndex: 1, position: 'relative' }}>
                       {i % 2 === 0 ? '🚀' : '✨'}

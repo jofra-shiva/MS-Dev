@@ -132,7 +132,7 @@ export default function KanbanPage() {
                 const pendingCount = tasks.filter(t => t.meetingId === m.id && t.status === 'pending').length;
                 return (
                   <option key={m.id} value={m.id}>
-                    {m.name || 'Unnamed Meeting'} {pendingCount > 0 ? `(${pendingCount} pending) 🔴` : ''}
+                    {m.name || 'Unnamed Meeting'} {pendingCount > 0 ? `(${pendingCount} pending)` : ''}
                   </option>
                 );
               })}

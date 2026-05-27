@@ -313,6 +313,66 @@ export const subscribeToChatMessages = (
   });
 };
 
+// ─── Meeting Tracking ───────────────────────────────────────────────────────
+
+/**
+ * Called when a user clicks "Join Meeting" in the chat.
+ * Adds them to the joinedBy array inside the meeting_invite system message.
+ */
+export const recordMeetingJoin = async (
+  chatId: string,
+  messageId: string,
+  user: { uid: string; displayName: string; photoURL: string }
+) => {
+  const msgRef = doc(db, `chats/${chatId}/messages`, messageId);
+  const snap = await getDoc(msgRef);
+  if (!snap.exists()) return;
+
+  const data = snap.data();
+  const existing: any[] = data.systemData?.joinedBy || [];
+
+  // Don't add duplicates
+  if (existing.some((j: any) => j.uid === user.uid)) return;
+
+  const joinEntry = {
+    uid: user.uid,
+    displayName: user.displayName,
+    photoURL: user.photoURL || '',
+    joinedAt: new Date().toISOString(),
+  };
+
+  await updateDoc(msgRef, {
+    'systemData.joinedBy': arrayUnion(joinEntry),
+    // Record startedAt on the first join
+    ...(!data.systemData?.startedAt ? { 'systemData.startedAt': new Date().toISOString() } : {}),
+  });
+
+  // Also update the meeting document in the projects collection if meetingId exists
+  if (data.systemData?.meetingId) {
+    const meetingRef = doc(db, `projects/${chatId.replace('project_', '')}/meetings`, data.systemData.meetingId);
+    try {
+      await updateDoc(meetingRef, {
+        joinedBy: arrayUnion(joinEntry.uid)
+      });
+    } catch (err) {
+      console.warn("Could not update meeting doc joinedBy (maybe it doesn't exist)", err);
+    }
+  }
+};
+
+/**
+ * Called when the meeting host clicks "End Meeting".
+ * Records the end time so we can calculate duration.
+ */
+export const endMeeting = async (chatId: string, messageId: string) => {
+  const msgRef = doc(db, `chats/${chatId}/messages`, messageId);
+  await updateDoc(msgRef, {
+    'systemData.endedAt': new Date().toISOString(),
+  });
+};
+
+// ─── User Search ─────────────────────────────────────────────────────────────
+
 export const searchUsersByEmail = async (emailQuery: string): Promise<any[]> => {
   if (!emailQuery.trim()) return [];
   

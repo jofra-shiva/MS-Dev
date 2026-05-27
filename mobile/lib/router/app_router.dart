@@ -20,6 +20,9 @@ import '../screens/projects/analytics_screen.dart';
 import '../screens/projects/activity_screen.dart';
 import '../screens/projects/github_screen.dart';
 import '../screens/projects/project_settings_screen.dart';
+import '../screens/messages/messages_screen.dart';
+import '../screens/messages/chat_screen.dart';
+import '../screens/settings/settings_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
@@ -34,16 +37,22 @@ final routerProvider = Provider<GoRouter>((ref) {
     routes: [
       GoRoute(path: '/login', builder: (_, __) => const LoginScreen()),
       
-      // Global Shell (Home, Notifications)
+      // Global Shell (Home, Projects, Messages, Notifications)
       ShellRoute(
         builder: (context, state, child) => HomeScreen(child: child),
         routes: [
           GoRoute(path: '/', builder: (_, __) => const DashboardScreen()),
           GoRoute(path: '/projects', builder: (_, __) => const ProjectsScreen()),
           GoRoute(path: '/notifications', builder: (_, __) => const NotificationsScreen()),
+          GoRoute(path: '/messages', builder: (_, __) => const MessagesScreen()),
         ],
       ),
       GoRoute(path: '/profile', builder: (_, __) => const ProfileScreen()),
+      GoRoute(path: '/settings', builder: (_, __) => const SettingsScreen()),
+      GoRoute(
+        path: '/messages/:chatId',
+        builder: (_, state) => ChatScreen(chatId: state.pathParameters['chatId']!),
+      ),
       GoRoute(path: '/create-project', builder: (_, __) => const CreateProjectScreen()),
       GoRoute(
         path: '/projects/:projectId/meetings/create',

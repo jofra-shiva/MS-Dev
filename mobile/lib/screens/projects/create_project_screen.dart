@@ -1,3 +1,4 @@
+import 'package:msdev_mobile/widgets/ms_dev_loader.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -109,7 +110,7 @@ class _CreateProjectScreenState extends State<CreateProjectScreen> {
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))
                 ),
                 child: _isLoading 
-                  ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                  ? const SizedBox(width: 24, height: 24, child: MsDevLoader(small: true, color: Colors.white))
                   : const Text('Create Project', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
               ),
             ),

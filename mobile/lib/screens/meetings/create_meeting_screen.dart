@@ -1,3 +1,4 @@
+import 'package:msdev_mobile/widgets/ms_dev_loader.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -324,7 +325,7 @@ class _CreateMeetingScreenState extends State<CreateMeetingScreen> {
                     ),
                     onPressed: _isLoading ? null : _saveMeeting,
                     child: _isLoading 
-                      ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) 
+                      ? const SizedBox(height: 18, width: 18, child: MsDevLoader(small: true, color: Colors.white)) 
                       : const Text('Save Meeting', style: TextStyle(color: Colors.black, fontWeight: FontWeight.w800, fontSize: 13)),
                   ),
                 ],

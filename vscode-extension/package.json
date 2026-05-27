@@ -1,0 +1,162 @@
+{
+  "name": "msdev-tasks",
+  "displayName": "MSDEV Tasks",
+  "description": "Manage your MSDEV project tasks directly from VS Code with real-time Firebase sync.",
+  "version": "1.0.0",
+  "publisher": "msdev",
+  "icon": "media/icon.png",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "msdev-sidebar",
+          "title": "MSDEV Tasks",
+          "icon": "media/sidebar-icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "msdev-sidebar": [
+        {
+          "id": "msdevTasks",
+          "name": "My Tasks",
+          "icon": "media/sidebar-icon.svg",
+          "contextualTitle": "MSDEV Tasks"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "msdev.login",
+        "title": "MSDEV: Sign In",
+        "icon": "$(sign-in)"
+      },
+      {
+        "command": "msdev.logout",
+        "title": "MSDEV: Sign Out",
+        "icon": "$(sign-out)"
+      },
+      {
+        "command": "msdev.refreshTasks",
+        "title": "MSDEV: Refresh Tasks",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "msdev.openTask",
+        "title": "Open Task Detail",
+        "icon": "$(go-to-file)"
+      },
+      {
+        "command": "msdev.updateStatus",
+        "title": "Update Task Status",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "msdev.createBranch",
+        "title": "Create Git Branch for Task",
+        "icon": "$(git-branch)"
+      },
+      {
+        "command": "msdev.addComment",
+        "title": "Add Comment",
+        "icon": "$(comment)"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "msdev.refreshTasks",
+          "when": "view == msdevTasks",
+          "group": "navigation"
+        },
+        {
+          "command": "msdev.logout",
+          "when": "view == msdevTasks",
+          "group": "navigation"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "msdev.openTask",
+          "when": "view == msdevTasks && viewItem == task",
+          "group": "inline@1"
+        },
+        {
+          "command": "msdev.createBranch",
+          "when": "view == msdevTasks && viewItem == task",
+          "group": "inline@2"
+        },
+        {
+          "command": "msdev.updateStatus",
+          "when": "view == msdevTasks && viewItem == task",
+          "group": "1_actions@1"
+        },
+        {
+          "command": "msdev.addComment",
+          "when": "view == msdevTasks && viewItem == task",
+          "group": "1_actions@2"
+        },
+        {
+          "command": "msdev.createBranch",
+          "when": "view == msdevTasks && viewItem == task",
+          "group": "1_actions@3"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "MSDEV Tasks",
+      "properties": {
+        "msdev.firebaseApiKey": {
+          "type": "string",
+          "default": "",
+          "description": "Firebase API Key (same as NEXT_PUBLIC_FIREBASE_API_KEY in your .env)"
+        },
+        "msdev.firebaseProjectId": {
+          "type": "string",
+          "default": "",
+          "description": "Firebase Project ID (same as NEXT_PUBLIC_FIREBASE_PROJECT_ID)"
+        },
+        "msdev.firebaseAuthDomain": {
+          "type": "string",
+          "default": "",
+          "description": "Firebase Auth Domain (same as NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN)"
+        },
+        "msdev.firebaseAppId": {
+          "type": "string",
+          "default": "",
+          "description": "Firebase App ID (same as NEXT_PUBLIC_FIREBASE_APP_ID)"
+        },
+        "msdev.firebaseMessagingSenderId": {
+          "type": "string",
+          "default": "",
+          "description": "Firebase Messaging Sender ID"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "package": "vsce package",
+    "lint": "eslint src --ext ts"
+  },
+  "dependencies": {
+    "firebase": "^10.14.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.x",
+    "@types/vscode": "^1.85.0",
+    "@vscode/vsce": "^2.24.0",
+    "typescript": "^5.3.0"
+  }
+}

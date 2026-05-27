@@ -5,12 +5,14 @@ import { subscribeToProject, subscribeToTasks } from '@/lib/firebase/firestore';
 import { Project, Task } from '@/types';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
+import CreateTaskModal from '@/components/tasks/CreateTaskModal';
 
 export default function ProjectOverviewPage() {
   const { projectId } = useParams<{ projectId: string }>();
   const [project, setProject] = useState<Project | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showCreateTask, setShowCreateTask] = useState(false);
 
   useEffect(() => {
     const u1 = subscribeToProject(projectId, p => { setProject(p); setLoading(false); });
@@ -36,6 +38,13 @@ export default function ProjectOverviewPage() {
 
   return (
     <div className="animate-fadeIn">
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginBottom: 16 }}>
+        <button className="btn btn-primary btn-sm" onClick={() => setShowCreateTask(true)}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ marginRight: 6 }}><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Add Task
+        </button>
+      </div>
+
       {/* Stats Row */}
       <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(140px, 1fr))', gap:14, marginBottom:24 }}>
         {[
@@ -158,6 +167,7 @@ export default function ProjectOverviewPage() {
           </div>
         </div>
       </div>
+      {showCreateTask && <CreateTaskModal projectId={projectId} project={project} onClose={() => setShowCreateTask(false)} />}
     </div>
   );
 }

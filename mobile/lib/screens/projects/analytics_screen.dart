@@ -1,3 +1,4 @@
+import 'package:msdev_mobile/widgets/ms_dev_loader.dart';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -35,7 +36,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
             stream: FirebaseFirestore.instance.collection('projects/${widget.projectId}/tasks').snapshots(),
             builder: (context, snap) {
               if (!snap.hasData || projSnap.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator(color: Color(0xFF10B981)));
+                return const Center(child: MsDevLoader(color: Color(0xFF10B981)));
               }
               
               final tasks = snap.data!.docs.map((d) => d.data() as Map<String, dynamic>).toList();

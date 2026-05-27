@@ -1,3 +1,4 @@
+import 'package:msdev_mobile/widgets/ms_dev_loader.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:go_router/go_router.dart';
@@ -44,7 +45,7 @@ class ActivityScreen extends StatelessWidget {
             child: StreamBuilder<QuerySnapshot>(
               stream: FirebaseFirestore.instance.collection('projects/$projectId/activity').orderBy('createdAt', descending: true).limit(50).snapshots(),
               builder: (context, snap) {
-                if (!snap.hasData) return const Center(child: CircularProgressIndicator(color: Color(0xFF10B981)));
+                if (!snap.hasData) return const Center(child: MsDevLoader(color: Color(0xFF10B981)));
                 final docs = snap.data!.docs;
                 if (docs.isEmpty) return const Center(child: Text('No recent activity', style: TextStyle(color: Colors.white54)));
 

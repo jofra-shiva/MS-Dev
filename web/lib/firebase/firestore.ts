@@ -540,7 +540,7 @@ export async function createMeeting(projectId: string, data: Omit<import('@/type
     projectId,
     'meeting_invite',
     `Scheduled a meeting: ${data.name}`,
-    { meetingId: ref.id, name: data.name, date: data.date, link: data.link },
+    { meetingId: ref.id, name: data.name, date: data.date, link: data.link, createdBy: data.createdBy, attendees: data.attendees },
     data.createdBy
   );
 
@@ -570,8 +570,34 @@ export function subscribeToMeetings(projectId: string, callback: (meetings: impo
         date: data.date?.toDate() || new Date(),
         createdAt: data.createdAt?.toDate() || new Date(),
         updatedAt: data.updatedAt?.toDate() || new Date(),
+        endedAt: data.endedAt ? (typeof data.endedAt === 'string' ? new Date(data.endedAt) : data.endedAt.toDate()) : undefined,
       } as import('@/types').Meeting);
     });
     callback(res);
   });
+}
+
+export async function endMeetingGlobally(projectId: string, meetingId: string) {
+  // 1. Update Meeting Doc
+  const ref = doc(db, 'projects', projectId, 'meetings', meetingId);
+  const nowStr = new Date().toISOString();
+  await updateDoc(ref, {
+    endedAt: nowStr,
+    updatedAt: serverTimestamp(),
+  });
+
+  // 2. Find and update the chat message
+  const chatId = `project_${projectId}`;
+  const messagesRef = collection(db, `chats/${chatId}/messages`);
+  const qSnap = await getDocs(query(messagesRef, where('systemType', '==', 'meeting_invite')));
+  
+  for (const m of qSnap.docs) {
+    const data = m.data();
+    if (data.systemData?.meetingId === meetingId) {
+      await updateDoc(m.ref, {
+        'systemData.endedAt': nowStr
+      });
+      break;
+    }
+  }
 }

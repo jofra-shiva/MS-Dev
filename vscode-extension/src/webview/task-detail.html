@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'nonce-{{NONCE}}'; img-src https: data:;">
+  <title>Task Detail</title>
+  <style>
+    :root {
+      --bg: var(--vscode-editor-background);
+      --surface: var(--vscode-sideBar-background);
+      --border: var(--vscode-panel-border);
+      --text-1: var(--vscode-editor-foreground);
+      --text-2: var(--vscode-descriptionForeground);
+      --text-3: var(--vscode-disabledForeground);
+      --accent: var(--vscode-button-background);
+      --accent-fg: var(--vscode-button-foreground);
+      --accent-hover: var(--vscode-button-hoverBackground);
+      --danger: #ef4444;
+      --success: #22c55e;
+      --warning: #f59e0b;
+      --info: #38bdf8;
+      --radius: 8px;
+      --font: var(--vscode-font-family);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: var(--font, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif);
+      font-size: 13px;
+      color: var(--text-1);
+      background: var(--bg);
+      padding: 0;
+      line-height: 1.5;
+    }
+
+    /* ── Header ── */
+    .header {
+      padding: 20px 20px 16px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    .header-top {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .type-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      flex-shrink: 0;
+    }
+
+    .task-title {
+      font-size: 15px;
+      font-weight: 700;
+      line-height: 1.3;
+      flex: 1;
+    }
+
+    .ticket-id {
+      font-size: 11px;
+      font-family: 'Courier New', monospace;
+      color: var(--text-2);
+      margin-bottom: 4px;
+    }
+
+    /* ── Badges ── */
+    .badges { display: flex; flex-wrap: wrap; gap: 6px; }
+
+    .badge {
+      padding: 2px 8px;
+      border-radius: 99px;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .badge-pending     { background: rgba(100,116,139,0.2); color: #94a3b8; }
+    .badge-in_progress { background: rgba(245,158,11,0.2);  color: #fbbf24; }
+    .badge-testing     { background: rgba(56,189,248,0.2);  color: #38bdf8; }
+    .badge-completed   { background: rgba(34,197,94,0.2);   color: #4ade80; }
+    .badge-github_pushed { background: rgba(139,92,246,0.2); color: #a78bfa; }
+    .badge-deployed    { background: rgba(14,165,233,0.2);  color: #0ea5e9; }
+
+    .badge-urgent { background: rgba(239,68,68,0.2);  color: #f87171; }
+    .badge-high   { background: rgba(245,158,11,0.2); color: #fbbf24; }
+    .badge-medium { background: rgba(56,189,248,0.2); color: #38bdf8; }
+    .badge-low    { background: rgba(34,197,94,0.2);  color: #4ade80; }
+
+    .badge-bug         { background: rgba(239,68,68,0.15);  color: #f87171; }
+    .badge-feature     { background: rgba(52,211,153,0.15); color: #34d399; }
+    .badge-improvement { background: rgba(56,189,248,0.15); color: #38bdf8; }
+
+    /* ── Content ── */
+    .content { padding: 20px; }
+
+    .section { margin-bottom: 20px; }
+    .section-label {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-3);
+      margin-bottom: 8px;
+    }
+
+    .description-text {
+      font-size: 13px;
+      color: var(--text-2);
+      line-height: 1.6;
+      white-space: pre-wrap;
+    }
+
+    /* ── Meta grid ── */
+    .meta-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .meta-item {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 10px 12px;
+    }
+
+    .meta-label { font-size: 10px; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; }
+    .meta-value { font-size: 13px; font-weight: 600; }
+
+    /* ── Progress ── */
+    .progress-bar {
+      height: 6px;
+      background: var(--border);
+      border-radius: 99px;
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      border-radius: 99px;
+      background: linear-gradient(90deg, #34d399, #38bdf8);
+      transition: width 0.5s ease;
+    }
+
+    /* ── Tags ── */
+    .tags { display: flex; flex-wrap: wrap; gap: 6px; }
+    .tag {
+      padding: 2px 10px;
+      background: rgba(56,189,248,0.1);
+      border: 1px solid rgba(56,189,248,0.3);
+      color: var(--info);
+      border-radius: 99px;
+      font-size: 11px;
+      font-family: 'Courier New', monospace;
+    }
+
+    /* ── Actions ── */
+    .actions {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding: 16px 20px;
+      border-top: 1px solid var(--border);
+      background: var(--surface);
+      position: sticky;
+      bottom: 0;
+    }
+
+    .actions-row { display: flex; gap: 8px; }
+
+    button {
+      cursor: pointer;
+      font-family: var(--font);
+      font-size: 12px;
+      font-weight: 600;
+      border: none;
+      border-radius: 6px;
+      padding: 7px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all 0.15s;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: var(--accent-fg);
+      flex: 1;
+    }
+    .btn-primary:hover { background: var(--accent-hover); }
+
+    .btn-secondary {
+      background: transparent;
+      color: var(--text-1);
+      border: 1px solid var(--border);
+      flex: 1;
+    }
+    .btn-secondary:hover { background: rgba(255,255,255,0.05); }
+
+    .btn-danger {
+      background: rgba(239,68,68,0.15);
+      color: var(--danger);
+      border: 1px solid rgba(239,68,68,0.3);
+      flex: 1;
+    }
+    .btn-danger:hover { background: rgba(239,68,68,0.25); }
+
+    select {
+      background: var(--surface);
+      color: var(--text-1);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 7px 10px;
+      font-size: 12px;
+      font-family: var(--font);
+      flex: 1;
+      cursor: pointer;
+      outline: none;
+    }
+    select:focus { border-color: var(--accent); }
+
+    /* ── Comments ── */
+    .comments-list { display: flex; flex-direction: column; gap: 12px; }
+
+    .comment {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px;
+    }
+
+    .comment-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+
+    .comment-avatar {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #34d399, #38bdf8);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      font-weight: 700;
+      color: #fff;
+      flex-shrink: 0;
+      overflow: hidden;
+    }
+    .comment-avatar img { width: 100%; height: 100%; object-fit: cover; }
+
+    .comment-author { font-size: 12px; font-weight: 700; }
+    .comment-time { font-size: 11px; color: var(--text-3); margin-left: auto; }
+    .comment-text { font-size: 13px; color: var(--text-2); line-height: 1.5; }
+
+    .no-comments {
+      text-align: center;
+      padding: 24px 0;
+      color: var(--text-3);
+      font-size: 12px;
+    }
+
+    /* ── Divider ── */
+    hr { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
+
+    /* ── Branch info ── */
+    .branch-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(139,92,246,0.1);
+      border: 1px solid rgba(139,92,246,0.3);
+      color: #a78bfa;
+      border-radius: 99px;
+      padding: 3px 10px;
+      font-size: 11px;
+      font-family: 'Courier New', monospace;
+    }
+
+    /* ── Loading state ── */
+    .loading {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 60px 20px;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .spinner {
+      width: 32px;
+      height: 32px;
+      border: 3px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Due date warning ── */
+    .due-warning { color: var(--danger) !important; }
+    .due-soon { color: var(--warning) !important; }
+  </style>
+</head>
+<body>
+  <div id="root">
+    <div class="loading">
+      <div class="spinner"></div>
+      <div style="color: var(--text-3); font-size: 12px;">Loading task...</div>
+    </div>
+  </div>
+
+  <script nonce="{{NONCE}}">
+    const vscode = acquireVsCodeApi();
+    let currentTask = null;
+
+    // ─── Receive messages from extension host ────────────────────────────────
+    window.addEventListener('message', event => {
+      const msg = event.data;
+      switch (msg.command) {
+        case 'loadTask':
+          currentTask = msg.task;
+          renderTask(msg.task, msg.comments || [], msg.projectName || '');
+          break;
+        case 'updateComments':
+          if (currentTask) renderComments(msg.comments || []);
+          break;
+        case 'statusUpdated':
+          if (currentTask) {
+            currentTask.status = msg.status;
+            const badge = document.getElementById('status-badge');
+            if (badge) {
+              badge.className = `badge badge-${msg.status}`;
+              badge.textContent = msg.status.replace(/_/g, ' ');
+            }
+          }
+          break;
+      }
+    });
+
+    // ─── Render full task ────────────────────────────────────────────────────
+    function renderTask(task, comments, projectName) {
+      const typeEmoji = { bug: '🐛', feature: '✨', improvement: '🔧' }[task.type] || '📋';
+      const typeColor = { bug: 'rgba(239,68,68,0.15)', feature: 'rgba(52,211,153,0.15)', improvement: 'rgba(56,189,248,0.15)' }[task.type];
+      const dueInfo = getDueInfo(task.dueDate);
+
+      document.getElementById('root').innerHTML = `
+        <!-- HEADER -->
+        <div class="header">
+          <div class="header-top">
+            <div class="type-icon" style="background: ${typeColor}">${typeEmoji}</div>
+            <div style="flex: 1; min-width: 0;">
+              ${task.ticketId ? `<div class="ticket-id">${task.ticketId}${projectName ? ' · ' + projectName : ''}</div>` : ''}
+              <div class="task-title">${escHtml(task.title)}</div>
+            </div>
+          </div>
+          <div class="badges">
+            <span id="status-badge" class="badge badge-${task.status}">${task.status.replace(/_/g, ' ')}</span>
+            <span class="badge badge-${task.priority}">${task.priority}</span>
+            <span class="badge badge-${task.type}">${task.type}</span>
+            ${task.module ? `<span class="badge" style="background: rgba(99,102,241,0.15); color: #818cf8;">${escHtml(task.module)}</span>` : ''}
+          </div>
+        </div>
+
+        <!-- CONTENT -->
+        <div class="content">
+
+          <!-- Description -->
+          ${task.description ? `
+          <div class="section">
+            <div class="section-label">Description</div>
+            <div class="description-text">${escHtml(task.description)}</div>
+          </div>` : ''}
+
+          <!-- Meta Grid -->
+          <div class="section">
+            <div class="section-label">Details</div>
+            <div class="meta-grid">
+              <div class="meta-item">
+                <div class="meta-label">Assignee</div>
+                <div class="meta-value">${escHtml(task.assigneeName || 'Unassigned')}</div>
+              </div>
+              <div class="meta-item">
+                <div class="meta-label">Due Date</div>
+                <div class="meta-value ${dueInfo.cls}">${dueInfo.text}</div>
+              </div>
+              <div class="meta-item">
+                <div class="meta-label">Progress</div>
+                <div class="meta-value">${task.progress || 0}%</div>
+              </div>
+              <div class="meta-item">
+                <div class="meta-label">Updated</div>
+                <div class="meta-value">${formatRelative(task.updatedAt)}</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Progress Bar -->
+          <div class="section">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 11px; color: var(--text-3);">
+              <span>Progress</span><span>${task.progress || 0}%</span>
+            </div>
+            <div class="progress-bar">
+              <div class="progress-fill" style="width: ${task.progress || 0}%"></div>
+            </div>
+          </div>
+
+          <!-- Git Branch -->
+          ${task.githubRef?.branchName ? `
+          <div class="section">
+            <div class="section-label">Git Branch</div>
+            <div class="branch-pill">⎇ ${escHtml(task.githubRef.branchName)}</div>
+          </div>` : ''}
+
+          <!-- Tags -->
+          ${task.tags?.length ? `
+          <div class="section">
+            <div class="section-label">Tags</div>
+            <div class="tags">${task.tags.map(t => `<span class="tag">${escHtml(t)}</span>`).join('')}</div>
+          </div>` : ''}
+
+          <hr />
+
+          <!-- Comments -->
+          <div class="section">
+            <div class="section-label" style="margin-bottom: 12px;">Comments</div>
+            <div id="comments-list"></div>
+          </div>
+        </div>
+
+        <!-- ACTIONS (sticky footer) -->
+        <div class="actions">
+          <div class="actions-row">
+            <select id="status-select" onchange="onStatusChange(this.value)">
+              <option value="" disabled>Change status...</option>
+              ${['pending','in_progress','testing','github_pushed','deployed','completed'].map(s =>
+                `<option value="${s}" ${task.status === s ? 'selected' : ''}>${s.replace(/_/g,' ')}</option>`
+              ).join('')}
+            </select>
+          </div>
+          <div class="actions-row">
+            <button class="btn-secondary" onclick="onAddComment()">💬 Add Comment</button>
+            <button class="btn-secondary" onclick="onCreateBranch()">⎇ Create Branch</button>
+          </div>
+        </div>
+      `;
+
+      renderComments(comments);
+    }
+
+    function renderComments(comments) {
+      const el = document.getElementById('comments-list');
+      if (!el) return;
+      if (!comments.length) {
+        el.innerHTML = '<div class="no-comments">No comments yet. Be the first!</div>';
+        return;
+      }
+      el.innerHTML = `<div class="comments-list">${comments.map(c => `
+        <div class="comment">
+          <div class="comment-header">
+            <div class="comment-avatar">
+              ${c.authorPhoto ? `<img src="${escHtml(c.authorPhoto)}" alt="" />` : escHtml((c.authorName || '?').slice(0,2).toUpperCase())}
+            </div>
+            <span class="comment-author">${escHtml(c.authorName)}</span>
+            <span class="comment-time">${formatRelative(c.createdAt)}</span>
+          </div>
+          <div class="comment-text">${escHtml(c.text)}</div>
+        </div>
+      `).join('')}</div>`;
+    }
+
+    // ─── Actions ─────────────────────────────────────────────────────────────
+    function onStatusChange(newStatus) {
+      if (!currentTask || !newStatus) return;
+      vscode.postMessage({ command: 'updateStatus', status: newStatus });
+    }
+
+    function onAddComment() {
+      vscode.postMessage({ command: 'addComment' });
+    }
+
+    function onCreateBranch() {
+      vscode.postMessage({ command: 'createBranch' });
+    }
+
+    // ─── Helpers ─────────────────────────────────────────────────────────────
+    function escHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    function getDueInfo(dueDate) {
+      if (!dueDate) return { text: 'No deadline', cls: '' };
+      const d = new Date(dueDate);
+      const diff = Math.ceil((d.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+      if (diff < 0) return { text: `${Math.abs(diff)}d overdue`, cls: 'due-warning' };
+      if (diff === 0) return { text: 'Due today!', cls: 'due-warning' };
+      if (diff <= 2) return { text: `Due in ${diff}d`, cls: 'due-soon' };
+      return { text: d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }), cls: '' };
+    }
+
+    function formatRelative(dateVal) {
+      if (!dateVal) return '—';
+      const d = new Date(dateVal);
+      const diff = Math.floor((Date.now() - d.getTime()) / 1000);
+      if (diff < 60) return 'just now';
+      if (diff < 3600) return `${Math.floor(diff/60)}m ago`;
+      if (diff < 86400) return `${Math.floor(diff/3600)}h ago`;
+      if (diff < 604800) return `${Math.floor(diff/86400)}d ago`;
+      return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
+    }
+  </script>
+</body>
+</html>

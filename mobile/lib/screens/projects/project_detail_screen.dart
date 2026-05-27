@@ -1,3 +1,4 @@
+import 'package:msdev_mobile/widgets/ms_dev_loader.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:go_router/go_router.dart';
@@ -14,7 +15,7 @@ class ProjectDetailScreen extends StatelessWidget {
     return StreamBuilder<DocumentSnapshot>(
       stream: FirebaseFirestore.instance.doc('projects/$projectId').snapshots(),
       builder: (context, snap) {
-        if (!snap.hasData) return const Scaffold(backgroundColor: Color(0xFF070B14), body: Center(child: CircularProgressIndicator(color: Color(0xFFF59E0B))));
+        if (!snap.hasData) return const Scaffold(backgroundColor: Color(0xFF070B14), body: Center(child: MsDevLoader(color: Color(0xFFF59E0B))));
         final p = snap.data!.data() as Map<String, dynamic>? ?? {};
         final members = p['members'] as Map<String, dynamic>? ?? {};
         return StreamBuilder<QuerySnapshot>(

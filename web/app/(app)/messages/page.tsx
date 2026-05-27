@@ -14,7 +14,9 @@ import {
   deleteMessage,
   editMessage,
   clearChatMessages,
-  uploadChatMedia
+  uploadChatMedia,
+  recordMeetingJoin,
+  endMeeting
 } from '@/lib/firebase/chat';
 import { subscribeToUserProjects, subscribeToTasks } from '@/lib/firebase/firestore';
 import { format, isToday, isYesterday } from 'date-fns';
@@ -130,6 +132,7 @@ export default function MessagesPage() {
   const [hoveredMessageId, setHoveredMessageId] = useState<string | null>(null);
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
   const [messageToDelete, setMessageToDelete] = useState<string | null>(null);
+  const [meetingToEnd, setMeetingToEnd] = useState<string | null>(null);
   
   // Projects sync
   const [projects, setProjects] = useState<Project[]>([]);
@@ -892,17 +895,123 @@ export default function MessagesPage() {
                         boxShadow: msg.systemType === 'meeting_invite' ? 'var(--shadow-card)' : 'none' 
                       }}>
                         {msg.systemType === 'meeting_invite' && msg.systemData ? (
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'center' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--accent)', fontWeight: 600 }}>
-                              <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"></path></svg>
-                              Meeting Scheduled
-                            </div>
-                            <div style={{ fontSize: 16 }}>{msg.systemData.name}</div>
-                            <div style={{ color: 'var(--text-2)', fontSize: 12 }}>{format(msg.createdAt, 'MMM d, yyyy h:mm a')}</div>
-                            <Link href={`/projects/${activeChat.projectId}/meetings/${msg.systemData.meetingId}`} style={{ background: 'var(--accent)', color: 'var(--bg-card)', textDecoration: 'none', padding: '8px 24px', borderRadius: 20, fontWeight: 600, marginTop: 4 }}>
-                              Join Meeting
-                            </Link>
-                          </div>
+                          (() => {
+                            const sd = msg.systemData;
+                            const joinedBy: any[] = sd.joinedBy || [];
+                            const isEnded = !!sd.endedAt;
+                            const startedAt = sd.startedAt ? new Date(sd.startedAt) : null;
+                            const endedAt = sd.endedAt ? new Date(sd.endedAt) : null;
+                            const durationMs = startedAt && endedAt ? endedAt.getTime() - startedAt.getTime() : null;
+                            const durationStr = durationMs != null
+                              ? `${Math.floor(durationMs / 60000)}m ${Math.floor((durationMs % 60000) / 1000)}s`
+                              : null;
+                            const alreadyJoined = joinedBy.some((j: any) => j.uid === user.uid);
+                            const isHost = msg.systemData?.createdBy === user.uid || msg.senderId === user.uid;
+
+                            return (
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'center', minWidth: 260 }}>
+                                {/* Header */}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: isEnded ? 'var(--text-3)' : 'var(--accent)', fontWeight: 700, fontSize: 13 }}>
+                                  <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>
+                                  {isEnded ? 'Meeting Ended' : 'Meeting Scheduled'}
+                                </div>
+
+                                {/* Title & time */}
+                                <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-1)' }}>{sd.name}</div>
+                                <div style={{ color: 'var(--text-3)', fontSize: 12 }}>{format(msg.createdAt, 'MMM d, yyyy h:mm a')}</div>
+
+                                {/* Duration if ended */}
+                                {isEnded && durationStr && (
+                                  <div style={{ fontSize: 12, background: 'rgba(16,185,129,0.1)', color: 'var(--success)', padding: '4px 12px', borderRadius: 99, fontWeight: 600 }}>
+                                    Duration: {durationStr}
+                                  </div>
+                                )}
+
+                                {/* Participants who joined */}
+                                {joinedBy.length > 0 && (
+                                  <div style={{ width: '100%' }}>
+                                    <div style={{ fontSize: 11, color: 'var(--text-3)', marginBottom: 6, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                      {isEnded ? 'Attended' : 'Live Now'} ({joinedBy.length})
+                                    </div>
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, justifyContent: 'center' }}>
+                                      {joinedBy.map((j: any) => (
+                                        <div key={j.uid} title={j.displayName} style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'var(--bg-primary)', borderRadius: 99, padding: '3px 8px 3px 3px', fontSize: 12, fontWeight: 600 }}>
+                                          {j.photoURL ? (
+                                            <img src={j.photoURL} alt="" style={{ width: 18, height: 18, borderRadius: '50%', objectFit: 'cover' }} />
+                                          ) : (
+                                            <div style={{ width: 18, height: 18, borderRadius: '50%', background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, color: '#fff', fontWeight: 700 }}>
+                                              {j.displayName?.[0]}
+                                            </div>
+                                          )}
+                                          <span style={{ color: isEnded ? 'var(--text-3)' : 'var(--accent)' }}>{j.displayName?.split(' ')[0]}</span>
+                                          {!isEnded && <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#10b981', display: 'inline-block', animation: 'pulse 2s infinite' }} />}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* Invited Attendees (when no one has joined yet) */}
+                                {joinedBy.length === 0 && sd.attendees && sd.attendees.length > 0 && activeChat.type === 'group' && (
+                                  <div style={{ width: '100%' }}>
+                                    <div style={{ fontSize: 11, color: 'var(--text-3)', marginBottom: 6, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'center' }}>
+                                      Invited ({sd.attendees.length})
+                                    </div>
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, justifyContent: 'center' }}>
+                                      {sd.attendees.map((uid: string) => {
+                                        const p = activeChat.participantDetails?.[uid];
+                                        const name = p?.displayName || 'Unknown';
+                                        return (
+                                          <div key={uid} title={name} style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'var(--bg-primary)', borderRadius: 99, padding: '3px 8px 3px 3px', fontSize: 12, fontWeight: 600 }}>
+                                            {p?.photoURL ? (
+                                              <img src={p.photoURL} alt="" style={{ width: 18, height: 18, borderRadius: '50%', objectFit: 'cover' }} />
+                                            ) : (
+                                              <div style={{ width: 18, height: 18, borderRadius: '50%', background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, color: '#fff', fontWeight: 700 }}>
+                                                {name[0]}
+                                              </div>
+                                            )}
+                                            <span style={{ color: 'var(--text-3)' }}>{name.split(' ')[0]}</span>
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* Action buttons */}
+                                {!isEnded && (
+                                  <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+                                    <a
+                                      href={sd.link || `/projects/${activeChat.projectId}/meetings`}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      onClick={async () => {
+                                        try {
+                                          await recordMeetingJoin(activeChat.id, msg.id, {
+                                            uid: user.uid,
+                                            displayName: user.displayName || 'Unknown',
+                                            photoURL: user.photoURL || '',
+                                          });
+                                        } catch (e) { console.error(e); }
+                                      }}
+                                      style={{ background: 'var(--accent)', color: 'var(--bg-card)', textDecoration: 'none', padding: '7px 20px', borderRadius: 20, fontWeight: 700, fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}
+                                    >
+                                      <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>
+                                      {alreadyJoined ? 'Rejoin' : 'Join Meeting'}
+                                    </a>
+                                    {isHost && (
+                                      <button
+                                        onClick={() => setMeetingToEnd(msg.id)}
+                                        style={{ background: 'rgba(239,68,68,0.15)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.3)', padding: '7px 14px', borderRadius: 20, fontWeight: 600, fontSize: 13, cursor: 'pointer' }}
+                                      >
+                                        End Meeting
+                                      </button>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })()
                         ) : (
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
                             {msg.systemType === 'task_assignment' && <svg viewBox="0 0 24 24" width="16" height="16" fill="#53bdeb" style={{ flexShrink: 0 }}><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"></path></svg>}
@@ -1489,6 +1598,51 @@ export default function MessagesPage() {
                     ))}
                   </div>
                 )}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* End Meeting Confirmation Modal */}
+      <AnimatePresence>
+        {meetingToEnd && (
+          <motion.div 
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            onClick={() => setMeetingToEnd(null)}
+            style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)' }}
+          >
+            <motion.div 
+              initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 20 }}
+              onClick={e => e.stopPropagation()}
+              style={{ background: 'var(--bg-card)', borderRadius: 16, width: '100%', maxWidth: 400, padding: 24, border: '1px solid var(--border)', boxShadow: '0 8px 32px rgba(0,0,0,0.5)' }}
+            >
+              <h3 style={{ margin: '0 0 12px 0', fontSize: 18, fontWeight: 700, color: 'var(--text-1)' }}>End Meeting?</h3>
+              <p style={{ margin: '0 0 24px 0', fontSize: 14, color: 'var(--text-2)', lineHeight: 1.5 }}>
+                Are you sure you want to end this meeting? This will record the end time and duration for everyone.
+              </p>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
+                <button 
+                  onClick={() => setMeetingToEnd(null)}
+                  style={{ background: 'var(--bg-elevated)', color: 'var(--text-1)', border: 'none', padding: '10px 20px', borderRadius: 8, fontWeight: 600, cursor: 'pointer' }}
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={async () => {
+                    if (!activeChat || !meetingToEnd) return;
+                    try {
+                      await endMeeting(activeChat.id, meetingToEnd);
+                      toast.success('Meeting ended');
+                      setMeetingToEnd(null);
+                    } catch (e) {
+                      toast.error('Failed to end meeting');
+                    }
+                  }}
+                  style={{ background: '#ef4444', color: '#fff', border: 'none', padding: '10px 20px', borderRadius: 8, fontWeight: 600, cursor: 'pointer', boxShadow: '0 4px 12px rgba(239,68,68,0.3)' }}
+                >
+                  End Meeting
+                </button>
               </div>
             </motion.div>
           </motion.div>

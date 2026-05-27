@@ -1,5 +1,5 @@
 import * as admin from 'firebase-admin';
-import * as functions from 'firebase-functions';
+
 
 admin.initializeApp();
 
@@ -7,3 +7,5 @@ admin.initializeApp();
 export { githubWebhook } from './github/webhook';
 export { onTaskCreated, onTaskUpdated } from './notifications/triggers';
 export { deadlineReminder } from './analytics/scheduler';
+export { generateIDEToken } from './ideToken';
+

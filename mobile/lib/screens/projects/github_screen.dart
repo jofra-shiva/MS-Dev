@@ -1,3 +1,4 @@
+import 'package:msdev_mobile/widgets/ms_dev_loader.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:go_router/go_router.dart';
@@ -34,7 +35,7 @@ class GithubScreen extends StatelessWidget {
       body: StreamBuilder<DocumentSnapshot>(
         stream: FirebaseFirestore.instance.doc('projects/$projectId').snapshots(),
         builder: (context, snap) {
-          if (!snap.hasData) return const Center(child: CircularProgressIndicator(color: Color(0xFF10B981)));
+          if (!snap.hasData) return const Center(child: MsDevLoader(color: Color(0xFF10B981)));
           final p = snap.data!.data() as Map<String, dynamic>? ?? {};
           final github = p['github'] as Map<String, dynamic>?;
 
@@ -96,7 +97,7 @@ class GithubScreen extends StatelessWidget {
                   child: StreamBuilder<QuerySnapshot>(
                     stream: FirebaseFirestore.instance.collection('projects/$projectId/commits').orderBy('date', descending: true).limit(50).snapshots(),
                     builder: (context, commitSnap) {
-                      if (!commitSnap.hasData) return const Center(child: CircularProgressIndicator(color: Color(0xFF10B981)));
+                      if (!commitSnap.hasData) return const Center(child: MsDevLoader(color: Color(0xFF10B981)));
                       final docs = commitSnap.data!.docs;
                       if (docs.isEmpty) return const Center(child: Text('No commits found yet.', style: TextStyle(color: Colors.white54)));
 

@@ -1,7 +1,9 @@
+import 'package:msdev_mobile/widgets/ms_dev_loader.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -89,6 +91,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _logout() async {
     await FirebaseAuth.instance.signOut();
+    try {
+      await GoogleSignIn().signOut();
+    } catch (_) {}
     if (mounted) context.go('/login');
   }
 
@@ -288,7 +293,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                   const SizedBox(width: 8),
                   if (_isLoading)
-                    const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFFF59E0B)))
+                    const SizedBox(width: 20, height: 20, child: MsDevLoader(small: true, color: Color(0xFFF59E0B)))
                   else
                     IconButton(icon: const Icon(Icons.check, color: Color(0xFF10B981), size: 20), onPressed: _saveProfile, padding: EdgeInsets.zero, constraints: const BoxConstraints()),
                 ],
