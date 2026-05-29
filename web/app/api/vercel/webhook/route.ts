@@ -155,7 +155,6 @@ export async function POST(req: NextRequest) {
               title: '❌ Vercel Deployment Failed',
               body: `A deployment to Vercel failed: "${errorMessage}". Tasks remain in "GitHub Pushed" status.`,
               projectId,
-              taskId: null,
               metadata: { deploymentUrl, errorMessage, state: deploymentState },
             });
           }

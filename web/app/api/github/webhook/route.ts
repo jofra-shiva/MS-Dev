@@ -164,7 +164,17 @@ export async function POST(req: NextRequest) {
 
       // Fetch all project tasks for AI matching
       const tasksSnap = await getDocs(collection(db, `projects/${projectId}/tasks`));
-      const allTasks = tasksSnap.docs.map((d) => ({ ...d.data(), id: d.id, ref: d.ref }));
+      const allTasks: Array<{
+        id: string;
+        ref: ReturnType<typeof doc>;
+        ticketId?: string;
+        title?: string;
+        status?: string;
+        module?: string;
+        assigneeId?: string | null;
+        [key: string]: unknown;
+      }> = tasksSnap.docs.map((d) => ({ ...d.data(), id: d.id, ref: d.ref }));
+
       const projectModules = projectData?.customModules || [];
 
       const processedTaskIds = new Set<string>();
@@ -205,7 +215,7 @@ export async function POST(req: NextRequest) {
         for (const match of allMatches) {
           const task = allTasks.find((t) => t.id === match.taskId);
           if (!task || processedTaskIds.has(task.id)) continue;
-          if (['completed', 'deployed'].includes(task.status)) continue;
+          if (['completed', 'deployed'].includes(task.status || '')) continue;
 
           processedTaskIds.add(task.id);
           totalTasksUpdated++;
