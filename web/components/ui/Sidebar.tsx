@@ -154,7 +154,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
                   
                   {/* Hover effect for non-active */}
                   {!isActive && (
-                    <div className="absolute inset-0 rounded-[10px] bg-white/[0.03] opacity-0 group-hover:opacity-100 transition-opacity z-[-1]" />
+                    <div className="absolute inset-0 rounded-[10px] bg-[var(--bg-hover)] opacity-0 group-hover:opacity-100 transition-opacity z-[-1]" />
                   )}
 
                   <span style={{ flexShrink: 0, color: isActive ? 'var(--accent)' : 'inherit', transition: 'color 0.2s' }}>{item.icon}</span>
@@ -222,7 +222,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
                       />
                     )}
                     {!isActive && (
-                      <div className="absolute inset-0 rounded-[10px] bg-white/[0.03] opacity-0 group-hover:opacity-100 transition-opacity z-[-1]" />
+                      <div className="absolute inset-0 rounded-[10px] bg-[var(--bg-hover)] opacity-0 group-hover:opacity-100 transition-opacity z-[-1]" />
                     )}
 
                     <div style={{
@@ -269,7 +269,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
             )}
             
             {pathname !== '/settings' && (
-              <div className="absolute inset-0 rounded-[10px] bg-white/[0.03] opacity-0 group-hover:opacity-100 transition-opacity z-[-1]" />
+              <div className="absolute inset-0 rounded-[10px] bg-[var(--bg-hover)] opacity-0 group-hover:opacity-100 transition-opacity z-[-1]" />
             )}
 
             <span style={{ flexShrink: 0, color: pathname === '/settings' ? 'var(--accent)' : 'inherit', transition: 'color 0.2s' }}>

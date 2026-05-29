@@ -56,12 +56,32 @@ class SidebarWebviewProvider {
         webviewView.webview.html = this._getHtml(webviewView.webview);
         webviewView.webview.onDidReceiveMessage(async (msg) => {
             switch (msg.command) {
+                case 'openGlobalDashboard': {
+                    vscode.commands.executeCommand('msdev.openGlobalDashboard');
+                    break;
+                }
+                case 'openProjectsList': {
+                    vscode.commands.executeCommand('msdev.openProjectsList');
+                    break;
+                }
+                case 'openChatList': {
+                    vscode.commands.executeCommand('msdev.openChatList');
+                    break;
+                }
+                case 'openNotifications': {
+                    vscode.commands.executeCommand('msdev.openNotifications');
+                    break;
+                }
+                case 'openSettings': {
+                    vscode.commands.executeCommand('msdev.openSettings');
+                    break;
+                }
                 // ── Open web-app route in VS Code Simple Browser ─────────────────
                 case 'navigate': {
                     const baseUrl = this._getWebAppUrl();
                     const url = baseUrl + (msg.route || '/');
                     try {
-                        await vscode.commands.executeCommand('simpleBrowser.show', url);
+                        await vscode.commands.executeCommand('simpleBrowser.show', vscode.Uri.parse(url));
                     }
                     catch {
                         // simpleBrowser not available — open in system browser
@@ -322,16 +342,24 @@ function render() {
     el.addEventListener('click', function() {
       var nav = el.getAttribute('data-nav');
       activeNav = nav;
-      var routes = {
-        dashboard:     '/dashboard',
-        projects:      '/projects',
-        messages:      '/messages',
-        notifications: '/notifications',
-        settings:      '/settings',
-      };
-      if (routes[nav]) {
-        vscode.postMessage({ command: 'navigate', route: routes[nav] });
+      
+      if (nav === 'dashboard') {
+        vscode.postMessage({ command: 'openGlobalDashboard' });
+      } else if (nav === 'projects') {
+        vscode.postMessage({ command: 'openProjectsList' });
+      } else if (nav === 'messages') {
+        vscode.postMessage({ command: 'openChatList' });
+      } else if (nav === 'notifications') {
+        vscode.postMessage({ command: 'openNotifications' });
+      } else if (nav === 'settings') {
+        vscode.postMessage({ command: 'openSettings' });
+      } else {
+        var routes = {};
+        if (routes[nav]) {
+          vscode.postMessage({ command: 'navigate', route: routes[nav] });
+        }
       }
+      
       render(); // re-render to highlight active nav
     });
   });

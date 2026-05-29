@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MSDEV Settings</title>
+<style>
+:root {
+  --bg: #121826; --bg-elevated: #20283b;
+  --bg-card: rgba(255,255,255,0.02);
+  --border-subtle: rgba(255,255,255,0.05);
+  --text-1: #e6edf3; --text-2: #8b949e; --text-3: #6e7681;
+  --accent: #2dd4bf; --accent-dark: #14b8a6;
+  --bg-input: rgba(255,255,255,0.03);
+  --border-input: rgba(255,255,255,0.1);
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;overflow-y:auto;background:var(--bg);color:var(--text-1);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:13px; display:flex; justify-content:center;}
+
+.container {
+  width: 100%;
+  max-width: 960px;
+  padding: 40px 24px 80px;
+}
+
+h1 {
+  font-size: 28px;
+  font-weight: 800;
+  margin: 0 0 32px 0;
+  letter-spacing: -0.02em;
+}
+
+.panel-card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: 16px;
+  padding: 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 48px;
+}
+
+/* Sections */
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+.section-header h3 {
+  font-size: 18px;
+  font-weight: 700;
+  margin: 0 0 4px 0;
+  color: var(--text-1);
+}
+.section-header p {
+  font-size: 13px;
+  color: var(--text-3);
+  margin: 0;
+}
+
+/* Form Groups */
+.form-row {
+  display: flex;
+  gap: 24px;
+  align-items: flex-end;
+}
+.form-group {
+  flex: 1;
+}
+.form-group label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-2);
+  margin-bottom: 8px;
+}
+
+.input-field {
+  width: 100%;
+  padding: 12px 16px;
+  background: var(--bg-input);
+  border: 1px solid var(--border-input);
+  border-radius: 8px;
+  color: var(--text-1);
+  font-size: 14px;
+  outline: none;
+  font-family: inherit;
+  transition: border-color 0.2s;
+}
+.input-field:focus { border-color: var(--accent); }
+.input-field:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Input with Prefix */
+.input-with-prefix {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 320px;
+}
+.input-with-prefix span {
+  position: absolute;
+  left: 16px;
+  color: var(--text-3);
+  font-size: 14px;
+  pointer-events: none;
+}
+.input-with-prefix input {
+  padding-left: 96px;
+}
+
+/* Buttons */
+.btn {
+  padding: 10px 24px;
+  font-size: 14px;
+  border-radius: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: opacity 0.2s, background 0.2s;
+}
+.btn-secondary {
+  background: transparent;
+  color: var(--text-1);
+  border: 1px solid var(--border-subtle);
+}
+.btn-secondary:hover { background: rgba(255,255,255,0.05); }
+
+.btn-primary {
+  background: var(--accent);
+  color: #000;
+}
+.btn-primary:hover { opacity: 0.9; }
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Custom Row Layouts */
+.boxed-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+}
+
+.github-info {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.github-icon {
+  width: 40px; height: 40px; border-radius: 50%; background: #24292e; display: flex; align-items: center; justify-content: center; color: #fff;
+}
+.github-text-title { font-size: 14px; font-weight: 600; color: var(--text-1); }
+.github-text-desc { font-size: 12px; color: var(--text-3); margin-top: 4px; }
+
+.github-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.checkbox-group {
+  display: flex;
+  align-items: center;
+  gap: 32px;
+}
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+}
+.checkbox-label input {
+  width: 18px; height: 18px; accent-color: var(--accent);
+}
+.checkbox-label span {
+  font-size: 14px; font-weight: 600; color: var(--text-1);
+}
+
+.btn-sm {
+  padding: 8px 16px;
+  font-size: 13px;
+  border-radius: 8px;
+}
+</style>
+</head>
+<body>
+
+<div class="container">
+  <h1>Settings</h1>
+
+  <div class="panel-card" id="app">
+    <!-- Rendered via JS -->
+    <div style="text-align:center; padding: 40px; color: var(--text-3);">Loading settings...</div>
+  </div>
+</div>
+
+<script nonce="{{NONCE}}">
+const vscode = acquireVsCodeApi();
+
+let state = {
+  loaded: false,
+  saving: false,
+  isEditingProfile: false,
+  isEditingGithub: false,
+  formData: {
+    displayName: '',
+    email: '',
+    githubUsername: '',
+    emailNotifications: true,
+    pushNotifications: false,
+    theme: 'system'
+  }
+};
+
+window.addEventListener('message', e => {
+  const m = e.data;
+  if (m.command === 'updateAll') {
+    state.formData = m.profile;
+    state.loaded = true;
+    render();
+  }
+  if (m.command === 'saveComplete') {
+    state.saving = false;
+    state.isEditingProfile = false;
+    state.isEditingGithub = false;
+    render();
+  }
+});
+
+function handleSave() {
+  state.saving = true;
+  render();
+  vscode.postMessage({ command: 'saveSettings', formData: state.formData });
+}
+
+function updateField(field, value) {
+  state.formData[field] = value;
+  render();
+}
+
+function toggleEdit(section, isEditing) {
+  if (section === 'profile') state.isEditingProfile = isEditing;
+  if (section === 'github') state.isEditingGithub = isEditing;
+  render();
+}
+
+function render() {
+  const app = document.getElementById('app');
+  if (!state.loaded) return;
+
+  const { isEditingProfile, isEditingGithub, saving, formData } = state;
+
+  app.innerHTML = `
+    <!-- PROFILE DETAILS -->
+    <div class="section">
+      <div class="section-header">
+        <h3>Profile Details</h3>
+        <p>This information will be displayed publicly to your team.</p>
+      </div>
+
+      <div class="form-row">
+        <div style="display:flex; flex:1; gap:24px;">
+          <div class="form-group">
+            <label>Full Name</label>
+            <input type="text" class="input-field" 
+              value="${formData.displayName}" 
+              oninput="updateField('displayName', this.value)"
+              ${isEditingProfile ? '' : 'disabled'} />
+          </div>
+          <div class="form-group">
+            <label>Email Address</label>
+            <input type="email" class="input-field" 
+              value="${formData.email}" 
+              disabled />
+          </div>
+        </div>
+        
+        <div style="display:flex; gap:12px; height: 42px;">
+          ${!isEditingProfile ? `
+            <button class="btn btn-secondary" onclick="toggleEdit('profile', true)">Edit Profile</button>
+          ` : `
+            <button class="btn btn-secondary" onclick="toggleEdit('profile', false)">Cancel</button>
+            <button class="btn btn-primary" onclick="handleSave()" ${saving ? 'disabled' : ''}>
+              ${saving ? 'Saving...' : 'Save Changes'}
+            </button>
+          `}
+        </div>
+      </div>
+    </div>
+
+    <!-- GITHUB INTEGRATION -->
+    <div class="section">
+      <div class="section-header">
+        <h3>GitHub Integration</h3>
+        <p style="margin-bottom:24px;">Link your GitHub account to enable activity tracking and commit history.</p>
+      </div>
+
+      <div class="boxed-row">
+        <div class="github-info">
+          <div class="github-icon">
+            <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path></svg>
+          </div>
+          <div>
+            <div class="github-text-title">GitHub Username</div>
+            <div class="github-text-desc">Required for Activity Map tracking</div>
+          </div>
+        </div>
+
+        <div class="github-actions">
+          <div class="input-with-prefix">
+            <span style="opacity: ${isEditingGithub ? 1 : 0.5}">github.com/</span>
+            <input type="text" class="input-field" 
+              value="${formData.githubUsername}" 
+              placeholder="username"
+              oninput="updateField('githubUsername', this.value)"
+              ${isEditingGithub ? '' : 'disabled'} />
+          </div>
+
+          <div style="display:flex; gap:8px;">
+            ${!isEditingGithub ? `
+              <button class="btn btn-secondary btn-sm" onclick="toggleEdit('github', true)">Edit</button>
+            ` : `
+              <button class="btn btn-secondary btn-sm" onclick="toggleEdit('github', false)">Cancel</button>
+              <button class="btn btn-primary btn-sm" onclick="handleSave()" ${saving ? 'disabled' : ''}>
+                ${saving ? '...' : 'Save'}
+              </button>
+            `}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- NOTIFICATION SETTINGS -->
+    <div class="section">
+      <div class="section-header">
+        <h3>Notification Settings</h3>
+        <p>Control how you want to be notified about updates.</p>
+      </div>
+
+      <div class="boxed-row" style="margin-top: 8px;">
+        <div class="checkbox-group">
+          <label class="checkbox-label">
+            <input type="checkbox" 
+              ${formData.emailNotifications ? 'checked' : ''} 
+              onchange="updateField('emailNotifications', this.checked)" />
+            <span>Email Notifications</span>
+          </label>
+          <label class="checkbox-label">
+            <input type="checkbox" 
+              ${formData.pushNotifications ? 'checked' : ''} 
+              onchange="updateField('pushNotifications', this.checked)" />
+            <span>Push Notifications</span>
+          </label>
+        </div>
+        
+        <button class="btn btn-primary" onclick="handleSave()" ${saving ? 'disabled' : ''} style="min-width: 130px;">
+          ${saving ? 'Saving...' : 'Save Changes'}
+        </button>
+      </div>
+    </div>
+
+    <!-- APPEARANCE -->
+    <div class="section">
+      <div class="section-header">
+        <h3>Appearance</h3>
+        <p>Customize the look and feel of the application.</p>
+      </div>
+
+      <div class="boxed-row">
+        <div style="font-size: 14px; font-weight: 600; color: var(--text-1);">Theme Preference</div>
+        
+        <div style="display:flex; align-items:center; gap:16px;">
+          <select 
+            class="input-field" 
+            style="width: 200px; padding: 10px 14px; cursor: pointer;"
+            onchange="updateField('theme', this.value)"
+          >
+            <option value="system" ${formData.theme === 'system' ? 'selected' : ''}>System Preference</option>
+            <option value="dark" ${formData.theme === 'dark' ? 'selected' : ''}>Dark Mode</option>
+            <option value="light" ${formData.theme === 'light' ? 'selected' : ''}>Light Mode</option>
+          </select>
+
+          <button class="btn btn-primary" onclick="handleSave()" ${saving ? 'disabled' : ''} style="min-width: 130px;">
+            ${saving ? 'Saving...' : 'Save Changes'}
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+</script>
+</body>
+</html>

@@ -38,12 +38,19 @@ exports.deactivate = deactivate;
 const vscode = __importStar(require("vscode"));
 const AuthManager_1 = require("./auth/AuthManager");
 const SidebarWebviewProvider_1 = require("./providers/SidebarWebviewProvider");
+const FileWatcher_1 = require("./providers/FileWatcher");
 const ProjectDashboardPanel_1 = require("./panels/ProjectDashboardPanel");
+const GlobalDashboardPanel_1 = require("./panels/GlobalDashboardPanel");
+const GlobalProjectsPanel_1 = require("./panels/GlobalProjectsPanel");
+const GlobalChatPanel_1 = require("./panels/GlobalChatPanel");
+const GlobalNotificationsPanel_1 = require("./panels/GlobalNotificationsPanel");
+const GlobalSettingsPanel_1 = require("./panels/GlobalSettingsPanel");
 const taskService_1 = require("./firebase/taskService");
 let allTasksUnsubscribe = null;
 let notifUnsubscribe = null;
 let statusBarItem;
 let seenNotifIds = new Set();
+let fileWatcher = null;
 async function activate(context) {
     console.log('[MSDEV] Extension activated.');
     // ─── Auth Manager ────────────────────────────────────────────────────────
@@ -65,10 +72,18 @@ async function activate(context) {
             statusBarItem.text = '$(project) MSDEV';
             statusBarItem.tooltip = `MSDEV Projects — ${user.displayName || user.email}`;
             statusBarItem.show();
+            // Start file watcher
+            if (!fileWatcher) {
+                fileWatcher = new FileWatcher_1.FileWatcher(statusBarItem);
+                fileWatcher.start();
+                context.subscriptions.push({ dispose: () => fileWatcher?.stop() });
+            }
             await startListeners(user.uid, sidebarProvider, user, context);
         }
         else {
             stopListeners();
+            fileWatcher?.stop();
+            fileWatcher = null;
             sidebarProvider.setLoggedIn(false);
             sidebarProvider.setUser(null);
             sidebarProvider.updateData([], new Map());
@@ -106,6 +121,41 @@ async function activate(context) {
             return;
         }
         ProjectDashboardPanel_1.ProjectDashboardPanel.createOrShow(context.extensionPath, project, user);
+    }));
+    context.subscriptions.push(vscode.commands.registerCommand('msdev.openGlobalDashboard', () => {
+        const user = authManager.currentUser;
+        if (!user) {
+            return;
+        }
+        GlobalDashboardPanel_1.GlobalDashboardPanel.createOrShow(context.extensionPath, user);
+    }));
+    context.subscriptions.push(vscode.commands.registerCommand('msdev.openProjectsList', () => {
+        const user = authManager.currentUser;
+        if (!user) {
+            return;
+        }
+        GlobalProjectsPanel_1.GlobalProjectsPanel.createOrShow(context.extensionPath, user);
+    }));
+    context.subscriptions.push(vscode.commands.registerCommand('msdev.openChatList', () => {
+        const user = authManager.currentUser;
+        if (!user) {
+            return;
+        }
+        GlobalChatPanel_1.GlobalChatPanel.createOrShow(context.extensionPath, user);
+    }));
+    context.subscriptions.push(vscode.commands.registerCommand('msdev.openNotifications', () => {
+        const user = authManager.currentUser;
+        if (!user) {
+            return;
+        }
+        GlobalNotificationsPanel_1.GlobalNotificationsPanel.createOrShow(context.extensionPath, user);
+    }));
+    context.subscriptions.push(vscode.commands.registerCommand('msdev.openSettings', () => {
+        const user = authManager.currentUser;
+        if (!user) {
+            return;
+        }
+        GlobalSettingsPanel_1.GlobalSettingsPanel.createOrShow(context.extensionPath, user);
     }));
     context.subscriptions.push(vscode.commands.registerCommand('msdev.openLocalFolder', async (project) => {
         if (!project || !project.id) {
@@ -174,6 +224,8 @@ async function startListeners(uid, sidebarProvider, user, context) {
         }
         sidebarProvider.updateData(projects, tasksByProject);
         statusBarItem.text = `$(project) MSDEV · ${projects.length} Projects`;
+        // Feed latest tasks to FileWatcher
+        fileWatcher?.updateTasks(tasks, uid);
     });
     // ── Notification listener ──────────────────────────────────────────────────
     notifUnsubscribe = (0, taskService_1.subscribeToNotifications)(uid, (notifs) => {
@@ -203,5 +255,6 @@ function stopListeners() {
 }
 function deactivate() {
     stopListeners();
+    fileWatcher?.stop();
 }
 //# sourceMappingURL=extension.js.map

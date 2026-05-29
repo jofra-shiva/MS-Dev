@@ -17,10 +17,45 @@
 }
 
 /* ────────────────────────────────────────────────────────────
-   DARK  —  follows OS / system dark mode automatically
+   DARK  —  follows OS / system dark mode automatically, or explicit data-theme
 ──────────────────────────────────────────────────────────── */
+:root[data-theme="dark"] {
+  /* Backgrounds – deep navy */
+  --bg-primary:   #0a0f1e;
+  --bg-card:      #0d1526;
+  --bg-elevated:  #131f35;
+  --bg-hover:     #1a2840;
+
+  /* Accents – light green + sky blue */
+  --accent:       #34d399;
+  --accent-2:     #38bdf8;
+  --accent-glow:  rgba(52, 211, 153, 0.22);
+
+  /* Status */
+  --success: #34d399;
+  --warning: #fbbf24;
+  --danger:  #f87171;
+  --info:    #38bdf8;
+
+  /* Borders */
+  --border:        #1e3250;
+  --border-subtle: #162843;
+
+  /* Text */
+  --text-1: #f0faf7;
+  --text-2: #8fb4d6;
+  --text-3: #4d7499;
+
+  /* Glass / shadows */
+  --glass:             rgba(10, 25, 50, 0.55);
+  --glass-border:      rgba(52, 211, 153, 0.10);
+  --shadow-glow:       0 0 40px rgba(52, 211, 153, 0.18);
+  --shadow-card:       0 8px 32px rgba(0, 0, 0, 0.55);
+  --btn-primary-text:  #022c22;
+}
+
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]):not([data-theme="dark"]) {
     /* Backgrounds – deep navy */
     --bg-primary:   #0a0f1e;
     --bg-card:      #0d1526;
@@ -57,41 +92,76 @@
 }
 
 /* ────────────────────────────────────────────────────────────
-   LIGHT  —  follows OS / system light mode automatically
+   LIGHT  —  follows OS / system light mode automatically, or explicit data-theme
 ──────────────────────────────────────────────────────────── */
-@media (prefers-color-scheme: light) {
-  :root {
-    /* Backgrounds – clean mint-white */
-    --bg-primary:   #f0fdf9;
-    --bg-card:      #ffffff;
-    --bg-elevated:  #ecfdf5;
-    --bg-hover:     #d1fae5;
+:root[data-theme="light"] {
+  /* Backgrounds – distinct gray background and white cards */
+  --bg-primary:   #f4f4f5; /* Zinc 100 for better contrast */
+  --bg-card:      #ffffff;
+  --bg-elevated:  #ffffff;
+  --bg-hover:     #e4e4e7; /* Zinc 200 for visible hovers */
 
-    /* Accents – deeper green + blue for legibility on white */
-    --accent:       #059669;
-    --accent-2:     #0284c7;
-    --accent-glow:  rgba(5, 150, 105, 0.15);
+  /* Accents – professional dark grays */
+  --accent:       #3f3f46;
+  --accent-2:     #52525b;
+  --accent-glow:  rgba(63, 63, 70, 0.1);
+
+  /* Status */
+  --success: #16a34a;
+  --warning: #d97706;
+  --danger:  #dc2626;
+  --info:    #2563eb;
+
+  /* Borders - stronger for visibility */
+  --border:        #d4d4d8; /* Zinc 300 */
+  --border-subtle: #e4e4e7; /* Zinc 200 */
+
+  /* Text - high contrast neutral grays */
+  --text-1: #18181b;
+  --text-2: #52525b;
+  --text-3: #71717a; /* Zinc 500 for better legibility than 400 */
+
+  /* Glass / shadows */
+  --glass:             rgba(255, 255, 255, 0.95);
+  --glass-border:      rgba(0, 0, 0, 0.05);
+  --shadow-glow:       none;
+  --shadow-card:       0 1px 3px rgba(0,0,0,0.05), 0 1px 2px rgba(0,0,0,0.03);
+  --btn-primary-text:  #ffffff;
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]):not([data-theme="light"]) {
+    /* Backgrounds – distinct gray background and white cards */
+    --bg-primary:   #f4f4f5; /* Zinc 100 for better contrast */
+    --bg-card:      #ffffff;
+    --bg-elevated:  #ffffff;
+    --bg-hover:     #e4e4e7; /* Zinc 200 for visible hovers */
+
+    /* Accents – professional dark grays */
+    --accent:       #3f3f46;
+    --accent-2:     #52525b;
+    --accent-glow:  rgba(63, 63, 70, 0.1);
 
     /* Status */
-    --success: #059669;
+    --success: #16a34a;
     --warning: #d97706;
     --danger:  #dc2626;
-    --info:    #0284c7;
+    --info:    #2563eb;
 
-    /* Borders */
-    --border:        #a7f3d0;
-    --border-subtle: #d1fae5;
+    /* Borders - stronger for visibility */
+    --border:        #d4d4d8; /* Zinc 300 */
+    --border-subtle: #e4e4e7; /* Zinc 200 */
 
-    /* Text */
-    --text-1: #064e3b;
-    --text-2: #0f766e;
-    --text-3: #6ee7b7;
+    /* Text - high contrast neutral grays */
+    --text-1: #18181b;
+    --text-2: #52525b;
+    --text-3: #71717a; /* Zinc 500 */
 
     /* Glass / shadows */
-    --glass:             rgba(240, 253, 249, 0.80);
-    --glass-border:      rgba(5, 150, 105, 0.15);
-    --shadow-glow:       0 0 40px rgba(5, 150, 105, 0.12);
-    --shadow-card:       0 8px 32px rgba(5, 150, 105, 0.08);
+    --glass:             rgba(255, 255, 255, 0.95);
+    --glass-border:      rgba(0, 0, 0, 0.05);
+    --shadow-glow:       none;
+    --shadow-card:       0 1px 3px rgba(0,0,0,0.05), 0 1px 2px rgba(0,0,0,0.03);
     --btn-primary-text:  #ffffff;
   }
 }
@@ -526,6 +596,20 @@ textarea.input { resize: vertical; min-height: 80px; }
   transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+.github-chart {
+  filter: invert(1) hue-rotate(180deg) brightness(1.2) contrast(1.1) saturate(1.3);
+}
+
+:root[data-theme="light"] .github-chart {
+  filter: none;
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]):not([data-theme="light"]) .github-chart {
+    filter: none;
+  }
+}
+
 .show-xl { display: none !important; }
 
 @media (min-width: 1280px) {
@@ -792,7 +876,7 @@ textarea.input { resize: vertical; min-height: 80px; }
   content: '';
   position: absolute;
   width: 700px; height: 700px;
-  background: rgba(56, 189, 248, 0.10);
+  background: var(--accent-glow);
   border-radius: 50%;
   bottom: -200px; left: -150px;
   filter: blur(120px);

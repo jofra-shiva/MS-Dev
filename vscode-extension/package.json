@@ -3,8 +3,9 @@
   "displayName": "MSDEV Tasks",
   "description": "Manage your MSDEV project tasks directly from VS Code with real-time Firebase sync.",
   "version": "1.0.0",
-  "publisher": "msdev",
+  "publisher": "jofrashiva",
   "icon": "media/icon.png",
+  "repository": { "type": "git", "url": "https://github.com/jofra-shiva/PROJ" },
   "engines": {
     "vscode": "^1.85.0"
   },
@@ -108,7 +109,7 @@
   "scripts": {
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
-    "package": "vsce package",
+    "package": "npm run compile && vsce package --no-dependencies --allow-missing-repository",
     "lint": "eslint src --ext ts"
   },
   "dependencies": {

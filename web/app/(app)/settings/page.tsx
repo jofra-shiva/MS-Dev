@@ -47,7 +47,16 @@ export default function SettingsPage() {
             bio: data.bio || '',
             emailNotifications: data.emailNotifications ?? true,
             pushNotifications: data.pushNotifications ?? false,
+            theme: data.theme || 'system',
           }));
+          
+          if (data.theme && (data.theme === 'dark' || data.theme === 'light')) {
+            document.documentElement.setAttribute('data-theme', data.theme);
+            localStorage.setItem('theme', data.theme);
+          } else {
+            document.documentElement.removeAttribute('data-theme');
+            localStorage.setItem('theme', 'system');
+          }
         } else {
           setFormData(prev => ({
             ...prev,
@@ -76,6 +85,7 @@ export default function SettingsPage() {
         bio: formData.bio,
         emailNotifications: formData.emailNotifications,
         pushNotifications: formData.pushNotifications,
+        theme: formData.theme,
         updatedAt: new Date()
       });
       setMessage('Settings saved successfully!');
@@ -182,9 +192,8 @@ export default function SettingsPage() {
                     <input 
                       type="email" 
                       value={formData.email} 
-                      onChange={e => setFormData({...formData, email: e.target.value})}
-                      disabled={!isEditing} 
-                      style={{ ...inputStyle, opacity: isEditing ? 1 : 0.5, cursor: isEditing ? 'text' : 'not-allowed' }} 
+                      disabled={true} 
+                      style={{ ...inputStyle, opacity: 0.5, cursor: 'not-allowed' }} 
                     />
                   </div>
                 </div>
@@ -287,6 +296,49 @@ export default function SettingsPage() {
                 >
                   {saving ? 'Saving...' : 'Save Changes'}
                 </button>
+              </div>
+            </motion.div>
+
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+              <div>
+                <h3 style={{ fontSize: 18, fontWeight: 700, margin: '0 0 4px 0', color: 'var(--text-1)' }}>Appearance</h3>
+                <p style={{ fontSize: 13, color: 'var(--text-3)', margin: 0 }}>Customize the look and feel of the application.</p>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 16, background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: 12 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-1)' }}>Theme Preference</div>
+                </div>
+                
+                <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                  <select
+                    value={formData.theme}
+                    onChange={(e) => {
+                      const t = e.target.value;
+                      setFormData({...formData, theme: t});
+                      localStorage.setItem('theme', t);
+                      if (t === 'dark' || t === 'light') {
+                        document.documentElement.setAttribute('data-theme', t);
+                      } else {
+                        document.documentElement.removeAttribute('data-theme');
+                      }
+                    }}
+                    style={{ padding: '10px 14px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-elevated)', color: 'var(--text-1)', fontSize: 13, outline: 'none', width: 200, cursor: 'pointer' }}
+                  >
+                    <option value="system">System Preference</option>
+                    <option value="dark">Dark Mode</option>
+                    <option value="light">Light Mode</option>
+                  </select>
+                  
+                  <button 
+                    className="btn btn-primary shadow-lg" 
+                    onClick={handleSave}
+                    disabled={saving}
+                    style={{ padding: '10px 24px', fontSize: 14, borderRadius: 10, fontWeight: 600 }}
+                  >
+                    {saving ? 'Saving...' : 'Save Changes'}
+                  </button>
+                </div>
               </div>
             </motion.div>
 

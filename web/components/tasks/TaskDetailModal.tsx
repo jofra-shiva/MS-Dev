@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { Task, Comment, Meeting } from '@/types';
-import { updateTask, deleteTask, subscribeToComments, addComment, logActivity, subscribeToMeetings, approveTaskMovePermission } from '@/lib/firebase/firestore';
+import { updateTask, deleteTask, subscribeToComments, addComment, logActivity, subscribeToMeetings, approveTaskMovePermission, declineTaskMovePermission } from '@/lib/firebase/firestore';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { motion, AnimatePresence } from 'framer-motion';
 import { formatDistanceToNow } from 'date-fns';
@@ -88,7 +88,16 @@ export default function TaskDetailModal({ task, projectId, onClose }: Props) {
       await approveTaskMovePermission(projectId, task.id, requesterId, task.title);
       toast.success('Permission granted!');
     } catch (e: any) {
-      toast.error('Failed to grant permission: ' + e.message);
+      toast.error('Failed to grant permission');
+    }
+  };
+
+  const handleDeclineMove = async (requesterId: string) => {
+    try {
+      await declineTaskMovePermission(projectId, task.id, requesterId, task.title);
+      toast.success('Permission declined.');
+    } catch (e: any) {
+      toast.error('Failed to decline permission');
     }
   };
 
@@ -119,7 +128,7 @@ export default function TaskDetailModal({ task, projectId, onClose }: Props) {
               <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
                 <span className={`badge badge-${task.status}`}>{task.status.replace('_', ' ')}</span>
                 <span className={`badge badge-${task.priority}`}>{task.priority}</span>
-                <span style={{ fontSize: 11, background: 'var(--bg-elevated)', color: 'var(--text-1)', padding: '3px 9px', borderRadius: 99 }}>{task.type === 'bug' ? 'Bug' : task.type === 'feature' ? 'Feature' : 'Improvement'}</span>
+                <span style={{ fontSize: 11, background: '#8B5CF615', color: '#8B5CF6', padding: '3px 9px', borderRadius: 4, fontWeight: 700 }}>{task.ticketId || 'TOKEN'}</span>
                 {task.module && <span style={{ fontSize: 11, background: 'var(--bg-elevated)', color: 'var(--text-2)', padding: '3px 9px', borderRadius: 99 }}>Module: {task.module}</span>}
                 {task.githubRef?.lastCommitSha && <span style={{ fontSize: 11, background: 'rgba(16,185,129,0.12)', color: 'var(--success)', padding: '3px 9px', borderRadius: 99 }} className="mono">Commit: {task.githubRef.lastCommitSha.slice(0, 7)}</span>}
               </div>
@@ -148,7 +157,10 @@ export default function TaskDetailModal({ task, projectId, onClose }: Props) {
               {task.moveRequests.map(reqId => (
                 <div key={reqId} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--bg-card)', padding: '8px 12px', borderRadius: 6, marginTop: 8 }}>
                   <span style={{ fontSize: 13, color: 'var(--text-1)' }}>Someone requested to move this task.</span>
-                  <button className="btn btn-primary btn-sm" onClick={() => handleApproveMove(reqId)}>Approve</button>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button className="btn btn-secondary btn-sm" onClick={() => handleDeclineMove(reqId)}>Decline</button>
+                    <button className="btn btn-primary btn-sm" onClick={() => handleApproveMove(reqId)}>Approve</button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -274,14 +286,6 @@ export default function TaskDetailModal({ task, projectId, onClose }: Props) {
               ))}
               {editing && (
                 <>
-                  <div>
-                    <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', marginBottom: 5 }}>Type</div>
-                    <select className="input" value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value as any }))}>
-                      <option value="bug">Bug</option>
-                      <option value="feature">Feature</option>
-                      <option value="improvement">Improvement</option>
-                    </select>
-                  </div>
                   <div>
                     <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', marginBottom: 5 }}>Status</div>
                     <select className="input" value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value as any }))}>

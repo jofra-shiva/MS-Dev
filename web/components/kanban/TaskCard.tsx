@@ -55,13 +55,9 @@ export default function TaskCard({ task, projectId, isDragging }: Props) {
         {/* Priority + Module */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            {task.ticketId ? (
-              <span style={{ fontSize: 13, fontWeight: 800, color: task.ticketId.startsWith('BUG') ? '#EF4444' : task.ticketId.startsWith('FEAT') ? '#8B5CF6' : task.ticketId.startsWith('IMP') ? '#10B981' : '#8B5CF6', background: `${task.ticketId.startsWith('BUG') ? '#EF4444' : task.ticketId.startsWith('FEAT') ? '#8B5CF6' : task.ticketId.startsWith('IMP') ? '#10B981' : '#8B5CF6'}15`, padding: '2px 8px', borderRadius: 4 }}>
-                {task.ticketId}
-              </span>
-            ) : (
-              task.type === 'bug' ? <span title="Bug" style={{ fontSize: 13, fontWeight: 700, color: '#EF4444' }}>BUG</span> : task.type === 'feature' ? <span title="Feature" style={{ fontSize: 13, fontWeight: 700, color: '#8B5CF6' }}>FEAT</span> : <span title="Improvement" style={{ fontSize: 13, fontWeight: 700, color: '#10B981' }}>IMP</span>
-            )}
+            <span style={{ fontSize: 13, fontWeight: 800, color: '#8B5CF6', background: '#8B5CF615', padding: '2px 8px', borderRadius: 4 }}>
+              {task.ticketId || 'TOKEN'}
+            </span>
             <div style={{ width: 6, height: 6, borderRadius: '50%', background: PRIORITY_DOT[task.priority], marginLeft: 4 }} />
             <span style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{task.priority}</span>
           </div>

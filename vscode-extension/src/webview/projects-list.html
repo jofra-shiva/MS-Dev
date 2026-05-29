@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MSDEV Projects List</title>
+<style>
+:root {
+  --bg: #0d1117; --bg-elevated: #161b22; --bg-card: #1a2133;
+  --text-1: #e6edf3; --text-2: #8b949e; --text-3: #6e7681;
+  --border: #30363d;
+  --accent: #2dd4bf; --accent2: #3b82f6;
+  --cyan: #06b6d4; --purple: #8b5cf6; --emerald: #10b981; --amber: #f59e0b;
+  --danger: #ef4444; --warning: #f59e0b;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;overflow:auto;background:var(--bg);color:var(--text-1);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:13px;}
+body{padding:32px 40px;max-width:1400px;margin:0 auto;}
+
+/* HEADER */
+.header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:24px; }
+.title { font-size:28px; font-weight:800; letter-spacing:-0.02em; color:var(--text-1); line-height:1.2; }
+.subtitle { font-size:13px; color:var(--text-2); font-weight:500; margin-top:2px; }
+.btn-primary { background:var(--accent); color:#0d1117; padding:9px 18px; border-radius:8px; font-weight:700; font-size:13px; border:none; cursor:pointer; display:flex; align-items:center; gap:6px; transition:background 0.2s; }
+.btn-primary:hover { background:#14b8a6; }
+
+/* SEARCH & FILTERS */
+.toolbar { display:flex; gap:16px; margin-bottom:32px; align-items:center; }
+.search-box { flex:1; position:relative; max-width:400px; }
+.search-icon { position:absolute; left:14px; top:50%; transform:translateY(-50%); color:var(--text-3); font-size:14px; }
+.search-input { width:100%; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:8px; padding:10px 14px 10px 38px; color:var(--text-1); font-size:13px; outline:none; transition:all 0.2s; }
+.search-input:focus { background:rgba(255,255,255,0.05); border-color:var(--text-3); }
+
+.filters { display:flex; background:rgba(255,255,255,0.03); padding:4px; border-radius:8px; border:1px solid rgba(255,255,255,0.05); }
+.filter-btn { background:transparent; border:none; padding:6px 16px; border-radius:6px; color:var(--text-2); font-size:12px; font-weight:600; cursor:pointer; transition:all 0.2s; }
+.filter-btn:hover { color:var(--text-1); }
+.filter-btn.active { background:var(--accent); color:#000; }
+
+/* GRID */
+.grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(380px, 1fr)); gap:20px; }
+
+/* PROJECT CARD */
+.card { 
+  background:var(--bg-elevated); border:1px solid rgba(255,255,255,0.05); border-radius:12px; padding:24px; 
+  position:relative; overflow:hidden; cursor:pointer; transition:all 0.2s;
+}
+.card:hover { transform:translateY(-4px); border-color:rgba(255,255,255,0.1); box-shadow:0 12px 24px rgba(0,0,0,0.2); }
+.card-border { position:absolute; left:0; top:0; bottom:0; width:4px; }
+
+.card-header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px; }
+.card-title { font-size:18px; font-weight:700; color:var(--text-1); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.card-badge { font-size:10px; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; opacity:0.8; }
+
+.card-desc { font-size:13px; color:var(--text-2); line-height:1.5; height:40px; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; margin-bottom:20px; }
+
+.progress-header { display:flex; justify-content:space-between; font-size:11px; color:var(--text-2); margin-bottom:8px; }
+.progress-val { font-weight:700; color:var(--text-1); }
+.progress-track { height:6px; background:rgba(255,255,255,0.05); border-radius:99px; overflow:hidden; margin-bottom:20px; }
+.progress-bar { height:100%; border-radius:99px; background:var(--cyan); transition:width 1s ease; }
+
+.card-footer { display:flex; justify-content:space-between; align-items:center; }
+.stats { display:flex; gap:16px; font-size:12px; color:var(--text-3); }
+.stats span { display:flex; align-items:center; gap:6px; }
+.stats strong { color:var(--text-2); font-weight:600; }
+
+.avatars { display:flex; flex-direction:row-reverse; }
+.avatar { 
+  width:24px; height:24px; border-radius:50%; border:2px solid var(--bg-elevated); 
+  display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:700; color:#fff;
+  margin-left:-8px;
+}
+
+.empty-state { grid-column:1/-1; padding:60px 0; text-align:center; color:var(--text-3); }
+
+/* MODAL SYSTEM (reused from global dashboard) */
+.modal-overlay{position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,.65);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;padding:20px;}
+.modal-overlay.hidden{display:none;}
+.modal-box{background:#111827;border:1px solid var(--border);border-radius:14px;max-width:680px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 24px 60px rgba(0,0,0,.6);animation:slideUp .2s ease-out;}
+.modal-box.modal-sm{max-width:420px;}
+@keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+.modal-header{display:flex;align-items:flex-start;justify-content:space-between;padding:20px 24px 0;margin-bottom:20px;}
+.modal-title{font-size:18px;font-weight:700;}
+.modal-body{padding:0 24px 24px;}
+.close-btn{background:transparent;border:none;color:var(--text-2);font-size:18px;cursor:pointer;padding:4px;line-height:1;width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:6px;}
+.close-btn:hover{background:var(--bg-elevated);color:var(--text-1);}
+
+/* FORM FIELDS */
+.form-group{display:flex;flex-direction:column;gap:6px;}
+.form-group.full{grid-column:1/-1;}
+.form-label{font-size:11px;font-weight:700;color:var(--text-2);text-transform:uppercase;letter-spacing:.05em;}
+.form-input{background:var(--bg-elevated);color:var(--text-1);border:1px solid var(--border);padding:10px 12px;border-radius:7px;font-size:13px;font-family:inherit;width:100%;transition:border-color .15s;}
+.form-input:focus{outline:none;border-color:var(--accent);}
+textarea.form-input{resize:vertical;min-height:80px;}
+
+@media(max-width: 768px) {
+  .toolbar { flex-direction:column; align-items:stretch; }
+  .grid { grid-template-columns:1fr; }
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <div class="title">Projects</div>
+    <div class="subtitle" id="proj-count">Loading...</div>
+  </div>
+  <button class="btn-primary" onclick="openCreateProject()">+ New Project</button>
+</div>
+
+<div class="toolbar">
+  <div class="search-box">
+    <div class="search-icon">🔍</div>
+    <input type="text" class="search-input" id="search-input" placeholder="Search projects..." oninput="handleSearch()" />
+  </div>
+  <div class="filters">
+    <button class="filter-btn active" data-filter="all" onclick="setFilter('all')">All</button>
+    <button class="filter-btn" data-filter="active" onclick="setFilter('active')">Active</button>
+    <button class="filter-btn" data-filter="completed" onclick="setFilter('completed')">Completed</button>
+    <button class="filter-btn" data-filter="archived" onclick="setFilter('archived')">Archived</button>
+  </div>
+</div>
+
+<div class="grid" id="projects-grid"></div>
+
+<!-- CREATE PROJECT MODAL -->
+<div class="modal-overlay hidden" id="create-project-modal" onclick="if(event.target===this)closeCreateProject()">
+  <div class="modal-box modal-sm">
+    <div class="modal-header">
+      <div style="display:flex; align-items:center; gap:12px;">
+        <div style="width:36px; height:36px; border-radius:10px; background:linear-gradient(135deg, #06b6d4, #3b82f6); display:flex; align-items:center; justify-content:center; color:#fff; font-size:18px; font-weight:700;">+</div>
+        <div>
+          <div class="modal-title">Create New Project</div>
+          <div style="font-size:12px; color:var(--text-3); font-weight:500;">Set up your workspace in seconds</div>
+        </div>
+      </div>
+      <button class="close-btn" onclick="closeCreateProject()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group full" style="margin-bottom:16px">
+        <label class="form-label" style="color:var(--accent)">PROJECT NAME *</label>
+        <input id="cp-name" class="form-input" style="border-color:var(--accent)" placeholder="e.g. E-Commerce Platform" autofocus />
+      </div>
+      <div class="form-group full" style="margin-bottom:16px">
+        <label class="form-label">DESCRIPTION</label>
+        <textarea id="cp-desc" class="form-input" rows="3" placeholder="What is this project about?"></textarea>
+      </div>
+      <div class="form-group full" style="margin-bottom:24px">
+        <label class="form-label">LIVE URL <span style="text-transform:lowercase; color:var(--text-3); font-weight:400">(optional)</span></label>
+        <div style="position:relative">
+          <span style="position:absolute; left:12px; top:11px; color:var(--text-3)">🔗</span>
+          <input id="cp-url" class="form-input" style="padding-left:36px;" placeholder="https://..." />
+        </div>
+      </div>
+      <div style="display:flex; gap:12px; justify-content:space-between">
+        <button style="flex:1; padding:10px; font-size:13px; background:var(--bg-elevated); color:var(--text-1); border:1px solid var(--border); border-radius:8px; cursor:pointer;" onclick="closeCreateProject()">Cancel</button>
+        <button class="btn-primary" id="btn-submit-project" style="flex:1; padding:10px; font-size:13px; justify-content:center;" onclick="submitCreateProject()">+ Create Project</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script nonce="{{NONCE}}">
+const vscode = acquireVsCodeApi();
+
+let state = { projects: [], tasks: [], user: null, filter: 'all', search: '' };
+
+window.addEventListener('message', e => {
+  const m = e.data;
+  if (m.command === 'updateAll') {
+    state.projects = m.projects || [];
+    state.tasks = m.tasks || [];
+    state.user = m.user;
+    render();
+  }
+  if (m.command === 'projectCreated') {
+    closeCreateProject();
+    const btn = document.getElementById('btn-submit-project');
+    if(btn) { btn.disabled = false; btn.textContent = '+ Create Project'; }
+    document.getElementById('cp-name').value = '';
+    document.getElementById('cp-desc').value = '';
+    document.getElementById('cp-url').value = '';
+  }
+  if (m.command === 'projectCreateError') {
+    const btn = document.getElementById('btn-submit-project');
+    if(btn) { btn.disabled = false; btn.textContent = '+ Create Project'; }
+  }
+});
+
+function esc(s) {
+  if (!s) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function setFilter(filter) {
+  state.filter = filter;
+  document.querySelectorAll('.filter-btn').forEach(b => {
+    b.classList.toggle('active', b.getAttribute('data-filter') === filter);
+  });
+  render();
+}
+
+function handleSearch() {
+  state.search = document.getElementById('search-input').value.toLowerCase();
+  render();
+}
+
+function render() {
+  document.getElementById('proj-count').textContent = `${state.projects.length} total projects`;
+
+  const filtered = state.projects.filter(p => {
+    // text search
+    if (state.search && !(p.name.toLowerCase().includes(state.search) || (p.description||'').toLowerCase().includes(state.search))) {
+      return false;
+    }
+    // tab filter
+    const isArchived = !!p.archived;
+    // We infer "completed" if completionPercentage == 100, or you can adjust logic.
+    // Let's use tasks completion logic
+    const pTasks = state.tasks.filter(t => t.projectId === p.id);
+    const pCompleted = pTasks.filter(t => ['completed', 'deployed'].includes(t.status)).length;
+    const isCompleted = pTasks.length > 0 && pCompleted === pTasks.length;
+    
+    if (state.filter === 'active') return !isArchived && !isCompleted;
+    if (state.filter === 'completed') return !isArchived && isCompleted;
+    if (state.filter === 'archived') return isArchived;
+    return true; // 'all'
+  });
+
+  const grid = document.getElementById('projects-grid');
+  if (filtered.length === 0) {
+    grid.innerHTML = `<div class="empty-state">No projects found.</div>`;
+    return;
+  }
+
+  const COLORS = ['#06b6d4', '#8b5cf6', '#10b981', '#f59e0b', '#ec4899', '#3b82f6'];
+
+  grid.innerHTML = filtered.map((p, i) => {
+    const pTasks = state.tasks.filter(t => t.projectId === p.id);
+    const completedCount = pTasks.filter(t => ['completed', 'deployed'].includes(t.status)).length;
+    const progress = pTasks.length ? Math.round((completedCount / pTasks.length) * 100) : 0;
+    const color = p.color || COLORS[i % COLORS.length];
+    
+    // Status text
+    let statusText = 'ACTIVE';
+    if (p.archived) statusText = 'ARCHIVED';
+    else if (pTasks.length > 0 && completedCount === pTasks.length) statusText = 'COMPLETED';
+
+    // Avatars (limit to 3 for design)
+    const members = p.members ? Object.values(p.members) : [];
+    if (state.user && members.length === 0) members.push(state.user); // fallback
+    const displayMembers = members.slice(0, 3);
+    const avatarsHtml = displayMembers.map((m, idx) => {
+      const init = (m.displayName || m.email || 'U').charAt(0).toUpperCase();
+      const mColor = COLORS[(i + idx) % COLORS.length];
+      if (m.photoURL) return `<div class="avatar"><img src="${esc(m.photoURL)}" style="width:100%;height:100%;border-radius:50%;object-fit:cover" /></div>`;
+      return `<div class="avatar" style="background:${mColor}">${esc(init)}</div>`;
+    }).join('');
+
+    return `
+      <div class="card" onclick="openProject('${esc(p.id)}')">
+        <div class="card-border" style="background:${color}"></div>
+        <div class="card-header">
+          <div class="card-title" style="color:${color}">${esc(p.name)}</div>
+          <div class="card-badge" style="color:${color}">${statusText}</div>
+        </div>
+        <div class="card-desc">${esc(p.description || 'No description available.')}</div>
+        
+        <div class="progress-header">
+          <span>Completion</span>
+          <span class="progress-val">${progress}%</span>
+        </div>
+        <div class="progress-track">
+          <div class="progress-bar" style="width:${progress}%; background:linear-gradient(90deg, ${color}, ${color}80)"></div>
+        </div>
+        
+        <div class="card-footer">
+          <div class="stats">
+            <span>📋 <strong>${pTasks.length}</strong> tasks</span>
+            <span>✅ <strong>${completedCount}</strong> done</span>
+            <span>⚡ <strong>${p.stats?.totalCommits || 0}</strong> commits</span>
+          </div>
+          <div class="avatars">
+            ${avatarsHtml}
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function openProject(id) {
+  vscode.postMessage({ command: 'openProject', projectId: id });
+}
+
+function openCreateProject() {
+  document.getElementById('create-project-modal').classList.remove('hidden');
+}
+
+function closeCreateProject() {
+  document.getElementById('create-project-modal').classList.add('hidden');
+}
+
+function submitCreateProject() {
+  const name = document.getElementById('cp-name').value.trim();
+  const desc = document.getElementById('cp-desc').value.trim();
+  const url = document.getElementById('cp-url').value.trim();
+  if (!name) return alert('Project name is required');
+  vscode.postMessage({ command: 'createProject', name, description: desc, liveUrl: url });
+  
+  const btn = document.getElementById('btn-submit-project');
+  btn.disabled = true;
+  btn.textContent = 'Creating...';
+}
+</script>
+</body>
+</html>

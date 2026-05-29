@@ -1,5 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.updateUserSettings = exports.getUserProfile = exports.approveTaskMovePermission = exports.markAllNotificationsRead = exports.markNotificationRead = exports.createNotification = void 0;
 exports.subscribeToMyTasks = subscribeToMyTasks;
 exports.subscribeToAllTasks = subscribeToAllTasks;
 exports.subscribeToNotifications = subscribeToNotifications;
@@ -14,6 +15,7 @@ exports.subscribeToProjectTasks = subscribeToProjectTasks;
 exports.subscribeToActivity = subscribeToActivity;
 exports.subscribeToMeetings = subscribeToMeetings;
 exports.addTask = addTask;
+exports.createProject = createProject;
 const firestore_1 = require("@firebase/firestore");
 const client_1 = require("./client");
 // ─────────────────────────────────────────────
@@ -303,4 +305,99 @@ async function addTask(projectId, data) {
     });
     return ref.id;
 }
+// ─────────────────────────────────────────────
+// Create a new project
+// ─────────────────────────────────────────────
+async function createProject(data, userId, userName, userEmail, userPhoto) {
+    const db = (0, client_1.getFirebaseDb)();
+    const projectRef = (0, firestore_1.doc)((0, firestore_1.collection)(db, 'projects'));
+    await (0, firestore_1.setDoc)(projectRef, {
+        ...data,
+        id: projectRef.id,
+        completionPercentage: 0,
+        stats: { totalTasks: 0, completedTasks: 0, inProgressTasks: 0, pendingTasks: 0, totalCommits: 0, totalMembers: 1 },
+        members: {
+            [userId]: {
+                role: 'admin',
+                displayName: userName,
+                email: userEmail,
+                photoURL: userPhoto,
+                joinedAt: (0, firestore_1.serverTimestamp)(),
+            }
+        },
+        createdAt: (0, firestore_1.serverTimestamp)(),
+        updatedAt: (0, firestore_1.serverTimestamp)(),
+    });
+    await (0, firestore_1.updateDoc)((0, firestore_1.doc)(db, 'users', userId), {
+        projectIds: (0, firestore_1.arrayUnion)(projectRef.id),
+    });
+    return projectRef.id;
+}
+// ─────────────────────────────────────────────
+// NOTIFICATIONS API
+// ─────────────────────────────────────────────
+const createNotification = async (userId, data) => {
+    const db = (0, client_1.getFirebaseDb)();
+    const notifRef = (0, firestore_1.doc)((0, firestore_1.collection)(db, `notifications/${userId}/items`));
+    await (0, firestore_1.setDoc)(notifRef, {
+        ...data,
+        read: false,
+        createdAt: (0, firestore_1.serverTimestamp)()
+    });
+};
+exports.createNotification = createNotification;
+const markNotificationRead = async (userId, notifId) => {
+    const db = (0, client_1.getFirebaseDb)();
+    await (0, firestore_1.updateDoc)((0, firestore_1.doc)(db, `notifications/${userId}/items/${notifId}`), {
+        read: true
+    });
+};
+exports.markNotificationRead = markNotificationRead;
+const markAllNotificationsRead = async (userId) => {
+    const db = (0, client_1.getFirebaseDb)();
+    const q = (0, firestore_1.query)((0, firestore_1.collection)(db, `notifications/${userId}/items`));
+    const snap = await (0, firestore_1.getDocs)(q);
+    const batch = (0, firestore_1.writeBatch)(db);
+    snap.docs.filter(d => !d.data().read).forEach(d => batch.update(d.ref, { read: true }));
+    await batch.commit();
+};
+exports.markAllNotificationsRead = markAllNotificationsRead;
+const approveTaskMovePermission = async (projectId, taskId, requesterId, taskTitle) => {
+    const db = (0, client_1.getFirebaseDb)();
+    const taskRef = (0, firestore_1.doc)(db, `projects/${projectId}/tasks/${taskId}`);
+    await (0, firestore_1.updateDoc)(taskRef, {
+        moveRequests: (0, firestore_1.arrayRemove)(requesterId),
+        approvedMovers: (0, firestore_1.arrayUnion)(requesterId)
+    });
+    await (0, exports.createNotification)(requesterId, {
+        type: 'task_move_approved',
+        title: 'Permission Granted',
+        body: `You have been granted permission to move the task "${taskTitle || 'Unknown'}".`,
+        projectId,
+        taskId
+    });
+};
+exports.approveTaskMovePermission = approveTaskMovePermission;
+// ─────────────────────────────────────────────
+// SETTINGS API
+// ─────────────────────────────────────────────
+const getUserProfile = async (userId) => {
+    const db = (0, client_1.getFirebaseDb)();
+    const docRef = (0, firestore_1.doc)(db, 'users', userId);
+    const snap = await (0, firestore_1.getDoc)(docRef);
+    if (snap.exists()) {
+        return snap.data();
+    }
+    return null;
+};
+exports.getUserProfile = getUserProfile;
+const updateUserSettings = async (userId, data) => {
+    const db = (0, client_1.getFirebaseDb)();
+    const docRef = (0, firestore_1.doc)(db, 'users', userId);
+    await (0, firestore_1.updateDoc)(docRef, {
+        ...data,
+        updatedAt: new Date()
+    });
+};
+exports.updateUserSettings = updateUserSettings;
 //# sourceMappingURL=taskService.js.map

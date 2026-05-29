@@ -669,8 +669,8 @@ export default function MessagesPage() {
               key={f}
               onClick={() => setFilter(f)}
               style={{
-                background: filter === f ? '#0a332c' : 'var(--bg-elevated)',
-                color: filter === f ? 'var(--accent)' : 'var(--text-2)',
+                background: filter === f ? 'var(--accent)' : 'var(--bg-elevated)',
+                color: filter === f ? 'var(--bg-card)' : 'var(--text-2)',
                 border: 'none', borderRadius: 16, padding: '6px 14px', fontSize: 13, fontWeight: 500, cursor: 'pointer', textTransform: 'capitalize', transition: 'all 0.2s'
               }}
             >
@@ -1070,7 +1070,7 @@ export default function MessagesPage() {
                     }}>
                       
                       {/* Down Arrow for Dropdown */}
-                      {(isHovered || isDropdownOpen) && (
+                      {(isHovered || isDropdownOpen) && !msg.isDeleted && (
                         <div 
                           onClick={(e) => { e.stopPropagation(); setOpenDropdownId(isDropdownOpen ? null : msg.id); }}
                           style={{ position: 'absolute', top: 0, right: 0, padding: '6px 8px', background: isMe ? 'linear-gradient(to right, transparent, var(--accent) 20%)' : 'linear-gradient(to right, transparent, var(--bg-elevated) 20%)', borderRadius: '0 12px 0 0', cursor: 'pointer', zIndex: 10 }}
@@ -1099,7 +1099,7 @@ export default function MessagesPage() {
                       )}
                       
                       {msg.isDeleted ? (
-                        <div style={{ fontSize: 14.2, lineHeight: '19px', paddingRight: 30, fontStyle: 'italic', color: 'rgba(255,255,255,0.6)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <div style={{ fontSize: 14.2, lineHeight: '19px', paddingRight: 60, fontStyle: 'italic', color: isMe ? 'rgba(255,255,255,0.6)' : 'var(--text-3)', display: 'flex', alignItems: 'center', gap: 6 }}>
                           <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5 11H7v-2h10v2z"></path></svg>
                           {isMe ? 'You deleted this message' : `${activeChat.participantDetails?.[msg.senderId]?.displayName?.split(' ')[0]} deleted this message`}
                         </div>
@@ -1157,7 +1157,7 @@ export default function MessagesPage() {
                         </div>
                       )}
 
-                      <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', position: 'absolute', right: 7, bottom: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <div style={{ fontSize: 11, color: isMe ? 'rgba(255,255,255,0.7)' : 'var(--text-3)', position: 'absolute', right: 7, bottom: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
                         {!msg.isDeleted && msg.isEdited && <span style={{ fontStyle: 'italic', marginRight: 4 }}>Edited</span>}
                         {format(msg.createdAt, 'HH:mm')}
                         {isMe && (

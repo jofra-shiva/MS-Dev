@@ -319,7 +319,7 @@ export default function CreateTaskModal({ projectId, project, onClose, preselect
             }
             .ctm-type-btn:hover { border-color: var(--text-3); color: var(--text-1); background: var(--bg-elevated); }
             .ctm-type-btn.active-bug    { border-color: #f87171; background: rgba(248,113,113,0.10); color: #f87171; }
-            .ctm-type-btn.active-feature { border-color: #34d399; background: rgba(52,211,153,0.10); color: #34d399; }
+            .ctm-type-btn.active-feature { border-color: #8B5CF6; background: rgba(139,92,246,0.10); color: #8B5CF6; }
             .ctm-type-btn.active-improvement { border-color: #38bdf8; background: rgba(56,189,248,0.10); color: #38bdf8; }
             .ctm-header { display: flex; align-items: center; gap: 14px; margin-bottom: 16px; }
             .ctm-header-icon {
@@ -414,24 +414,7 @@ export default function CreateTaskModal({ projectId, project, onClose, preselect
           ) : (
             <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
               <div className="ctm-grid">
-                <div className="ctm-type-row">
-                  {[
-                    { id: 'bug',         label: 'Bug' },
-                    { id: 'feature',     label: 'Feature' },
-                    { id: 'improvement', label: 'Improvement' },
-                  ].map(t => (
-                    <button
-                      key={t.id}
-                      type="button"
-                      className={`ctm-type-btn${form.type === t.id ? ` active-${t.id}` : ''}`}
-                      onClick={() => handleFormChange('type', t.id)}
-                    >
-                      {t.label}
-                    </button>
-                  ))}
-                </div>
-
-                <div className="input-group" style={{ gridColumn: '1/-1', position: 'relative' }}>
+                <div className="input-group" style={{ gridColumn: '1/-1', position: 'relative', marginTop: 10 }}>
                   <label className="input-label">Module / Category</label>
                   <input 
                     className="input" 

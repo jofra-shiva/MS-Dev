@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MSDEV Notifications</title>
+<style>
+:root {
+  --bg: #121826; --bg-sidebar: #171d2b; --bg-hover: #1e2536; --bg-elevated: #20283b;
+  --bg-card: #161b22; --border-subtle: rgba(255,255,255,0.05);
+  --text-1: #e6edf3; --text-2: #8b949e; --text-3: #6e7681;
+  --accent: #2dd4bf; --accent-dark: #14b8a6;
+  --primary: #3b82f6; --danger: #ef4444;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;overflow-y:auto;background:var(--bg);color:var(--text-1);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:13px; display:flex; justify-content:center;}
+
+.container {
+  width: 100%;
+  max-width: 680px;
+  padding: 40px 24px;
+}
+
+.header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+.title-area h1 {
+  font-size: 22px;
+  font-weight: 800;
+  margin-bottom: 4px;
+}
+.subtitle {
+  color: var(--text-2);
+  font-size: 13px;
+}
+.subtitle span {
+  color: var(--accent);
+  font-weight: 600;
+}
+.btn {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-1);
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.btn:hover { background: var(--bg-hover); }
+.btn-primary { background: var(--accent); color: #000; border: none; }
+.btn-primary:hover { background: var(--accent-dark); }
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.section-label {
+  padding: 10px 16px 4px;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-3);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.notif-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.notif-item {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border-subtle);
+  display: flex;
+  gap: 14px;
+  background: transparent;
+  transition: background 0.15s;
+  cursor: pointer;
+}
+.notif-item.unread {
+  background: rgba(52,211,153,0.04);
+}
+.notif-item:hover {
+  background: var(--bg-hover);
+}
+.notif-item.type-task_move_request {
+  cursor: default;
+}
+
+.icon-box {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: var(--bg-elevated);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+.notif-item.unread .icon-box {
+  background: rgba(99,102,241,0.12);
+}
+
+.content {
+  flex: 1;
+  min-width: 0;
+}
+.content-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.notif-title {
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--text-1);
+}
+.notif-item.unread .notif-title {
+  font-weight: 700;
+}
+.time-area {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+.time-text {
+  font-size: 11px;
+  color: var(--text-3);
+}
+
+.notif-body {
+  font-size: 12.5px;
+  color: var(--text-2);
+  line-height: 1.4;
+}
+
+.action-area {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 10px;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  background: var(--bg-card);
+  border-radius: 12px;
+  border: 1px solid var(--border-subtle);
+}
+.empty-state .icon { font-size: 48px; margin-bottom: 12px; }
+.empty-state .title { font-weight: 700; font-size: 16px; margin-bottom: 6px; }
+.empty-state .desc { color: var(--text-2); font-size: 13px; }
+</style>
+</head>
+<body>
+
+<div class="container" id="app">
+  <!-- Rendered by JS -->
+</div>
+
+<script nonce="{{NONCE}}">
+const vscode = acquireVsCodeApi();
+
+let state = {
+  notifications: [],
+  user: null,
+  approvingId: null
+};
+
+const ICONS = {
+  task_assigned: '📋', task_completed: '✅', deadline: '⏰',
+  commit: '⚡', mention: '💬', project_update: '🔔', task_move_request: '🟠', task_move_approved: '🟢',
+};
+
+window.addEventListener('message', e => {
+  const m = e.data;
+  if (m.command === 'updateAll') {
+    state.notifications = m.notifications || [];
+    state.user = m.user;
+    state.approvingId = null; // reset on update
+    render();
+  }
+});
+
+function esc(s) {
+  if (!s) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function formatDistanceToNow(dateStr) {
+  if (!dateStr) return '';
+  const date = new Date(dateStr);
+  const now = new Date();
+  const diffDays = Math.floor((now - date) / (1000 * 60 * 60 * 24));
+  if (diffDays === 0) return 'Today';
+  if (diffDays === 1) return 'Yesterday';
+  return `${diffDays} days ago`;
+}
+
+function markAllRead() {
+  vscode.postMessage({ command: 'markAllRead' });
+}
+
+function handleNotifClick(n) {
+  if (n.type !== 'task_move_request' && !n.read) {
+    vscode.postMessage({ command: 'markRead', notifId: n.id });
+  }
+}
+
+function handleApprove(e, n) {
+  e.stopPropagation();
+  state.approvingId = n.id;
+  render();
+  
+  vscode.postMessage({ 
+    command: 'approveMove', 
+    notifId: n.id,
+    projectId: n.projectId,
+    taskId: n.taskId,
+    requesterId: n.metadata?.requesterId,
+    taskTitle: n.metadata?.taskTitle || 'Unknown'
+  });
+}
+
+function render() {
+  const app = document.getElementById('app');
+  const unreadCount = state.notifications.filter(n => !n.read).length;
+
+  let headerHtml = `
+    <div class="header">
+      <div class="title-area">
+        <h1>Notifications</h1>
+        <p class="subtitle">
+          ${unreadCount > 0 ? `<span>${unreadCount} unread</span>` : 'All caught up!'}
+        </p>
+      </div>
+      ${unreadCount > 0 ? `<button class="btn" onclick="markAllRead()">✓ Mark all read</button>` : ''}
+    </div>
+  `;
+
+  if (state.notifications.length === 0) {
+    app.innerHTML = headerHtml + `
+      <div class="empty-state">
+        <div class="icon">🔔</div>
+        <div class="title">No notifications yet</div>
+        <div class="desc">You'll be notified about task updates, commits, and team activity</div>
+      </div>
+    `;
+    return;
+  }
+
+  let listHtml = `
+    <div class="notif-list">
+      <div class="section-label">Notifications</div>
+      ${state.notifications.map(n => {
+        const isUnread = !n.read;
+        const icon = ICONS[n.type] || '🔔';
+        const timeStr = formatDistanceToNow(n.createdAt);
+        const isMoveRequest = n.type === 'task_move_request';
+        
+        let actionHtml = '';
+        if (isMoveRequest) {
+          const isApproving = state.approvingId === n.id;
+          actionHtml = `
+            <div class="action-area">
+              <button class="btn btn-primary" onclick="handleApprove(event, ${JSON.stringify(n).replace(/"/g, '&quot;')})" ${isApproving ? 'disabled' : ''}>
+                ${isApproving ? 'Approving...' : 'Accept'}
+              </button>
+            </div>
+          `;
+        }
+
+        return `
+          <div class="notif-item ${isUnread ? 'unread' : ''} ${isMoveRequest ? 'type-task_move_request' : ''}" onclick='handleNotifClick(${JSON.stringify(n).replace(/"/g, '&quot;')})'>
+            <div class="icon-box">${icon}</div>
+            <div class="content">
+              <div class="content-top">
+                <div class="notif-title">${esc(n.title)}</div>
+                <div class="time-area">
+                  ${isUnread ? '<div class="dot"></div>' : ''}
+                  <span class="time-text">${esc(timeStr)}</span>
+                </div>
+              </div>
+              <div class="notif-body">${esc(n.body)}</div>
+              ${actionHtml}
+            </div>
+          </div>
+        `;
+      }).join('')}
+    </div>
+  `;
+
+  app.innerHTML = headerHtml + listHtml;
+}
+</script>
+</body>
+</html>

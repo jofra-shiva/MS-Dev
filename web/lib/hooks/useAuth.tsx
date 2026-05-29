@@ -21,12 +21,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (firebaseUser) {
         try {
           const token = await firebaseUser.getIdToken();
-          document.cookie = `firebaseToken=${token}; path=/; max-age=3600; SameSite=Lax`;
+          try {
+            document.cookie = `firebaseToken=${token}; path=/; max-age=3600; SameSite=Lax`;
+          } catch (e) {
+            console.warn('Cookie not available', e);
+          }
         } catch (e) {
           console.error('Failed to get token', e);
         }
       } else {
-        document.cookie = `firebaseToken=; path=/; max-age=0; SameSite=Lax`;
+        try {
+          document.cookie = `firebaseToken=; path=/; max-age=0; SameSite=Lax`;
+        } catch (e) {
+          console.warn('Cookie not available', e);
+        }
       }
 
       setUser(firebaseUser);

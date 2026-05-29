@@ -312,6 +312,27 @@ export const approveTaskMovePermission = async (
   });
 };
 
+export const declineTaskMovePermission = async (
+  projectId: string,
+  taskId: string,
+  requesterId: string,
+  taskTitle?: string
+) => {
+  const taskRef = doc(db, `projects/${projectId}/tasks/${taskId}`);
+  await updateDoc(taskRef, {
+    moveRequests: arrayRemove(requesterId)
+  });
+
+  // Notify the requester
+  await createNotification(requesterId, {
+    type: 'project_update',
+    title: 'Permission Declined',
+    body: `Your request to move the task "${taskTitle || 'Unknown'}" was declined.`,
+    projectId,
+    taskId
+  });
+};
+
 export const getProjectModules = async (projectId: string): Promise<string[]> => {
   const snap = await getDocs(collection(db, `projects/${projectId}/tasks`));
   const modules = new Set<string>();
@@ -407,6 +428,27 @@ export const subscribeToNotifications = (
   userId: string,
   callback: (notifs: unknown[]) => void
 ): Unsubscribe => {
+  // Automatically clean up notifications older than 7 days
+  const cleanup = async () => {
+    try {
+      const cutoff = new Date();
+      cutoff.setDate(cutoff.getDate() - 7);
+      const cleanupQ = query(
+        collection(db, `notifications/${userId}/items`),
+        where('createdAt', '<', cutoff)
+      );
+      const snap = await getDocs(cleanupQ);
+      if (!snap.empty) {
+        const batch = writeBatch(db);
+        snap.forEach(d => batch.delete(d.ref));
+        await batch.commit();
+      }
+    } catch (e) {
+      console.error('Failed to cleanup old notifications', e);
+    }
+  };
+  cleanup();
+
   const q = query(
     collection(db, `notifications/${userId}/items`),
     orderBy('createdAt', 'desc'),

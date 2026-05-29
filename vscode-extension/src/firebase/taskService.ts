@@ -8,9 +8,13 @@ import {
   onSnapshot,
   updateDoc,
   addDoc,
+  setDoc,
   getDoc,
   getDocs,
   serverTimestamp,
+  arrayUnion,
+  arrayRemove,
+  writeBatch,
   Unsubscribe,
   DocumentData,
   QuerySnapshot,
@@ -56,6 +60,7 @@ export interface MSDEVNotification {
   body: string;
   projectId: string;
   taskId: string | null;
+  metadata?: any;
   read: boolean;
   createdAt: Date;
 }
@@ -511,3 +516,116 @@ export async function addTask(
   return ref.id;
 }
 
+// ─────────────────────────────────────────────
+// Create a new project
+// ─────────────────────────────────────────────
+
+export async function createProject(
+  data: { name: string; description: string; liveUrl?: string; color: string },
+  userId: string,
+  userName: string,
+  userEmail: string,
+  userPhoto: string
+): Promise<string> {
+  const db = getFirebaseDb();
+  const projectRef = doc(collection(db, 'projects'));
+  
+  await setDoc(projectRef, {
+    ...data,
+    id: projectRef.id,
+    completionPercentage: 0,
+    stats: { totalTasks: 0, completedTasks: 0, inProgressTasks: 0, pendingTasks: 0, totalCommits: 0, totalMembers: 1 },
+    members: {
+      [userId]: {
+        role: 'admin',
+        displayName: userName,
+        email: userEmail,
+        photoURL: userPhoto,
+        joinedAt: serverTimestamp(),
+      }
+    },
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+
+  await updateDoc(doc(db, 'users', userId), {
+    projectIds: arrayUnion(projectRef.id),
+  });
+  
+  return projectRef.id;
+}
+
+// ─────────────────────────────────────────────
+// NOTIFICATIONS API
+// ─────────────────────────────────────────────
+
+export const createNotification = async (userId: string, data: any) => {
+  const db = getFirebaseDb();
+  const notifRef = doc(collection(db, `notifications/${userId}/items`));
+  await setDoc(notifRef, {
+    ...data,
+    read: false,
+    createdAt: serverTimestamp()
+  });
+};
+
+export const markNotificationRead = async (userId: string, notifId: string) => {
+  const db = getFirebaseDb();
+  await updateDoc(doc(db, `notifications/${userId}/items/${notifId}`), {
+    read: true
+  });
+};
+
+export const markAllNotificationsRead = async (userId: string) => {
+  const db = getFirebaseDb();
+  const q = query(collection(db, `notifications/${userId}/items`));
+  const snap = await getDocs(q);
+  const batch = writeBatch(db);
+  snap.docs.filter(d => !d.data().read).forEach(d => batch.update(d.ref, { read: true }));
+  await batch.commit();
+};
+
+export const approveTaskMovePermission = async (
+  projectId: string,
+  taskId: string,
+  requesterId: string,
+  taskTitle?: string
+) => {
+  const db = getFirebaseDb();
+  const taskRef = doc(db, `projects/${projectId}/tasks/${taskId}`);
+  await updateDoc(taskRef, {
+    moveRequests: arrayRemove(requesterId),
+    approvedMovers: arrayUnion(requesterId)
+  });
+
+  await createNotification(requesterId, {
+    type: 'task_move_approved',
+    title: 'Permission Granted',
+    body: `You have been granted permission to move the task "${taskTitle || 'Unknown'}".`,
+    projectId,
+    taskId
+  });
+};
+
+// ─────────────────────────────────────────────
+// SETTINGS API
+// ─────────────────────────────────────────────
+
+export const getUserProfile = async (userId: string) => {
+  const db = getFirebaseDb();
+  const docRef = doc(db, 'users', userId);
+  const snap = await getDoc(docRef);
+  if (snap.exists()) {
+    return snap.data();
+  }
+  return null;
+};
+
+export const updateUserSettings = async (userId: string, data: any) => {
+  const db = getFirebaseDb();
+  const docRef = doc(db, 'users', userId);
+  await updateDoc(docRef, {
+    ...data,
+    updatedAt: new Date()
+  });
+};

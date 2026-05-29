@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import Script from 'next/script';
 import './globals.css';
 import { AuthProvider } from '@/lib/hooks/useAuth';
 import { Toaster } from 'react-hot-toast';
@@ -32,6 +33,24 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f0fdf9" />
       </head>
       <body>
+        <Script
+          id="theme-script"
+          strategy="beforeInteractive"
+          dangerouslySetInnerHTML={{
+            __html: `
+              try {
+                let theme = localStorage.getItem('theme');
+                if (!theme) theme = 'system';
+                
+                if (theme === 'dark' || theme === 'light') {
+                  document.documentElement.setAttribute('data-theme', theme);
+                } else {
+                  document.documentElement.removeAttribute('data-theme');
+                }
+              } catch (e) {}
+            `,
+          }}
+        />
         <AuthProvider>
           {children}
           <Toaster

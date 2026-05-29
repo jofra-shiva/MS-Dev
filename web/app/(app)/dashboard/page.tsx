@@ -85,12 +85,12 @@ export default function DashboardPage() {
         initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}
         style={{
           padding: '20px 28px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          background: 'rgba(30, 41, 59, 0.4)', backdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.05)',
-          borderRadius: 16, boxShadow: '0 8px 32px rgba(0,0,0,0.2)'
+          background: 'var(--bg-elevated)', border: '1px solid var(--border)',
+          borderRadius: 16, boxShadow: 'var(--shadow-card)'
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-          <div style={{ width: 46, height: 46, borderRadius: '50%', background: 'linear-gradient(135deg, var(--accent) 0%, #8b5cf6 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 18, fontWeight: 700, overflow: 'hidden', border: '2px solid rgba(255,255,255,0.1)' }}>
+          <div style={{ width: 46, height: 46, borderRadius: '50%', background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 18, fontWeight: 700, overflow: 'hidden' }}>
             {user?.photoURL ? (
               <img src={user.photoURL} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} referrerPolicy="no-referrer" />
             ) : (
@@ -121,9 +121,9 @@ export default function DashboardPage() {
             {stats.map((s, i) => (
               <motion.div
                 key={s.label} initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
-                whileHover={{ y: -4, backgroundColor: 'rgba(255,255,255,0.03)' }}
+                whileHover={{ y: -4, backgroundColor: 'var(--bg-hover)' }}
                 style={{
-                  background: 'var(--bg-elevated)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: 14,
+                  background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 14,
                   padding: 20, position: 'relative', overflow: 'hidden', cursor: 'default'
                 }}
               >
@@ -145,12 +145,12 @@ export default function DashboardPage() {
           </div>
 
           {/* Activity Map */}
-          <div style={{ background: 'var(--bg-elevated)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: 16, padding: 20 }}>
+          <div style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 16, padding: 20 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <h2 style={{ fontSize: 14, fontWeight: 700, margin: 0, color: 'var(--text-1)' }}>Activity Map</h2>
                 {(user as any)?.githubUsername || localGithub ? (
-                  <span style={{ fontSize: 11, background: 'rgba(255,255,255,0.1)', padding: '2px 8px', borderRadius: 99, color: 'var(--text-2)' }}>
+                  <span style={{ fontSize: 11, background: 'var(--bg-hover)', padding: '2px 8px', borderRadius: 99, color: 'var(--text-2)' }}>
                     @{(user as any)?.githubUsername || localGithub}
                   </span>
                 ) : null}
@@ -164,14 +164,14 @@ export default function DashboardPage() {
                 </div>
                 <div style={{ width: '100%', height: '100%', position: 'absolute', inset: 0, boxShadow: 'inset 30px 0 20px var(--bg-card)', zIndex: 5, pointerEvents: 'none' }} />
                 <img
-                  src={`https://ghchart.rshah.org/06b6d4/${(user as any)?.githubUsername || localGithub}`}
+                  src={`https://ghchart.rshah.org/10b981/${(user as any)?.githubUsername || localGithub}`}
                   alt={`${(user as any)?.githubUsername || localGithub}'s GitHub chart`}
+                  className="github-chart"
                   style={{
                     height: 88,
                     maxWidth: 'none',
                     marginTop: -12,
                     marginRight: -4,
-                    filter: 'invert(1) hue-rotate(180deg) brightness(1.2) contrast(1.1) saturate(1.3)'
                   }}
                   onError={(e) => {
                     (e.target as any).style.display = 'none';
@@ -183,7 +183,7 @@ export default function DashboardPage() {
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: 4, opacity: 0.25, pointerEvents: 'none', filter: 'blur(1.5px)' }}>
                   {Array.from({ length: 36 }).map((_, i) => {
                     const intensity = Math.random() > 0.6 ? 0 : Math.floor(Math.random() * 4);
-                    const colors = ['rgba(255,255,255,0.05)', '#064e3b', '#059669', '#10b981'];
+                    const colors = ['var(--bg-hover)', '#064e3b', '#059669', '#10b981'];
                     return (
                       <div key={i} style={{ aspectRatio: '1/1', background: colors[intensity], borderRadius: 3 }} />
                     );
@@ -205,7 +205,7 @@ export default function DashboardPage() {
         {/* Row 2: Active Projects & Upcoming Deadlines */}
         <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 340px', gap: 24, alignItems: 'start' }}>
           {/* Active Projects */}
-          <div style={{ background: 'var(--bg-elevated)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: 16, padding: 24, display: 'flex', flexDirection: 'column', height: 250 }}>
+          <div style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 16, padding: 24, display: 'flex', flexDirection: 'column', height: 250 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
               <h2 style={{ fontSize: 16, fontWeight: 700, margin: 0, color: 'var(--text-1)' }}>Active Projects</h2>
               <Link href="/projects" style={{ fontSize: 12, color: 'var(--accent)', textDecoration: 'none', fontWeight: 600 }}>View all →</Link>
@@ -227,13 +227,13 @@ export default function DashboardPage() {
                     // Mock data for new UI elements
                     const priorities = ['High', 'Med', 'Low'];
                     const priority = priorities[p.name.length % 3];
-                    const pColors: any = { High: '#ef4444', Med: '#f59e0b', Low: '#10b981' };
+                    const pColors: any = { High: 'var(--danger)', Med: 'var(--warning)', Low: 'var(--success)' };
 
                     return (
-                      <motion.div key={p.id} whileHover={{ y: -4, borderColor: 'rgba(255,255,255,0.1)' }} onClick={() => router.push(`/projects/${p.id}`)}
+                      <motion.div key={p.id} whileHover={{ y: -4, borderColor: 'var(--accent)' }} onClick={() => router.push(`/projects/${p.id}`)}
                         style={{
-                          border: '1px solid rgba(255,255,255,0.05)', borderRadius: 12, padding: 20, cursor: 'pointer',
-                          background: 'rgba(255,255,255,0.01)', position: 'relative', overflow: 'hidden', height: 150
+                          border: '1px solid var(--border)', borderRadius: 12, padding: 20, cursor: 'pointer',
+                          background: 'var(--bg-card)', position: 'relative', overflow: 'hidden', height: 150
                         }}
                       >
                         <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: 3, background: `linear-gradient(90deg, ${color}, transparent)` }} />
@@ -262,7 +262,7 @@ export default function DashboardPage() {
                           </div>
                         </div>
 
-                        <div style={{ height: 4, background: 'rgba(255,255,255,0.05)', borderRadius: 99, overflow: 'hidden' }}>
+                        <div style={{ height: 4, background: 'var(--bg-hover)', borderRadius: 99, overflow: 'hidden' }}>
                           <motion.div initial={{ width: 0 }} animate={{ width: `${progress}%` }} transition={{ duration: 1, ease: 'easeOut' }}
                             style={{ height: '100%', background: `linear-gradient(90deg, ${color}, ${color}80)`, borderRadius: 99 }}
                           />
@@ -276,7 +276,7 @@ export default function DashboardPage() {
           </div>
 
           {/* Upcoming Deadlines */}
-          <div style={{ background: 'var(--bg-elevated)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: 16, padding: 24, display: 'flex', flexDirection: 'column', height: 250 }}>
+          <div style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 16, padding: 24, display: 'flex', flexDirection: 'column', height: 250 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexShrink: 0 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <h2 style={{ fontSize: 14, fontWeight: 700, margin: 0, color: 'var(--text-1)' }}>Upcoming Deadlines</h2>
@@ -286,8 +286,8 @@ export default function DashboardPage() {
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12, flex: 1, overflowY: 'auto', paddingRight: 4, marginRight: -4 }} className="custom-scrollbar">
               {allTasks.filter(t => t.status !== 'completed' && t.status !== 'deployed').map((t, i) => (
-                <div key={`${t.id || 'task'}-${i}`} onClick={() => router.push(`/projects/${t.projectId}`)} style={{ display: 'flex', gap: 12, padding: 12, background: 'rgba(255,255,255,0.02)', borderRadius: 8, border: '1px solid rgba(255,255,255,0.03)', cursor: 'pointer', transition: 'background 0.2s', flexShrink: 0 }} className="group hover:bg-white/5">
-                  <div style={{ width: 8, height: 8, borderRadius: '50%', background: i === 0 ? 'var(--danger)' : 'var(--warning)', marginTop: 4, flexShrink: 0 }} />
+                <div key={`${t.id || 'task'}-${i}`} onClick={() => router.push(`/projects/${t.projectId}`)} style={{ display: 'flex', gap: 12, padding: 12, background: 'var(--bg-card)', borderRadius: 8, border: '1px solid var(--border)', cursor: 'pointer', transition: 'background 0.2s', flexShrink: 0 }} className="group hover:bg-[var(--bg-hover)]">
+                  <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--danger)', marginTop: 6, flexShrink: 0 }} />
                   <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center' }}>
                     <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-1)' }} className="truncate-1">{t.title}</div>
                   </div>
@@ -299,20 +299,18 @@ export default function DashboardPage() {
         </div>
 
         {/* Row 3: Analytics & Recent Activity */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 340px', gap: 24, alignItems: 'stretch' }}>
-          {/* Productivity Analytics */}
-          <div style={{ background: 'var(--bg-elevated)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: 16, padding: 24, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 340px', gap: 24, alignItems: 'start' }}>
+          {/* Weekly Productivity (Mock Chart) */}
+          <div style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 16, padding: 24, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
             <h2 style={{ fontSize: 16, fontWeight: 700, margin: 0, color: 'var(--text-1)', marginBottom: 20 }}>Weekly Productivity</h2>
             <div style={{ display: 'flex', alignItems: 'flex-end', gap: 12, height: 140, padding: '0 10px' }}>
               {/* Mock Bar Chart */}
               {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day, idx) => {
                 const h = 30 + Math.random() * 70;
                 return (
-                  <div key={day} className="group" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
-                    <div style={{ width: '100%', height: `${h}%`, background: idx === 4 ? 'var(--accent)' : 'rgba(255,255,255,0.1)', borderRadius: '4px 4px 0 0', transition: 'background 0.2s', position: 'relative' }}>
-                      <div className="absolute opacity-0 group-hover:opacity-100 bg-[#1e293b] text-white text-[10px] py-1 px-2 rounded -top-8 left-1/2 transform -translate-x-1/2 whitespace-nowrap transition-opacity shadow-lg pointer-events-none">
-                        {Math.floor(h / 10)} tasks
-                      </div>
+                  <div key={idx} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, flex: 1 }}>
+                    <div style={{ width: '100%', height: `${h}%`, background: idx === 4 ? 'var(--accent)' : 'var(--bg-hover)', borderRadius: '4px 4px 0 0', transition: 'background 0.2s', position: 'relative' }}>
+                      {idx === 4 && <div style={{ position: 'absolute', top: -30, left: '50%', transform: 'translateX(-50%)', background: 'var(--text-1)', color: 'var(--bg-primary)', fontSize: 10, padding: '2px 6px', borderRadius: 4, fontWeight: 700 }}>24</div>}
                     </div>
                     <span style={{ fontSize: 11, color: idx === 4 ? 'var(--text-1)' : 'var(--text-3)', fontWeight: 600 }}>{day}</span>
                   </div>
@@ -321,17 +319,17 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Recent Activity */}
-          <div style={{ background: 'var(--bg-elevated)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: 16, padding: 24, display: 'flex', flexDirection: 'column' }}>
+          {/* Recent Activity Feed */}
+          <div style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 16, padding: 24, display: 'flex', flexDirection: 'column' }}>
             <h2 style={{ fontSize: 14, fontWeight: 700, margin: 0, color: 'var(--text-1)', marginBottom: 16 }}>Recent Activity</h2>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16, flex: 1, overflowY: 'auto' }}>
               {allTasks.slice(0, 4).map((t, i) => (
                 <div key={`${t.id || 'task'}-${i}`} style={{ display: 'flex', gap: 12 }}>
                   <div style={{ position: 'relative' }}>
-                    <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, zIndex: 1, position: 'relative' }}>
-                      {i % 2 === 0 ? '🚀' : '✨'}
+                    <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--bg-hover)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, zIndex: 1, position: 'relative', color: 'var(--text-2)' }}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
                     </div>
-                    {i !== 3 && <div style={{ position: 'absolute', top: 28, left: 13, width: 2, height: 24, background: 'rgba(255,255,255,0.05)' }} />}
+                    {i !== 3 && <div style={{ position: 'absolute', top: 28, left: 13, width: 2, height: 24, background: 'var(--bg-hover)' }} />}
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 13, color: 'var(--text-2)', lineHeight: 1.4 }} className="truncate-1">
