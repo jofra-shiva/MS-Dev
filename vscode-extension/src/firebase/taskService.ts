@@ -4,6 +4,7 @@ import {
   query,
   where,
   orderBy,
+  limit,
   onSnapshot,
   updateDoc,
   addDoc,
@@ -166,6 +167,58 @@ export function subscribeToMyTasks(
 }
 
 // ─────────────────────────────────────────────
+// Subscribe to ALL tasks across all projects
+// ─────────────────────────────────────────────
+
+export function subscribeToAllTasks(
+  projectIds: string[],
+  callback: (tasks: Task[]) => void
+): Unsubscribe {
+  if (projectIds.length === 0) {
+    callback([]);
+    return () => {};
+  }
+
+  const db = getFirebaseDb();
+  const unsubs: Unsubscribe[] = [];
+  const taskMap = new Map<string, Task[]>();
+
+  const emit = () => {
+    const all: Task[] = [];
+    taskMap.forEach(tasks => all.push(...tasks));
+    const priorityWeight: Record<string, number> = { urgent: 4, high: 3, medium: 2, low: 1 };
+    const statusWeight: Record<string, number> = { in_progress: 5, testing: 4, pending: 3, github_pushed: 2, deployed: 1, completed: 0 };
+    all.sort((a, b) => {
+      const sw = (statusWeight[b.status] ?? 0) - (statusWeight[a.status] ?? 0);
+      if (sw !== 0) return sw;
+      return (priorityWeight[b.priority] ?? 0) - (priorityWeight[a.priority] ?? 0);
+    });
+    callback(all);
+  };
+
+  for (const projectId of projectIds) {
+    // No filter by assigneeId
+    const q = query(
+      collection(db, 'projects', projectId, 'tasks'),
+      orderBy('updatedAt', 'desc')
+    );
+    const unsub = onSnapshot(
+      q,
+      (snap: QuerySnapshot<DocumentData>) => {
+        taskMap.set(projectId, snap.docs.map((d: QueryDocumentSnapshot<DocumentData>) => docToTask(d.id, d.data(), projectId)));
+        emit();
+      },
+      (err: FirestoreError) => {
+        console.error(`[MSDEV] Task listener error (all tasks) for project ${projectId}:`, err);
+      }
+    );
+    unsubs.push(unsub);
+  }
+
+  return () => unsubs.forEach(u => u());
+}
+
+// ─────────────────────────────────────────────
 // Subscribe to unread notifications
 // ─────────────────────────────────────────────
 
@@ -298,3 +351,163 @@ export async function setTaskBranch(projectId: string, taskId: string, branchNam
     updatedAt: serverTimestamp(),
   });
 }
+
+// ─────────────────────────────────────────────
+// Subscribe to a single project (live)
+// ─────────────────────────────────────────────
+
+export function subscribeToProject(
+  projectId: string,
+  callback: (project: Project) => void
+): Unsubscribe {
+  const db = getFirebaseDb();
+  return onSnapshot(doc(db, 'projects', projectId), (snap) => {
+    if (snap.exists()) {
+      const d = snap.data();
+      callback({
+        id: snap.id,
+        name: d.name || '',
+        description: d.description || '',
+        color: d.color || '',
+        github: d.github,
+        liveUrl: d.liveUrl,
+        members: d.members || {},
+        stats: d.stats || {},
+      } as any);
+    }
+  });
+}
+
+// ─────────────────────────────────────────────
+// Subscribe to project tasks (live, all tasks)
+// ─────────────────────────────────────────────
+
+export function subscribeToProjectTasks(
+  projectId: string,
+  callback: (tasks: Task[]) => void
+): Unsubscribe {
+  const db = getFirebaseDb();
+  const q = query(
+    collection(db, 'projects', projectId, 'tasks'),
+    orderBy('createdAt', 'desc')
+  );
+  return onSnapshot(q, (snap: QuerySnapshot<DocumentData>) => {
+    callback(snap.docs.map((d: QueryDocumentSnapshot<DocumentData>) => docToTask(d.id, d.data(), projectId)));
+  });
+}
+
+// ─────────────────────────────────────────────
+// Subscribe to activity log (live)
+// ─────────────────────────────────────────────
+
+export interface ActivityLog {
+  id: string;
+  type: string;
+  userId: string;
+  userName: string;
+  userPhoto: string;
+  taskId?: string;
+  taskTitle?: string;
+  metadata?: any;
+  createdAt: Date;
+}
+
+export function subscribeToActivity(
+  projectId: string,
+  callback: (activity: ActivityLog[]) => void,
+  maxItems = 30
+): Unsubscribe {
+  const db = getFirebaseDb();
+  const q = query(
+    collection(db, 'projects', projectId, 'activity'),
+    orderBy('createdAt', 'desc'),
+    limit(maxItems)
+  );
+  return onSnapshot(q, (snap: QuerySnapshot<DocumentData>) => {
+    callback(snap.docs.map((d: QueryDocumentSnapshot<DocumentData>) => ({
+      id: d.id,
+      type: d.data().type || '',
+      userId: d.data().userId || '',
+      userName: d.data().userName || '',
+      userPhoto: d.data().userPhoto || '',
+      taskId: d.data().taskId,
+      taskTitle: d.data().taskTitle,
+      metadata: d.data().metadata,
+      createdAt: toDate(d.data().createdAt) || new Date(),
+    })));
+  });
+}
+
+// ─────────────────────────────────────────────
+// Subscribe to meetings (live)
+// ─────────────────────────────────────────────
+
+export interface Meeting {
+  id: string;
+  name: string;
+  date: Date;
+  link?: string;
+  notes?: string;
+  attendees?: string[];
+  createdBy: string;
+  createdAt: Date;
+}
+
+export function subscribeToMeetings(
+  projectId: string,
+  callback: (meetings: Meeting[]) => void
+): Unsubscribe {
+  const db = getFirebaseDb();
+  const q = query(
+    collection(db, 'projects', projectId, 'meetings'),
+    orderBy('date', 'desc')
+  );
+  return onSnapshot(q, (snap: QuerySnapshot<DocumentData>) => {
+    callback(snap.docs.map((d: QueryDocumentSnapshot<DocumentData>) => ({
+      id: d.id,
+      name: d.data().name || '',
+      date: toDate(d.data().date) || new Date(),
+      link: d.data().link,
+      notes: d.data().notes,
+      attendees: d.data().attendees || [],
+      createdBy: d.data().createdBy || '',
+      createdAt: toDate(d.data().createdAt) || new Date(),
+    })));
+  });
+}
+
+// ─────────────────────────────────────────────
+// Add a new task
+// ─────────────────────────────────────────────
+
+export async function addTask(
+  projectId: string,
+  data: {
+    title: string;
+    description?: string;
+    type: TaskType;
+    priority: TaskPriority;
+    status: TaskStatus;
+    module?: string;
+    assigneeId?: string | null;
+    assigneeName?: string | null;
+    assigneePhoto?: string | null;
+    tags?: string[];
+    dueDate?: Date | null;
+    createdBy: string;
+  }
+): Promise<string> {
+  const db = getFirebaseDb();
+  const ref = await addDoc(collection(db, 'projects', projectId, 'tasks'), {
+    ...data,
+    projectId,
+    progress: 0,
+    tags: data.tags || [],
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+    completedAt: null,
+    githubRef: {},
+  });
+  return ref.id;
+}
+

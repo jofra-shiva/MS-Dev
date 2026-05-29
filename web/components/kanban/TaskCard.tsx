@@ -56,7 +56,7 @@ export default function TaskCard({ task, projectId, isDragging }: Props) {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             {task.ticketId ? (
-              <span style={{ fontSize: 13, fontWeight: 800, color: task.type === 'bug' ? '#EF4444' : task.type === 'feature' ? '#8B5CF6' : '#10B981', background: `${task.type === 'bug' ? '#EF4444' : task.type === 'feature' ? '#8B5CF6' : '#10B981'}15`, padding: '2px 8px', borderRadius: 4 }}>
+              <span style={{ fontSize: 13, fontWeight: 800, color: task.ticketId.startsWith('BUG') ? '#EF4444' : task.ticketId.startsWith('FEAT') ? '#8B5CF6' : task.ticketId.startsWith('IMP') ? '#10B981' : '#8B5CF6', background: `${task.ticketId.startsWith('BUG') ? '#EF4444' : task.ticketId.startsWith('FEAT') ? '#8B5CF6' : task.ticketId.startsWith('IMP') ? '#10B981' : '#8B5CF6'}15`, padding: '2px 8px', borderRadius: 4 }}>
                 {task.ticketId}
               </span>
             ) : (

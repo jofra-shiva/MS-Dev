@@ -9,16 +9,7 @@ import { signOutUser } from '@/lib/firebase/auth';
 import { formatDistanceToNow } from 'date-fns';
 import CreateProjectModal from '@/components/projects/CreateProjectModal';
 
-// Avatar sets — 5 male, 5 female
-const MALE_AVATARS   = ['/avatar_m1.png', '/avatar_m2.png', '/avatar_m3.png', '/avatar_m4.png', '/avatar_m5.png'];
-const FEMALE_AVATARS = ['/avatar_f1.png', '/avatar_f2.png', '/avatar_f3.png', '/avatar_f4.png', '/avatar_f5.png'];
 
-/** Pick a deterministic default avatar based on uid */
-function getDefaultAvatar(uid: string, gender?: string): string {
-  const pool = gender === 'female' ? FEMALE_AVATARS : MALE_AVATARS;
-  const idx  = uid.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0) % pool.length;
-  return pool[idx];
-}
 
 const getAuraGradient = (name: string) => {
   const hash = Array.from(name || '').reduce((acc, char) => acc + char.charCodeAt(0), 0) % 6;
@@ -258,8 +249,8 @@ export default function Topbar({ onMenuClick }: TopbarProps) {
     router.replace('/login');
   };
 
-  /* pick avatar */
-  const avatarSrc = user?.photoURL || (user?.uid ? getDefaultAvatar(user.uid) : MALE_AVATARS[0]);
+  /* pick avatar — use Google/Firebase photo URL only, fall back to initials */
+  const avatarSrc = user?.photoURL || null;
   const initials  = user?.displayName?.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() || 'U';
 
   return (

@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.subscribeToMyTasks = subscribeToMyTasks;
+exports.subscribeToAllTasks = subscribeToAllTasks;
 exports.subscribeToNotifications = subscribeToNotifications;
 exports.getUserProjectIds = getUserProjectIds;
 exports.getProjects = getProjects;
@@ -8,6 +9,11 @@ exports.updateTaskStatus = updateTaskStatus;
 exports.addComment = addComment;
 exports.getComments = getComments;
 exports.setTaskBranch = setTaskBranch;
+exports.subscribeToProject = subscribeToProject;
+exports.subscribeToProjectTasks = subscribeToProjectTasks;
+exports.subscribeToActivity = subscribeToActivity;
+exports.subscribeToMeetings = subscribeToMeetings;
+exports.addTask = addTask;
 const firestore_1 = require("@firebase/firestore");
 const client_1 = require("./client");
 // ─────────────────────────────────────────────
@@ -77,6 +83,43 @@ function subscribeToMyTasks(uid, projectIds, callback) {
             emit();
         }, (err) => {
             console.error(`[MSDEV] Task listener error for project ${projectId}:`, err);
+        });
+        unsubs.push(unsub);
+    }
+    return () => unsubs.forEach(u => u());
+}
+// ─────────────────────────────────────────────
+// Subscribe to ALL tasks across all projects
+// ─────────────────────────────────────────────
+function subscribeToAllTasks(projectIds, callback) {
+    if (projectIds.length === 0) {
+        callback([]);
+        return () => { };
+    }
+    const db = (0, client_1.getFirebaseDb)();
+    const unsubs = [];
+    const taskMap = new Map();
+    const emit = () => {
+        const all = [];
+        taskMap.forEach(tasks => all.push(...tasks));
+        const priorityWeight = { urgent: 4, high: 3, medium: 2, low: 1 };
+        const statusWeight = { in_progress: 5, testing: 4, pending: 3, github_pushed: 2, deployed: 1, completed: 0 };
+        all.sort((a, b) => {
+            const sw = (statusWeight[b.status] ?? 0) - (statusWeight[a.status] ?? 0);
+            if (sw !== 0)
+                return sw;
+            return (priorityWeight[b.priority] ?? 0) - (priorityWeight[a.priority] ?? 0);
+        });
+        callback(all);
+    };
+    for (const projectId of projectIds) {
+        // No filter by assigneeId
+        const q = (0, firestore_1.query)((0, firestore_1.collection)(db, 'projects', projectId, 'tasks'), (0, firestore_1.orderBy)('updatedAt', 'desc'));
+        const unsub = (0, firestore_1.onSnapshot)(q, (snap) => {
+            taskMap.set(projectId, snap.docs.map((d) => docToTask(d.id, d.data(), projectId)));
+            emit();
+        }, (err) => {
+            console.error(`[MSDEV] Task listener error (all tasks) for project ${projectId}:`, err);
         });
         unsubs.push(unsub);
     }
@@ -178,5 +221,86 @@ async function setTaskBranch(projectId, taskId, branchName) {
         'githubRef.branchName': branchName,
         updatedAt: (0, firestore_1.serverTimestamp)(),
     });
+}
+// ─────────────────────────────────────────────
+// Subscribe to a single project (live)
+// ─────────────────────────────────────────────
+function subscribeToProject(projectId, callback) {
+    const db = (0, client_1.getFirebaseDb)();
+    return (0, firestore_1.onSnapshot)((0, firestore_1.doc)(db, 'projects', projectId), (snap) => {
+        if (snap.exists()) {
+            const d = snap.data();
+            callback({
+                id: snap.id,
+                name: d.name || '',
+                description: d.description || '',
+                color: d.color || '',
+                github: d.github,
+                liveUrl: d.liveUrl,
+                members: d.members || {},
+                stats: d.stats || {},
+            });
+        }
+    });
+}
+// ─────────────────────────────────────────────
+// Subscribe to project tasks (live, all tasks)
+// ─────────────────────────────────────────────
+function subscribeToProjectTasks(projectId, callback) {
+    const db = (0, client_1.getFirebaseDb)();
+    const q = (0, firestore_1.query)((0, firestore_1.collection)(db, 'projects', projectId, 'tasks'), (0, firestore_1.orderBy)('createdAt', 'desc'));
+    return (0, firestore_1.onSnapshot)(q, (snap) => {
+        callback(snap.docs.map((d) => docToTask(d.id, d.data(), projectId)));
+    });
+}
+function subscribeToActivity(projectId, callback, maxItems = 30) {
+    const db = (0, client_1.getFirebaseDb)();
+    const q = (0, firestore_1.query)((0, firestore_1.collection)(db, 'projects', projectId, 'activity'), (0, firestore_1.orderBy)('createdAt', 'desc'), (0, firestore_1.limit)(maxItems));
+    return (0, firestore_1.onSnapshot)(q, (snap) => {
+        callback(snap.docs.map((d) => ({
+            id: d.id,
+            type: d.data().type || '',
+            userId: d.data().userId || '',
+            userName: d.data().userName || '',
+            userPhoto: d.data().userPhoto || '',
+            taskId: d.data().taskId,
+            taskTitle: d.data().taskTitle,
+            metadata: d.data().metadata,
+            createdAt: toDate(d.data().createdAt) || new Date(),
+        })));
+    });
+}
+function subscribeToMeetings(projectId, callback) {
+    const db = (0, client_1.getFirebaseDb)();
+    const q = (0, firestore_1.query)((0, firestore_1.collection)(db, 'projects', projectId, 'meetings'), (0, firestore_1.orderBy)('date', 'desc'));
+    return (0, firestore_1.onSnapshot)(q, (snap) => {
+        callback(snap.docs.map((d) => ({
+            id: d.id,
+            name: d.data().name || '',
+            date: toDate(d.data().date) || new Date(),
+            link: d.data().link,
+            notes: d.data().notes,
+            attendees: d.data().attendees || [],
+            createdBy: d.data().createdBy || '',
+            createdAt: toDate(d.data().createdAt) || new Date(),
+        })));
+    });
+}
+// ─────────────────────────────────────────────
+// Add a new task
+// ─────────────────────────────────────────────
+async function addTask(projectId, data) {
+    const db = (0, client_1.getFirebaseDb)();
+    const ref = await (0, firestore_1.addDoc)((0, firestore_1.collection)(db, 'projects', projectId, 'tasks'), {
+        ...data,
+        projectId,
+        progress: 0,
+        tags: data.tags || [],
+        createdAt: (0, firestore_1.serverTimestamp)(),
+        updatedAt: (0, firestore_1.serverTimestamp)(),
+        completedAt: null,
+        githubRef: {},
+    });
+    return ref.id;
 }
 //# sourceMappingURL=taskService.js.map

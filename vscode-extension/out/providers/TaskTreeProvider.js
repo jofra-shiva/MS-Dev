@@ -115,7 +115,8 @@ class GroupTreeItem extends vscode.TreeItem {
 exports.GroupTreeItem = GroupTreeItem;
 // ─── Provider ───────────────────────────────────────────────────────────────
 class TaskTreeProvider {
-    constructor() {
+    constructor(emptyMessage = 'No tasks assigned to you 🎉') {
+        this.emptyMessage = emptyMessage;
         this._onDidChangeTreeData = new vscode.EventEmitter();
         this.onDidChangeTreeData = this._onDidChangeTreeData.event;
         this._tasks = [];
@@ -178,7 +179,7 @@ class TaskTreeProvider {
             }
         }
         if (items.length === 0) {
-            const item = new vscode.TreeItem('No tasks assigned to you 🎉');
+            const item = new vscode.TreeItem(this.emptyMessage);
             item.iconPath = new vscode.ThemeIcon('check');
             return [item];
         }

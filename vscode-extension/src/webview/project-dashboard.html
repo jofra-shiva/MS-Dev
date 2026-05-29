@@ -1,0 +1,1127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MSDEV Project Dashboard</title>
+<style>
+:root {
+  --bg: #0d1117; --bg-elevated: #161b22; --bg-card2: #1a2133;
+  --text-1: #e6edf3; --text-2: #8b949e; --text-3: #6e7681;
+  --border: #30363d;
+  --accent: #2dd4bf; --accent2: #3b82f6;
+  --red: #f85149; --orange: #fb923c; --yellow: #eab308;
+  --green: #22c55e; --purple: #a855f7; --pink: #ec4899;
+  --success: #22c55e; --warning: #eab308; --danger: #f85149;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;overflow:hidden;}
+body{background:var(--bg);color:var(--text-1);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:13px;display:flex;flex-direction:column;height:100vh;}
+
+/* TOP BAR */
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:var(--bg-elevated);border-bottom:1px solid var(--border);flex-shrink:0;gap:12px;flex-wrap:wrap;}
+.project-title{font-size:16px;font-weight:700;white-space:nowrap;}
+.topbar-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+
+/* TABS */
+.tabs-bar{display:flex;gap:2px;padding:0 16px;background:var(--bg-elevated);border-bottom:1px solid var(--border);flex-shrink:0;overflow-x:auto;scrollbar-width:none;}
+.tabs-bar::-webkit-scrollbar{display:none;}
+.tab{padding:8px 14px;font-size:12px;font-weight:600;color:var(--text-2);cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;display:flex;align-items:center;gap:5px;transition:all .15s;user-select:none;border-radius:4px 4px 0 0;}
+.tab:hover{color:var(--text-1);background:rgba(255,255,255,.04);}
+.tab.active{color:var(--text-1);border-bottom-color:var(--accent);}
+
+/* CONTENT */
+.content{flex:1;overflow-y:auto;padding:20px 16px;scrollbar-width:thin;scrollbar-color:var(--border) transparent;}
+.content::-webkit-scrollbar{width:6px;}
+.content::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
+.panel{display:none;}
+.panel.active{display:block;}
+
+/* STAT GRID */
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px;margin-bottom:20px;}
+.stat-card{background:var(--bg-card2);border:1px solid var(--border);border-radius:10px;padding:16px;}
+.stat-val{font-size:28px;font-weight:800;color:var(--accent);margin-bottom:4px;}
+.stat-label{font-size:12px;color:var(--text-2);}
+
+/* CARDS */
+.card{background:var(--bg-card2);border:1px solid var(--border);border-radius:10px;padding:18px;margin-bottom:16px;}
+.card-title{font-size:14px;font-weight:700;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;}
+.grid-2{display:grid;grid-template-columns:2fr 1fr;gap:16px;}
+@media(max-width:600px){.grid-2{grid-template-columns:1fr;}}
+
+/* PROGRESS */
+.progress-header{display:flex;justify-content:space-between;margin-bottom:6px;font-size:12px;}
+.progress-bar{height:7px;background:var(--bg-elevated);border-radius:4px;overflow:hidden;display:flex;margin-bottom:16px;}
+.progress-fill{height:100%;transition:width .4s;}
+.status-row{display:flex;align-items:center;justify-content:space-between;padding:5px 0;font-size:12px;}
+.status-dot-label{display:flex;align-items:center;gap:8px;}
+.dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+
+/* TASK ITEMS (Overview/Recent) */
+.task-item{display:flex;align-items:flex-start;gap:10px;padding:10px;border-radius:8px;background:var(--bg-elevated);border:1px solid transparent;margin-bottom:8px;transition:border-color .15s;cursor:pointer;}
+.task-item:hover{border-color:var(--border);}
+.task-icon{font-size:14px;flex-shrink:0;margin-top:1px;}
+.task-body{flex:1;min-width:0;}
+.task-title-text{font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.task-meta{color:var(--text-2);font-size:11px;margin-top:3px;display:flex;gap:8px;flex-wrap:wrap;}
+.task-actions{display:flex;gap:5px;flex-shrink:0;}
+
+/* BADGES */
+.badge{padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;text-transform:uppercase;}
+
+/* BUTTONS */
+button{background:var(--bg-elevated);color:var(--text-1);border:1px solid var(--border);padding:5px 10px;border-radius:6px;cursor:pointer;font-size:11px;font-weight:600;transition:all .15s;white-space:nowrap;font-family:inherit;}
+button:hover{background:#21262d;border-color:var(--accent);}
+button.primary{background:var(--accent);color:#0d1117;border-color:var(--accent);}
+button.primary:hover{background:#14b8a6;}
+button.danger-btn{border-color:var(--red);color:var(--red);}
+button.danger-btn:hover{background:rgba(248,81,73,.15);}
+button:disabled{opacity:.5;cursor:not-allowed;}
+.live-badge{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:6px;font-size:11px;font-weight:700;background:rgba(56,189,248,.1);color:#38bdf8;border:1px solid rgba(56,189,248,.25);cursor:pointer;white-space:nowrap;}
+.live-badge:hover{background:rgba(56,189,248,.18);}
+.live-dot{width:6px;height:6px;background:var(--green);border-radius:50%;animation:pulse 2s infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+/* ═══════════════════════════════════════
+   KANBAN BOARD
+═══════════════════════════════════════ */
+.kanban-container{display:flex;gap:12px;overflow-x:auto;padding-bottom:8px;min-height:300px;}
+.kanban-col{min-width:220px;background:var(--bg-card2);border:1px solid var(--border);border-radius:10px;padding:12px;flex-shrink:0;display:flex;flex-direction:column;}
+.kanban-col.drag-over{border-color:var(--accent);background:rgba(45,212,191,.05);}
+.kanban-col-header{font-weight:700;font-size:12px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;}
+.kanban-count{background:var(--bg-elevated);border-radius:10px;padding:1px 7px;font-size:11px;color:var(--text-2);}
+.kanban-tasks{flex:1;min-height:60px;}
+.kanban-task{background:var(--bg-elevated);border-radius:8px;padding:10px;margin-bottom:8px;border:1px solid var(--border);font-size:12px;cursor:grab;transition:box-shadow .15s,transform .15s;user-select:none;}
+.kanban-task:hover{box-shadow:0 4px 12px rgba(0,0,0,.3);}
+.kanban-task.dragging{opacity:.4;transform:rotate(2deg);}
+.kanban-task-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;}
+.kanban-task-title{font-weight:600;margin-bottom:4px;cursor:pointer;line-height:1.4;}
+.kanban-task-title:hover{color:var(--accent);}
+.kanban-task-meta{color:var(--text-2);font-size:10px;display:flex;justify-content:space-between;align-items:center;margin-top:6px;}
+.kanban-task-footer{display:flex;gap:4px;margin-top:8px;padding-top:8px;border-top:1px solid var(--border);}
+
+/* TICKET ID BADGE */
+.ticket-badge{font-size:11px;font-weight:800;padding:2px 7px;border-radius:4px;}
+
+/* ═══════════════════════════════════════
+   TRACKER TABLE
+═══════════════════════════════════════ */
+.tracker-table{width:100%;border-collapse:collapse;}
+.tracker-table th,.tracker-table td{padding:8px 10px;text-align:left;border-bottom:1px solid var(--border);font-size:12px;}
+.tracker-table th{font-weight:700;color:var(--text-2);font-size:11px;text-transform:uppercase;letter-spacing:.5px;background:var(--bg-card2);}
+
+/* ANALYTICS */
+.chart-bars{display:flex;align-items:flex-end;gap:8px;height:120px;}
+.bar-group{display:flex;flex-direction:column;align-items:center;gap:4px;flex:1;}
+.bar{width:100%;border-radius:4px 4px 0 0;transition:height .4s;min-height:2px;}
+.bar-label{font-size:9px;color:var(--text-2);text-align:center;}
+
+/* ACTIVITY */
+.activity-item{display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);}
+.activity-item:last-child{border-bottom:none;}
+.activity-avatar{width:28px;height:28px;border-radius:50%;background:var(--bg-elevated);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--accent);flex-shrink:0;overflow:hidden;}
+.activity-body{flex:1;}
+.activity-time{font-size:11px;color:var(--text-2);margin-top:2px;}
+
+/* MEETINGS */
+.meeting-item{padding:12px;background:var(--bg-elevated);border-radius:8px;border:1px solid var(--border);margin-bottom:8px;}
+.meeting-name{font-weight:700;font-size:13px;margin-bottom:4px;}
+.meeting-meta{color:var(--text-2);font-size:11px;display:flex;gap:10px;flex-wrap:wrap;}
+.meeting-link{color:var(--accent2);text-decoration:none;}
+
+/* MEMBERS */
+.member-item{display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--bg-elevated);border-radius:8px;margin-bottom:6px;}
+.member-avatar{width:32px;height:32px;border-radius:50%;background:var(--bg-card2);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;color:var(--accent);flex-shrink:0;overflow:hidden;}
+.member-name{font-weight:600;font-size:12px;}
+.role-badge{padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;}
+
+.settings-row{display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--border);}
+.settings-label{font-weight:600;font-size:13px;}
+.settings-desc{color:var(--text-2);font-size:11px;margin-top:2px;}
+
+/* GITHUB */
+.github-status{display:flex;align-items:center;gap:8px;font-size:12px;padding:10px;background:var(--bg-elevated);border-radius:8px;border:1px solid var(--border);}
+.connected-dot{width:8px;height:8px;border-radius:50%;background:var(--green);}
+
+.empty{text-align:center;color:var(--text-2);padding:40px 20px;font-size:13px;}
+.empty-icon{font-size:36px;margin-bottom:8px;}
+
+/* ═══════════════════════════════════════
+   MODAL SYSTEM
+═══════════════════════════════════════ */
+.modal-overlay{position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,.65);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;padding:20px;}
+.modal-overlay.hidden{display:none;}
+.modal-box{background:#111827;border:1px solid var(--border);border-radius:14px;max-width:680px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 24px 60px rgba(0,0,0,.6);animation:slideUp .2s ease-out;}
+.modal-box.modal-sm{max-width:420px;}
+@keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+.modal-header{display:flex;align-items:center;justify-content:space-between;padding:20px 24px 0;margin-bottom:20px;}
+.modal-title{font-size:18px;font-weight:700;}
+.modal-body{padding:0 24px 24px;}
+.modal-footer{display:flex;gap:10px;margin-top:20px;justify-content:flex-end;}
+.close-btn{background:transparent;border:none;color:var(--text-2);font-size:18px;cursor:pointer;padding:4px;line-height:1;width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:6px;}
+.close-btn:hover{background:var(--bg-elevated);color:var(--text-1);}
+
+/* FORM FIELDS */
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;}
+@media(max-width:540px){.form-grid{grid-template-columns:1fr;}}
+.form-group{display:flex;flex-direction:column;gap:5px;}
+.form-group.full{grid-column:1/-1;}
+.form-label{font-size:11px;font-weight:700;color:var(--text-2);text-transform:uppercase;letter-spacing:.05em;}
+.form-input{background:var(--bg-elevated);color:var(--text-1);border:1px solid var(--border);padding:8px 10px;border-radius:7px;font-size:13px;font-family:inherit;width:100%;transition:border-color .15s;}
+.form-input:focus{outline:none;border-color:var(--accent);}
+textarea.form-input{resize:vertical;min-height:80px;}
+select.form-input option{background:#161b22;}
+
+/* TYPE BUTTONS */
+.type-row{display:flex;gap:8px;grid-column:1/-1;}
+.type-btn{flex:1;padding:9px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;border:1.5px solid var(--border);background:transparent;color:var(--text-2);transition:all .15s;font-family:inherit;}
+.type-btn:hover{color:var(--text-1);border-color:var(--text-3);}
+.type-btn.active-bug{border-color:#f87171;background:rgba(248,113,113,.1);color:#f87171;}
+.type-btn.active-feature{border-color:#34d399;background:rgba(52,211,153,.1);color:#34d399;}
+.type-btn.active-improvement{border-color:#38bdf8;background:rgba(56,189,248,.1);color:#38bdf8;}
+
+/* PROGRESS SLIDER */
+input[type="range"]{width:100%;accent-color:var(--accent);cursor:pointer;}
+
+/* ═══════════════════════════════════════
+   TASK DETAIL MODAL
+═══════════════════════════════════════ */
+#task-detail-body{display:grid;grid-template-columns:1fr 200px;gap:20px;}
+@media(max-width:500px){#task-detail-body{grid-template-columns:1fr;}}
+.detail-section{margin-bottom:18px;}
+.detail-section-label{font-size:11px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;}
+.detail-badges{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;}
+.audit-box{background:var(--bg-elevated);border-radius:8px;padding:14px;border:1px solid var(--border);}
+.audit-row{display:flex;justify-content:space-between;padding:4px 0;font-size:12px;gap:10px;}
+.audit-key{color:var(--text-3);}
+.github-commit-box{padding:12px;background:var(--bg-elevated);border-radius:8px;border-left:3px solid var(--green);}
+
+/* COMMENTS */
+.comment-item{display:flex;gap:10px;margin-bottom:12px;}
+.comment-avatar{width:26px;height:26px;border-radius:50%;background:var(--bg-elevated);flex-shrink:0;overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:var(--accent);}
+.comment-body{flex:1;}
+.comment-author{font-weight:700;font-size:12px;}
+.comment-time{color:var(--text-3);font-size:11px;margin-left:8px;}
+.comment-text{font-size:13px;color:var(--text-2);background:var(--bg-elevated);padding:8px 12px;border-radius:8px;margin-top:4px;line-height:1.5;}
+.comment-input-row{display:flex;gap:8px;margin-top:12px;}
+.comment-input-row .form-input{flex:1;}
+
+/* SIDEBAR DETAIL */
+.detail-sidebar{display:flex;flex-direction:column;gap:12px;}
+.sidebar-field{border-bottom:1px solid var(--border);padding-bottom:10px;}
+.sidebar-field:last-child{border-bottom:none;}
+.sidebar-field-label{font-size:10px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px;}
+
+/* SEND TO CHAT BUTTON */
+.send-chat-btn{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700;background:linear-gradient(135deg,rgba(45,212,191,.15),rgba(59,130,246,.15));color:var(--accent);border:1px solid rgba(45,212,191,.3);cursor:pointer;transition:all .15s;white-space:nowrap;}
+.send-chat-btn:hover{background:linear-gradient(135deg,rgba(45,212,191,.28),rgba(59,130,246,.28));border-color:var(--accent);transform:translateY(-1px);box-shadow:0 4px 12px rgba(45,212,191,.2);}
+.send-chat-btn svg{flex-shrink:0;}
+
+/* AI BAR */
+.ai-bar{display:flex;gap:8px;align-items:center;padding:12px;background:linear-gradient(135deg,rgba(45,212,191,.06),rgba(59,130,246,.06));border:1px solid rgba(45,212,191,.2);border-radius:10px;margin-bottom:14px;}
+.ai-bar-input{flex:1;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);padding:8px 12px;border-radius:7px;color:var(--text-1);font-size:12px;font-family:inherit;outline:none;transition:border-color .15s;}
+.ai-bar-input:focus{border-color:var(--accent);}
+.ai-bar-input::placeholder{color:var(--text-3);}
+.ai-btn{display:inline-flex;align-items:center;gap:5px;padding:7px 12px;border-radius:7px;font-size:12px;font-weight:700;background:linear-gradient(135deg,rgba(45,212,191,.2),rgba(59,130,246,.2));color:var(--accent);border:1px solid rgba(45,212,191,.3);cursor:pointer;transition:all .15s;white-space:nowrap;flex-shrink:0;font-family:inherit;}
+.ai-btn:hover{background:linear-gradient(135deg,rgba(45,212,191,.35),rgba(59,130,246,.35));transform:translateY(-1px);box-shadow:0 4px 12px rgba(45,212,191,.15);}
+.ai-btn:disabled{opacity:.5;cursor:not-allowed;transform:none;}
+@keyframes spin{to{transform:rotate(360deg)}}
+.spin{animation:spin .7s linear infinite;display:inline-block;}
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div class="topbar">
+  <div class="project-title" id="project-title">Loading…</div>
+  <div class="topbar-actions">
+    <span id="live-preview-btn" class="live-badge" style="display:none" onclick="vscode.postMessage({command:'openLiveUrl'})">
+      <span class="live-dot"></span> 🌐 Live Preview
+    </span>
+    <button class="primary" onclick="openAddTask()">＋ Add Task</button>
+  </div>
+</div>
+
+<!-- TABS -->
+<div class="tabs-bar">
+  <div class="tab active" data-panel="overview" onclick="switchTab(this)">📊 Overview</div>
+  <div class="tab" data-panel="kanban" onclick="switchTab(this)">🗂️ A to Z</div>
+  <div class="tab" data-panel="tracker" onclick="switchTab(this)">📋 Tracker</div>
+  <div class="tab" data-panel="analytics" onclick="switchTab(this)">📈 Analytics</div>
+  <div class="tab" data-panel="activity" onclick="switchTab(this)">⚡ Activity</div>
+  <div class="tab" data-panel="meetings" onclick="switchTab(this)">📅 Meetings</div>
+  <div class="tab" data-panel="github" onclick="switchTab(this)">🔗 GitHub</div>
+  <div class="tab" data-panel="settings" onclick="switchTab(this)">⚙️ Settings</div>
+</div>
+
+<!-- MAIN CONTENT -->
+<div class="content">
+
+  <!-- OVERVIEW -->
+  <div class="panel active" id="panel-overview">
+    <div class="stat-grid" id="stat-grid"></div>
+    <div class="grid-2">
+      <div>
+        <div class="card">
+          <div class="card-title">Task Progress <span id="overall-pct" style="color:var(--text-2);font-size:11px;font-weight:400"></span></div>
+          <div class="progress-header"><span>Overall completion</span><span id="pct">0%</span></div>
+          <div class="progress-bar" id="progress-bar"></div>
+          <div id="status-breakdown"></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Recent Tasks <span id="recent-count" style="color:var(--text-2);font-size:11px;font-weight:400"></span></div>
+          <div id="recent-tasks"></div>
+        </div>
+      </div>
+      <div>
+        <div class="card"><div class="card-title">Team Members</div><div id="members-list"></div></div>
+        <div class="card" id="github-card" style="display:none">
+          <div class="card-title">GitHub</div>
+          <div id="github-status-mini"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- KANBAN -->
+  <div class="panel" id="panel-kanban">
+    <div class="kanban-container" id="kanban-board"></div>
+  </div>
+
+  <!-- TRACKER -->
+  <div class="panel" id="panel-tracker">
+    <div class="card" style="padding:0;overflow:auto">
+      <table class="tracker-table">
+        <thead><tr>
+          <th>Ticket</th><th>Title</th><th>Type</th><th>Status</th><th>Priority</th><th>Assignee</th><th>Module</th><th>Due</th><th>Actions</th>
+        </tr></thead>
+        <tbody id="tracker-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ANALYTICS -->
+  <div class="panel" id="panel-analytics">
+    <div class="stat-grid" id="analytics-stats"></div>
+    <div class="grid-2">
+      <div class="card"><div class="card-title">Tasks by Status</div><div class="chart-bars" id="status-chart"></div></div>
+      <div class="card"><div class="card-title">Tasks by Priority</div><div class="chart-bars" id="priority-chart"></div></div>
+    </div>
+    <div class="card"><div class="card-title">Tasks by Type</div><div class="chart-bars" id="type-chart"></div></div>
+  </div>
+
+  <!-- ACTIVITY -->
+  <div class="panel" id="panel-activity">
+    <div class="card"><div class="card-title">Activity Feed</div><div id="activity-feed"></div></div>
+  </div>
+
+  <!-- MEETINGS -->
+  <div class="panel" id="panel-meetings"><div id="meetings-list"></div></div>
+
+  <!-- GITHUB -->
+  <div class="panel" id="panel-github"><div class="card" id="github-panel-content"></div></div>
+
+  <!-- SETTINGS -->
+  <div class="panel" id="panel-settings">
+    <div class="card">
+      <div class="card-title">Project Info</div>
+      <div class="settings-row"><div><div class="settings-label">Project Name</div></div><div id="s-name" style="color:var(--text-2)">—</div></div>
+      <div class="settings-row"><div><div class="settings-label">Project ID</div></div><div id="s-id" style="color:var(--text-2);font-family:monospace;font-size:11px">—</div></div>
+      <div class="settings-row"><div><div class="settings-label">Description</div></div><div id="s-desc" style="color:var(--text-2)">—</div></div>
+      <div class="settings-row"><div><div class="settings-label">GitHub Repo</div></div><div id="s-repo" style="color:var(--text-2)">—</div></div>
+      <div class="settings-row"><div><div class="settings-label">Live URL</div></div><div id="s-live" style="color:var(--text-2)">—</div></div>
+      <div class="settings-row"><div><div class="settings-label">Team Size</div></div><div id="s-members" style="color:var(--text-2)">—</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════
+  ADD TASK MODAL
+═══════════════════════════════ -->
+<div class="modal-overlay hidden" id="add-task-modal" onclick="if(event.target===this)closeAddTask()">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div class="modal-title">➕ Create Task</div>
+      <button class="close-btn" onclick="closeAddTask()">✕</button>
+    </div>
+    <div class="modal-body">
+      <!-- AI Auto-fill Bar -->
+      <div class="ai-bar">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+        <input id="ai-prompt" class="ai-bar-input" placeholder="Describe the task in your own words (English or Tamil)…" onkeydown="if(event.key==='Enter')triggerAiFill()"/>
+        <button class="ai-btn" id="ai-btn" onclick="triggerAiFill()">✨ AI Auto-fill</button>
+      </div>
+      <div class="form-grid">
+        <!-- Type Row -->
+        <div class="type-row">
+          <button type="button" class="type-btn active-bug" id="type-bug" onclick="setType('bug')">🐛 Bug</button>
+          <button type="button" class="type-btn" id="type-feature" onclick="setType('feature')">✨ Feature</button>
+          <button type="button" class="type-btn" id="type-improvement" onclick="setType('improvement')">🔧 Improvement</button>
+        </div>
+        <!-- Module -->
+        <div class="form-group full">
+          <label class="form-label">Module / Category</label>
+          <input id="f-module" class="form-input" placeholder="e.g. Authentication" />
+        </div>
+        <!-- Title -->
+        <div class="form-group full">
+          <label class="form-label">Task Title *</label>
+          <input id="f-title" class="form-input" placeholder="e.g. Implement user authentication" autofocus />
+        </div>
+        <!-- Description -->
+        <div class="form-group full">
+          <label class="form-label">Description</label>
+          <textarea id="f-desc" class="form-input" placeholder="What needs to be done…" rows="3"></textarea>
+        </div>
+        <!-- Priority -->
+        <div class="form-group">
+          <label class="form-label">Priority</label>
+          <select id="f-priority" class="form-input">
+            <option value="low">Low</option>
+            <option value="medium" selected>Medium</option>
+            <option value="high">High</option>
+            <option value="urgent">Urgent</option>
+          </select>
+        </div>
+        <!-- Status -->
+        <div class="form-group">
+          <label class="form-label">Status</label>
+          <select id="f-status" class="form-input">
+            <option value="pending" selected>Pending</option>
+            <option value="in_progress">In Progress</option>
+            <option value="testing">Testing</option>
+            <option value="github_pushed">🐙 GitHub Pushed</option>
+            <option value="deployed">🌐 Deployed</option>
+            <option value="completed">Completed</option>
+          </select>
+        </div>
+        <!-- Assignee -->
+        <div class="form-group">
+          <label class="form-label">Assign To</label>
+          <select id="f-assignee" class="form-input"><option value="">Unassigned</option></select>
+        </div>
+        <!-- Due Date -->
+        <div class="form-group">
+          <label class="form-label">Due Date</label>
+          <input id="f-duedate" class="form-input" type="date" />
+        </div>
+        <!-- Tags -->
+        <div class="form-group full">
+          <label class="form-label">Tags (comma-separated)</label>
+          <input id="f-tags" class="form-input" placeholder="frontend, auth, bug" />
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button onclick="closeAddTask()">Cancel</button>
+        <button class="primary" id="create-btn" onclick="submitTask()">Create Task</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════
+  TASK DETAIL MODAL
+═══════════════════════════════ -->
+<div class="modal-overlay hidden" id="task-detail-modal" onclick="if(event.target===this)closeDetail()">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div style="flex:1;padding-right:12px">
+        <div id="detail-title" style="font-size:17px;font-weight:700;line-height:1.3;margin-bottom:8px"></div>
+        <div class="detail-badges" id="detail-badges"></div>
+      </div>
+      <div style="display:flex;gap:6px;align-items:flex-start">
+        <button id="edit-btn" onclick="toggleEdit()" style="font-size:11px;padding:5px 10px">Edit</button>
+        <button class="danger-btn" onclick="confirmDelete()" style="font-size:11px;padding:5px 10px">Delete</button>
+        <button class="close-btn" onclick="closeDetail()">✕</button>
+      </div>
+    </div>
+    <div class="modal-body">
+      <!-- Edit form (hidden by default) -->
+      <div id="edit-form" style="display:none;margin-bottom:20px;padding:16px;background:var(--bg-elevated);border-radius:10px;border:1px solid var(--border)">
+        <div class="form-grid">
+          <div class="form-group full"><label class="form-label">Title</label><input id="e-title" class="form-input"/></div>
+          <div class="form-group full"><label class="form-label">Description</label><textarea id="e-desc" class="form-input" rows="3"></textarea></div>
+          <div class="form-group"><label class="form-label">Status</label>
+            <select id="e-status" class="form-input">
+              <option value="pending">Pending</option><option value="in_progress">In Progress</option>
+              <option value="testing">Testing</option><option value="github_pushed">🐙 GitHub Pushed</option>
+              <option value="deployed">🌐 Deployed</option><option value="completed">✅ Completed</option>
+            </select></div>
+          <div class="form-group"><label class="form-label">Priority</label>
+            <select id="e-priority" class="form-input">
+              <option value="low">Low</option><option value="medium">Medium</option>
+              <option value="high">High</option><option value="urgent">Urgent</option>
+            </select></div>
+          <div class="form-group"><label class="form-label">Type</label>
+            <select id="e-type" class="form-input">
+              <option value="bug">🐛 Bug</option><option value="feature">✨ Feature</option><option value="improvement">🔧 Improvement</option>
+            </select></div>
+          <div class="form-group"><label class="form-label">Module</label><input id="e-module" class="form-input"/></div>
+          <div class="form-group full"><label class="form-label">Progress — <span id="e-prog-val">0</span>%</label>
+            <input type="range" id="e-progress" min="0" max="100" step="5" oninput="document.getElementById('e-prog-val').textContent=this.value"/></div>
+        </div>
+        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
+          <button onclick="cancelEdit()">Cancel</button>
+          <button class="primary" id="save-btn" onclick="saveTask()">Save Changes</button>
+        </div>
+      </div>
+
+      <div id="task-detail-body">
+        <!-- Main -->
+        <div>
+          <div class="detail-section">
+            <div class="detail-section-label" style="display:flex;align-items:center;justify-content:space-between">
+              <span>Description</span>
+              <button class="send-chat-btn" id="send-chat-btn" onclick="sendToChat()" title="Copy description">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+              </button>
+            </div>
+            <p id="detail-desc" style="font-size:13px;color:var(--text-2);line-height:1.6;margin-top:8px"></p>
+          </div>
+          <div class="detail-section">
+            <div class="detail-section-label">Progress — <span id="detail-prog">0</span>%</div>
+            <div class="progress-bar" style="height:6px"><div id="detail-prog-bar" class="progress-fill" style="background:var(--accent)"></div></div>
+          </div>
+          <!-- GitHub commit -->
+          <div id="detail-github-commit" style="display:none;margin-bottom:18px"></div>
+          <!-- Audit Trail -->
+          <div class="detail-section">
+            <div class="detail-section-label">Audit Trail</div>
+            <div class="audit-box">
+              <div class="audit-row"><span class="audit-key">Created</span><span id="audit-created">—</span></div>
+              <div class="audit-row"><span class="audit-key">Last updated</span><span id="audit-updated">—</span></div>
+              <div class="audit-row"><span class="audit-key">Updated by</span><span id="audit-updated-by">—</span></div>
+              <div class="audit-row"><span class="audit-key">Completed</span><span id="audit-completed">—</span></div>
+              <div class="audit-row"><span class="audit-key">Completed by</span><span id="audit-completed-by">—</span></div>
+            </div>
+          </div>
+          <!-- Comments -->
+          <div class="detail-section">
+            <div class="detail-section-label">Comments (<span id="comment-count">0</span>)</div>
+            <div id="comments-list" style="margin-bottom:10px"></div>
+            <div class="comment-input-row">
+              <input id="comment-input" class="form-input" placeholder="Add a comment…" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();submitComment();}"/>
+              <button class="primary" onclick="submitComment()">Send</button>
+            </div>
+          </div>
+        </div>
+        <!-- Sidebar -->
+        <div class="detail-sidebar" id="detail-sidebar"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- DELETE CONFIRM MODAL -->
+<div class="modal-overlay hidden" id="delete-modal" onclick="if(event.target===this)closeDeleteModal()">
+  <div class="modal-box modal-sm">
+    <div class="modal-header">
+      <div class="modal-title">🗑️ Delete Task</div>
+      <button class="close-btn" onclick="closeDeleteModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <p style="color:var(--text-2);font-size:14px;margin-bottom:20px;line-height:1.5">Are you sure you want to delete "<span id="delete-task-name"></span>"? This cannot be undone.</p>
+      <div class="modal-footer">
+        <button onclick="closeDeleteModal()">Cancel</button>
+        <button class="danger-btn" onclick="doDelete()">Delete Task</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script nonce="{{NONCE}}">
+const vscode = acquireVsCodeApi();
+
+// ── CONSTANTS ──────────────────────────────────────────────
+const SC = {completed:'#2dd4bf',deployed:'#3b82f6',github_pushed:'#a855f7',testing:'#0ea5e9',in_progress:'#eab308',pending:'#64748b'};
+const SL = {completed:'Completed',deployed:'Deployed',github_pushed:'GitHub',testing:'Testing',in_progress:'In Progress',pending:'Pending'};
+const SI = {completed:'✅',deployed:'🌐',github_pushed:'🐙',testing:'🧪',in_progress:'🔥',pending:'📋'};
+const PC = {urgent:'#f85149',high:'#fb923c',medium:'#eab308',low:'#22c55e'};
+const TI = {feature:'✨',bug:'🐛',improvement:'🔧'};
+const KCOLS = ['pending','in_progress','testing','github_pushed','deployed','completed'];
+
+// ── STATE ──────────────────────────────────────────────────
+let state = {project:null,tasks:[],activity:[],meetings:[],user:null};
+let currentTaskId = null;
+let addTaskType = 'bug';
+
+// ── MESSAGE HANDLING ───────────────────────────────────────
+window.addEventListener('message', e => {
+  const m = e.data;
+  switch(m.command) {
+    case 'updateAll':
+      state = {project:m.project, tasks:m.tasks||[], activity:m.activity||[], meetings:m.meetings||[], user:m.user};
+      renderAll(); break;
+    case 'updateProject': state.project=m.project; renderProjectInfo(); break;
+    case 'updateTasks': state.tasks=m.tasks||[]; renderTasks(); break;
+    case 'updateActivity': state.activity=m.activity||[]; renderActivity(); break;
+    case 'updateMeetings': state.meetings=m.meetings||[]; renderMeetings(); break;
+    case 'taskCreated': closeAddTask(); break;
+    case 'taskCreateError': document.getElementById('create-btn').disabled=false; document.getElementById('create-btn').textContent='Create Task'; break;
+    case 'taskUpdated': document.getElementById('save-btn').disabled=false; document.getElementById('save-btn').textContent='Save Changes'; cancelEdit(); break;
+    case 'taskDeleted': closeDetailModal(); break;
+    case 'commentsLoaded':
+      if(m.taskId === currentTaskId) renderComments(m.comments);
+      break;
+    case 'aiTaskFilled':
+      fillFromAi(m.task);
+      break;
+    case 'aiTaskError':
+      document.getElementById('ai-btn').disabled=false;
+      document.getElementById('ai-btn').textContent='✨ AI Auto-fill';
+      alert('AI error: ' + (m.error||'Unknown error'));
+      break;
+  }
+});
+
+// ── TABS ───────────────────────────────────────────────────
+function switchTab(el) {
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('panel-'+el.dataset.panel).classList.add('active');
+}
+
+// ── RENDER ALL ─────────────────────────────────────────────
+function renderAll() { renderProjectInfo(); renderTasks(); renderActivity(); renderMeetings(); }
+
+// ── PROJECT INFO ───────────────────────────────────────────
+function renderProjectInfo() {
+  const p = state.project; if(!p) return;
+  document.getElementById('project-title').textContent = p.name||'Dashboard';
+  document.getElementById('s-name').textContent = p.name||'—';
+  document.getElementById('s-id').textContent = p.id||'—';
+  document.getElementById('s-desc').textContent = p.description||'—';
+  document.getElementById('s-live').textContent = p.liveUrl||'—';
+  const mems = p.members ? Object.keys(p.members) : [];
+  document.getElementById('s-members').textContent = mems.length;
+  if(p.github?.connected && p.github?.repoName) {
+    document.getElementById('s-repo').textContent = `${p.github.repoOwner}/${p.github.repoName}`;
+    document.getElementById('github-card').style.display='block';
+    document.getElementById('github-status-mini').innerHTML=`<div class="github-status"><div class="connected-dot"></div><span>Connected to <strong>${p.github.repoOwner}/${p.github.repoName}</strong></span></div>`;
+  } else { document.getElementById('s-repo').textContent='Not connected'; }
+  if(p.liveUrl) document.getElementById('live-preview-btn').style.display='inline-flex';
+  else document.getElementById('live-preview-btn').style.display='none';
+  renderMembersCard(p.members||{});
+  renderGithubPanel();
+  populateAssigneeSelect(p.members||{});
+}
+
+function renderMembersCard(members) {
+  const el = document.getElementById('members-list');
+  const entries = Object.entries(members);
+  if(!entries.length){el.innerHTML='<div class="empty">No members</div>';return;}
+  el.innerHTML = entries.map(([uid,m])=>`
+    <div class="member-item">
+      <div class="member-avatar">${m.photoURL?`<img src="${m.photoURL}" style="width:100%;height:100%;object-fit:cover">`:(m.displayName||'?')[0].toUpperCase()}</div>
+      <div style="flex:1"><div class="member-name">${esc(m.displayName||'')}</div><div style="font-size:10px;color:var(--text-3)">${esc(m.email||'')}</div></div>
+      <span class="role-badge" style="background:${m.role==='admin'?'rgba(234,179,8,.15)':'rgba(59,130,246,.15)'};color:${m.role==='admin'?'#eab308':'#60a5fa'}">${(m.role||'member').toUpperCase()}</span>
+    </div>`).join('');
+}
+
+function populateAssigneeSelect(members) {
+  const sel = document.getElementById('f-assignee');
+  sel.innerHTML = '<option value="">Unassigned</option>';
+  Object.entries(members).forEach(([uid,m])=>{
+    const o = document.createElement('option');
+    o.value = uid;
+    o.dataset.name = m.displayName||'';
+    o.dataset.photo = m.photoURL||'';
+    o.textContent = `${m.displayName} (${m.role||'member'})`;
+    sel.appendChild(o);
+  });
+}
+
+function renderGithubPanel() {
+  const p = state.project; const el = document.getElementById('github-panel-content');
+  if(!p?.github?.connected) {
+    el.innerHTML=`<div class="card-title">🔗 GitHub</div><div class="empty"><div class="empty-icon">🔗</div>No repository linked. Connect from the web app.</div>`;
+    return;
+  }
+  const branchTasks = state.tasks.filter(t=>t.githubRef?.branchName);
+  el.innerHTML=`<div class="card-title">🔗 GitHub — ${esc(p.github.repoOwner)}/${esc(p.github.repoName)}</div>
+    <div class="github-status" style="margin-bottom:14px"><div class="connected-dot"></div><span>Connected</span></div>
+    <div style="font-size:12px;color:var(--text-2);margin-bottom:8px">Tasks with branches (${branchTasks.length}):</div>
+    ${branchTasks.map(t=>`
+      <div class="task-item">
+        <div class="task-body">
+          <div class="task-title-text">${esc(t.title)}</div>
+          <div class="task-meta">⎇ ${esc(t.githubRef.branchName)}</div>
+        </div>
+        <div class="task-actions">
+          <button onclick="vscode.postMessage({command:'createBranch',taskId:'${t.id}'})">New Branch</button>
+        </div>
+      </div>`).join('')||'<div class="empty">No tasks with branches yet</div>'}`;
+}
+
+// ── TASKS ──────────────────────────────────────────────────
+function renderTasks() {
+  renderOverview(); renderKanban(); renderTracker(); renderAnalytics();
+  // refresh detail if open
+  if(currentTaskId) {
+    const t = state.tasks.find(x=>x.id===currentTaskId);
+    if(t) renderDetailContent(t);
+  }
+}
+
+function renderOverview() {
+  const tasks = state.tasks;
+  const stats = {total:tasks.length,in_progress:0,github_pushed:0,deployed:0,completed:0,testing:0,pending:0};
+  tasks.forEach(t=>{if(stats[t.status]!==undefined)stats[t.status]++;});
+  const mems = state.project?.members ? Object.keys(state.project.members).length : 0;
+  document.getElementById('stat-grid').innerHTML=`
+    <div class="stat-card"><div class="stat-val">${stats.total}</div><div class="stat-label">Total Tasks</div></div>
+    <div class="stat-card"><div class="stat-val" style="color:var(--yellow)">${stats.in_progress}</div><div class="stat-label">In Progress</div></div>
+    <div class="stat-card"><div class="stat-val" style="color:var(--purple)">${stats.github_pushed}</div><div class="stat-label">GitHub</div></div>
+    <div class="stat-card"><div class="stat-val" style="color:var(--accent2)">${stats.deployed}</div><div class="stat-label">Deployed</div></div>
+    <div class="stat-card"><div class="stat-val">${stats.completed}</div><div class="stat-label">Completed</div></div>
+    <div class="stat-card"><div class="stat-val" style="color:var(--pink)">${mems}</div><div class="stat-label">Team Size</div></div>`;
+  const done = stats.completed+stats.deployed;
+  const pct = stats.total===0?0:Math.round((done/stats.total)*100);
+  document.getElementById('pct').textContent=pct+'%';
+  const bar = document.getElementById('progress-bar'); bar.innerHTML='';
+  Object.keys(SC).forEach(s=>{if(stats[s]>0){const f=document.createElement('div');f.className='progress-fill';f.style.cssText=`width:${(stats[s]/stats.total)*100}%;background:${SC[s]}`;bar.appendChild(f);}});
+  document.getElementById('status-breakdown').innerHTML=Object.keys(SC).map(s=>`
+    <div class="status-row"><div class="status-dot-label"><div class="dot" style="background:${SC[s]}"></div>${SL[s]}</div><span>${stats[s]}</span></div>`).join('');
+  const recent=[...tasks].sort((a,b)=>new Date(b.updatedAt||0)-new Date(a.updatedAt||0)).slice(0,8);
+  document.getElementById('recent-count').textContent=`(${recent.length} of ${tasks.length})`;
+  document.getElementById('recent-tasks').innerHTML=recent.length===0
+    ?'<div class="empty">No tasks yet — click Add Task!</div>'
+    :recent.map(t=>taskRow(t)).join('');
+}
+
+function taskRow(t) {
+  return `<div class="task-item" onclick="openDetail('${t.id}')">
+    <div class="task-icon">${TI[t.type]||'📌'}</div>
+    <div class="task-body">
+      <div class="task-title-text">${esc(t.title)}</div>
+      <div class="task-meta">
+        <span style="color:${SC[t.status]}">${SI[t.status]} ${SL[t.status]}</span>
+        ${t.ticketId?`<span>${esc(t.ticketId)}</span>`:''}
+        ${t.assigneeName?`<span>👤 ${esc(t.assigneeName)}</span>`:''}
+        <span style="color:${PC[t.priority]}">${t.priority}</span>
+      </div>
+    </div>
+    <div class="task-actions" onclick="event.stopPropagation()">
+      <button onclick="openDetail('${t.id}')">View</button>
+    </div>
+  </div>`;
+}
+
+// ── KANBAN ─────────────────────────────────────────────────
+let dragId = null;
+
+function renderKanban() {
+  const board = document.getElementById('kanban-board');
+  board.innerHTML = KCOLS.map(status=>{
+    const colTasks = state.tasks.filter(t=>t.status===status);
+    return `<div class="kanban-col" id="col-${status}"
+      ondragover="event.preventDefault();this.classList.add('drag-over')"
+      ondragleave="this.classList.remove('drag-over')"
+      ondrop="onDrop(event,'${status}')">
+      <div class="kanban-col-header">
+        <span>${SI[status]} ${SL[status]}</span>
+        <span class="kanban-count">${colTasks.length}</span>
+      </div>
+      <div class="kanban-tasks" id="tasks-${status}">
+        ${colTasks.length===0?`<div style="color:var(--text-3);font-size:11px;text-align:center;padding:12px 0">Empty</div>`:''}
+        ${colTasks.map(t=>kanbanCard(t)).join('')}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function kanbanCard(t) {
+  const ticketColor = t.ticketId ? (t.ticketId.startsWith('BUG')?'#EF4444':t.ticketId.startsWith('FEAT')?'#8B5CF6':t.ticketId.startsWith('IMP')?'#10B981':'#8B5CF6') : PC[t.priority];
+  const isOverdue = t.dueDate && new Date(t.dueDate) < new Date() && t.status !== 'completed';
+  return `<div class="kanban-task" id="ktask-${t.id}"
+    draggable="true"
+    ondragstart="onDragStart(event,'${t.id}')"
+    ondragend="onDragEnd(event)">
+    <div class="kanban-task-header">
+      ${t.ticketId?`<span class="ticket-badge" style="color:${ticketColor};background:${ticketColor}18">${esc(t.ticketId)}</span>`:`<span style="font-size:10px;font-weight:700;color:${PC[t.priority]};text-transform:uppercase">${t.priority}</span>`}
+      ${t.module?`<span style="font-size:10px;color:var(--text-3);background:var(--bg-elevated);padding:1px 6px;border-radius:99px">${esc(t.module)}</span>`:''}
+    </div>
+    <div class="kanban-task-title" onclick="openDetail('${t.id}')">${esc(t.title)}</div>
+    ${t.progress>0?`<div style="margin:6px 0 4px"><div class="progress-bar" style="height:3px;margin-bottom:0"><div class="progress-fill" style="width:${t.progress}%;background:var(--accent)"></div></div></div>`:''}
+    <div class="kanban-task-meta">
+      <span style="display:flex;align-items:center;gap:4px">
+        ${t.assigneePhoto?`<img src="${t.assigneePhoto}" style="width:18px;height:18px;border-radius:50%">`:t.assigneeName?`<span style="width:18px;height:18px;border-radius:50%;background:var(--bg-elevated);display:inline-flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;color:var(--accent)">${esc(t.assigneeName).slice(0,2).toUpperCase()}</span>`:'<span style="opacity:.4">⊙</span>'}
+        ${t.tags?.length?`<span style="font-size:10px;color:var(--accent);background:rgba(99,102,241,.1);padding:1px 6px;border-radius:99px">#${esc(t.tags[0])}</span>`:''}
+      </span>
+      <span style="font-size:10px;color:${isOverdue?'var(--danger)':'var(--text-3)'}">
+        ${isOverdue?'⚠️ ':''} ${t.dueDate?new Date(t.dueDate).toLocaleDateString('en-GB',{day:'2-digit',month:'short'}):''}
+      </span>
+    </div>
+    <div class="kanban-task-footer">
+      <button style="font-size:10px;padding:2px 7px;flex:1" onclick="openDetail('${t.id}')">📋 View</button>
+      <button style="font-size:10px;padding:2px 7px" onclick="vscode.postMessage({command:'createBranch',taskId:'${t.id}'})">⎇</button>
+    </div>
+  </div>`;
+}
+
+function onDragStart(e, id) {
+  dragId = id;
+  e.dataTransfer.effectAllowed = 'move';
+  setTimeout(()=>{ const el=document.getElementById('ktask-'+id); if(el) el.classList.add('dragging'); },0);
+}
+function onDragEnd(e) {
+  if(dragId) { const el=document.getElementById('ktask-'+dragId); if(el) el.classList.remove('dragging'); }
+  document.querySelectorAll('.kanban-col').forEach(c=>c.classList.remove('drag-over'));
+}
+function onDrop(e, newStatus) {
+  e.preventDefault();
+  document.querySelectorAll('.kanban-col').forEach(c=>c.classList.remove('drag-over'));
+  if(!dragId) return;
+  const task = state.tasks.find(t=>t.id===dragId);
+  if(task && task.status !== newStatus) {
+    vscode.postMessage({command:'updateStatus', taskId:dragId, status:newStatus});
+  }
+  dragId = null;
+}
+
+// ── TRACKER ─────────────────────────────────────────────────
+function renderTracker() {
+  const tbody = document.getElementById('tracker-body');
+  if(!state.tasks.length){tbody.innerHTML=`<tr><td colspan="9"><div class="empty">No tasks yet</div></td></tr>`;return;}
+  tbody.innerHTML = state.tasks.map(t=>{
+    const due = t.dueDate?new Date(t.dueDate).toLocaleDateString('en-GB',{day:'2-digit',month:'short'}):'—';
+    const isOverdue = t.dueDate && new Date(t.dueDate)<new Date() && t.status!=='completed';
+    return `<tr style="cursor:pointer" onclick="openDetail('${t.id}')">
+      <td style="font-family:monospace;font-size:11px;color:var(--text-2)">${esc(t.ticketId||t.id.slice(0,8))}</td>
+      <td style="max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:500">${esc(t.title)}</td>
+      <td><span style="font-size:11px">${TI[t.type]||''} ${t.type||''}</span></td>
+      <td><span class="badge" style="background:${SC[t.status]}22;color:${SC[t.status]}">${SL[t.status]}</span></td>
+      <td><span class="badge" style="background:${PC[t.priority]}22;color:${PC[t.priority]}">${t.priority}</span></td>
+      <td style="color:var(--text-2)">${esc(t.assigneeName||'—')}</td>
+      <td style="color:var(--text-2)">${esc(t.module||'—')}</td>
+      <td style="color:${isOverdue?'var(--danger)':'var(--text-2)'}">${isOverdue?'⚠️ ':''}${due}</td>
+      <td onclick="event.stopPropagation()">
+        <button style="font-size:10px;padding:2px 8px" onclick="openDetail('${t.id}')">View</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+// ── ANALYTICS ─────────────────────────────────────────────
+function renderAnalytics() {
+  const tasks = state.tasks; if(!tasks.length) return;
+  const s={};KCOLS.forEach(k=>s[k]=tasks.filter(t=>t.status===k).length);
+  const maxS=Math.max(...Object.values(s),1);
+  document.getElementById('status-chart').innerHTML=Object.keys(SC).map(st=>`
+    <div class="bar-group"><div class="bar" style="height:${Math.max(4,(s[st]/maxS)*100)}px;background:${SC[st]}"></div>
+    <div class="bar-label">${SL[st].split(' ').slice(-1)}<br><strong>${s[st]}</strong></div></div>`).join('');
+  const pKeys=['urgent','high','medium','low'];
+  const mp=Math.max(...pKeys.map(k=>tasks.filter(t=>t.priority===k).length),1);
+  document.getElementById('priority-chart').innerHTML=pKeys.map(p=>`
+    <div class="bar-group"><div class="bar" style="height:${Math.max(4,(tasks.filter(t=>t.priority===p).length/mp)*100)}px;background:${PC[p]}"></div>
+    <div class="bar-label">${p}<br><strong>${tasks.filter(t=>t.priority===p).length}</strong></div></div>`).join('');
+  const tKeys=['feature','bug','improvement'];const tC={'feature':'#2dd4bf','bug':'#f85149','improvement':'#fb923c'};
+  const mt=Math.max(...tKeys.map(k=>tasks.filter(t=>t.type===k).length),1);
+  document.getElementById('type-chart').innerHTML=tKeys.map(ty=>`
+    <div class="bar-group" style="max-width:100px"><div class="bar" style="height:${Math.max(4,(tasks.filter(t=>t.type===ty).length/mt)*100)}px;background:${tC[ty]}"></div>
+    <div class="bar-label">${TI[ty]} ${ty}<br><strong>${tasks.filter(t=>t.type===ty).length}</strong></div></div>`).join('');
+  const cp=tasks.length?Math.round(((s.completed+s.deployed)/tasks.length)*100):0;
+  document.getElementById('analytics-stats').innerHTML=`
+    <div class="stat-card"><div class="stat-val">${cp}%</div><div class="stat-label">Completion Rate</div></div>
+    <div class="stat-card"><div class="stat-val" style="color:var(--red)">${tasks.filter(t=>t.priority==='urgent'&&t.status!=='completed').length}</div><div class="stat-label">Urgent Open</div></div>
+    <div class="stat-card"><div class="stat-val" style="color:var(--yellow)">${s.in_progress}</div><div class="stat-label">In Progress</div></div>
+    <div class="stat-card"><div class="stat-val" style="color:var(--purple)">${s.github_pushed}</div><div class="stat-label">GitHub Pushed</div></div>`;
+}
+
+// ── ACTIVITY ─────────────────────────────────────────────
+function renderActivity() {
+  const el = document.getElementById('activity-feed');
+  if(!state.activity.length){el.innerHTML='<div class="empty"><div class="empty-icon">⚡</div>No activity yet</div>';return;}
+  el.innerHTML=state.activity.map(a=>{
+    const icon={task_completed:'✅',task_updated:'📝',task_created:'➕',task_assigned:'👤',comment_added:'💬',branch_created:'⎇',status_changed:'🔄'}[a.type]||'📌';
+    const init=(a.userName||'?')[0].toUpperCase();
+    return `<div class="activity-item">
+      <div class="activity-avatar">${a.userPhoto?`<img src="${a.userPhoto}" style="width:100%;height:100%;object-fit:cover">`:init}</div>
+      <div class="activity-body">
+        <div style="font-size:12px">${icon} <strong>${esc(a.userName||'Someone')}</strong> ${a.taskTitle?`updated <em>${esc(a.taskTitle)}</em>`:a.type.replace(/_/g,' ')}</div>
+        <div class="activity-time">${a.createdAt?timeAgo(new Date(a.createdAt)):''}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── MEETINGS ─────────────────────────────────────────────
+function renderMeetings() {
+  const el=document.getElementById('meetings-list');
+  if(!state.meetings.length){el.innerHTML='<div class="empty"><div class="empty-icon">📅</div>No meetings yet.<br>Create one from the web app.</div>';return;}
+  el.innerHTML=state.meetings.map(m=>{
+    const d=m.date?new Date(m.date):null;
+    const dateStr=d?d.toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short',year:'numeric'}):'—';
+    const timeStr=d?d.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}):'';
+    return `<div class="meeting-item">
+      <div class="meeting-name">📅 ${esc(m.name)}</div>
+      <div class="meeting-meta">
+        <span>🗓️ ${dateStr}${timeStr?' at '+timeStr:''}</span>
+        ${m.attendees?.length?`<span>👥 ${m.attendees.length} attendee${m.attendees.length>1?'s':''}</span>`:''}
+        ${m.link?`<a class="meeting-link" title="${m.link}">🔗 Join Meeting</a>`:''}
+      </div>
+      ${m.notes?`<div style="margin-top:8px;font-size:11px;color:var(--text-2);border-top:1px solid var(--border);padding-top:6px">${esc(m.notes)}</div>`:''}
+    </div>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════
+// ADD TASK MODAL
+// ═══════════════════════════════════════
+function openAddTask() {
+  addTaskType = 'bug';
+  document.getElementById('f-title').value='';
+  document.getElementById('f-desc').value='';
+  document.getElementById('f-module').value='';
+  document.getElementById('f-priority').value='medium';
+  document.getElementById('f-status').value='pending';
+  document.getElementById('f-duedate').value='';
+  document.getElementById('f-tags').value='';
+  document.getElementById('f-assignee').value='';
+  document.getElementById('create-btn').disabled=false;
+  document.getElementById('create-btn').textContent='Create Task';
+  document.getElementById('ai-prompt').value='';
+  document.getElementById('ai-btn').disabled=false;
+  document.getElementById('ai-btn').textContent='✨ AI Auto-fill';
+  setType('bug');
+  document.getElementById('add-task-modal').classList.remove('hidden');
+  setTimeout(()=>document.getElementById('ai-prompt').focus(),100);
+}
+function closeAddTask() { document.getElementById('add-task-modal').classList.add('hidden'); }
+
+// ── AI FILL ──────────────────────────────────────────────
+function triggerAiFill() {
+  const prompt = document.getElementById('ai-prompt').value.trim();
+  if (!prompt) { document.getElementById('ai-prompt').focus(); return; }
+  const btn = document.getElementById('ai-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spin">⟳</span> Generating…';
+  vscode.postMessage({ command: 'generateAiTask', prompt });
+}
+
+function fillFromAi(task) {
+  if (!task) return;
+  if (task.title) document.getElementById('f-title').value = task.title;
+  if (task.description) document.getElementById('f-desc').value = task.description;
+  if (task.module) document.getElementById('f-module').value = task.module;
+  if (task.priority) document.getElementById('f-priority').value = task.priority;
+  if (task.status) document.getElementById('f-status').value = task.status;
+  if (task.dueDate) document.getElementById('f-duedate').value = task.dueDate;
+  if (task.tags?.length) document.getElementById('f-tags').value = task.tags.join(', ');
+  if (task.taskType) setType(task.taskType);
+  if (task.assigneeId) {
+    const sel = document.getElementById('f-assignee');
+    for (const opt of sel.options) { if (opt.value === task.assigneeId) { sel.value = task.assigneeId; break; } }
+  }
+  // Reset AI button
+  document.getElementById('ai-btn').disabled = false;
+  document.getElementById('ai-btn').textContent = '✨ AI Auto-fill';
+}
+
+
+function setType(t) {
+  addTaskType = t;
+  ['bug','feature','improvement'].forEach(id=>{
+    const btn=document.getElementById('type-'+id);
+    btn.className='type-btn'+(id===t?' active-'+id:'');
+  });
+}
+
+function submitTask() {
+  const title=document.getElementById('f-title').value.trim();
+  if(!title){document.getElementById('f-title').focus();return;}
+  const sel = document.getElementById('f-assignee');
+  const opt = sel.options[sel.selectedIndex];
+  const btn=document.getElementById('create-btn');
+  btn.disabled=true; btn.textContent='Creating…';
+  vscode.postMessage({command:'createTaskFull',data:{
+    title,
+    description:document.getElementById('f-desc').value,
+    type:addTaskType,
+    priority:document.getElementById('f-priority').value,
+    status:document.getElementById('f-status').value,
+    module:document.getElementById('f-module').value,
+    assigneeId:sel.value||null,
+    assigneeName:opt?.dataset.name||null,
+    assigneePhoto:opt?.dataset.photo||null,
+    dueDate:document.getElementById('f-duedate').value||null,
+    tags:document.getElementById('f-tags').value,
+  }});
+}
+
+// handle Enter in title to submit
+document.getElementById('f-title').addEventListener('keydown',e=>{if(e.key==='Enter')submitTask();});
+
+// ═══════════════════════════════════════
+// TASK DETAIL MODAL
+// ═══════════════════════════════════════
+function openDetail(id) {
+  currentTaskId = id;
+  const t = state.tasks.find(x=>x.id===id);
+  if(!t) return;
+  renderDetailContent(t);
+  cancelEdit();
+  document.getElementById('task-detail-modal').classList.remove('hidden');
+  vscode.postMessage({command:'fetchComments',taskId:id});
+  document.getElementById('comment-input').value='';
+  document.getElementById('comments-list').innerHTML='<div style="color:var(--text-3);font-size:12px">Loading comments…</div>';
+  document.getElementById('comment-count').textContent='…';
+}
+
+function closeDetail() { closeDetailModal(); }
+function closeDetailModal() {
+  document.getElementById('task-detail-modal').classList.add('hidden');
+  currentTaskId = null;
+}
+
+function renderDetailContent(t) {
+  document.getElementById('detail-title').textContent=t.title;
+  // Badges
+  document.getElementById('detail-badges').innerHTML=`
+    <span class="badge" style="background:${SC[t.status]}22;color:${SC[t.status]}">${SL[t.status]}</span>
+    <span class="badge" style="background:${PC[t.priority]}22;color:${PC[t.priority]}">${t.priority}</span>
+    <span class="badge" style="background:var(--bg-elevated);color:var(--text-1)">${TI[t.type]||''} ${t.type}</span>
+    ${t.module?`<span class="badge" style="background:var(--bg-elevated);color:var(--text-2)">📦 ${esc(t.module)}</span>`:''}
+    ${t.ticketId?`<span class="badge" style="background:#8B5CF622;color:#a78bfa">${esc(t.ticketId)}</span>`:''}
+    ${t.githubRef?.lastCommitSha?`<span class="badge" style="background:rgba(16,185,129,.12);color:#10B981;font-family:monospace">Commit: ${t.githubRef.lastCommitSha.slice(0,7)}</span>`:''}`;
+  // Description
+  document.getElementById('detail-desc').textContent=t.description||'No description provided.';
+  // Progress
+  document.getElementById('detail-prog').textContent=t.progress||0;
+  document.getElementById('detail-prog-bar').style.width=(t.progress||0)+'%';
+  // GitHub commit
+  const gcEl=document.getElementById('detail-github-commit');
+  if(t.githubRef?.lastCommitMessage){
+    gcEl.style.display='block';
+    gcEl.innerHTML=`<div class="github-commit-box"><div style="font-size:11px;font-weight:700;color:var(--green);text-transform:uppercase;margin-bottom:4px">Latest Commit</div><div style="font-size:12px;color:var(--text-2);font-family:monospace">${esc(t.githubRef.lastCommitMessage)}</div></div>`;
+  } else { gcEl.style.display='none'; }
+  // Audit
+  const fmtDate = v => { if(!v) return '—'; const d=new Date(v); return `${d.toLocaleDateString('en-GB')} · ${d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}`; };
+  document.getElementById('audit-created').textContent=fmtDate(t.createdAt);
+  document.getElementById('audit-updated').textContent=fmtDate(t.updatedAt);
+  document.getElementById('audit-updated-by').textContent=t.lastMovedBy?.name||'—';
+  document.getElementById('audit-completed').textContent=t.completedAt?fmtDate(t.completedAt):'Not completed yet';
+  document.getElementById('audit-completed-by').textContent=t.completedBy?.name||'—';
+  // Sidebar
+  const dueDate = t.dueDate ? new Date(t.dueDate).toLocaleDateString('en-GB') : '—';
+  const isOverdue = t.dueDate && new Date(t.dueDate)<new Date() && t.status!=='completed';
+  const tags = t.tags?.length ? t.tags.map(tag=>`<span style="font-size:10px;background:rgba(99,102,241,.12);color:var(--accent);padding:2px 7px;border-radius:99px">#${esc(tag)}</span>`).join(' ') : '<span style="color:var(--text-3)">None</span>';
+  const assigneeHtml = t.assigneeName ? `<div style="display:flex;align-items:center;gap:8px">${t.assigneePhoto?`<img src="${t.assigneePhoto}" style="width:22px;height:22px;border-radius:50%">`:''}<span>${esc(t.assigneeName)}</span></div>` : '<span style="color:var(--text-3)">Unassigned</span>';
+  document.getElementById('detail-sidebar').innerHTML=`
+    <div class="sidebar-field"><div class="sidebar-field-label">Assignee</div>${assigneeHtml}</div>
+    <div class="sidebar-field"><div class="sidebar-field-label">Due Date</div><span style="color:${isOverdue?'var(--danger)':'inherit'}">${isOverdue?'⚠️ ':''}${dueDate}</span></div>
+    <div class="sidebar-field"><div class="sidebar-field-label">Tags</div>${tags}</div>
+    ${t.meetingId?`<div class="sidebar-field"><div class="sidebar-field-label">Meeting</div><span>📅 ${esc(state.meetings.find(m=>m.id===t.meetingId)?.name||'Linked')}</span></div>`:''}
+    <div class="sidebar-field">
+      <div class="sidebar-field-label">Actions</div>
+      <div style="display:flex;flex-direction:column;gap:6px;margin-top:4px">
+        <button onclick="vscode.postMessage({command:'createBranch',taskId:'${t.id}'})" style="width:100%">⎇ Create Branch</button>
+      </div>
+    </div>`;
+}
+
+// ── Edit Task ─────────────────────────────────────────────
+let isEditing = false;
+function toggleEdit() {
+  const t = state.tasks.find(x=>x.id===currentTaskId);
+  if(!t) return;
+  if(!isEditing) {
+    document.getElementById('e-title').value=t.title;
+    document.getElementById('e-desc').value=t.description||'';
+    document.getElementById('e-status').value=t.status;
+    document.getElementById('e-priority').value=t.priority;
+    document.getElementById('e-type').value=t.type||'feature';
+    document.getElementById('e-module').value=t.module||'';
+    document.getElementById('e-progress').value=t.progress||0;
+    document.getElementById('e-prog-val').textContent=t.progress||0;
+    document.getElementById('edit-form').style.display='block';
+    document.getElementById('edit-btn').textContent='Cancel Edit';
+    isEditing=true;
+  } else {
+    cancelEdit();
+  }
+}
+function cancelEdit() {
+  document.getElementById('edit-form').style.display='none';
+  document.getElementById('edit-btn').textContent='Edit';
+  isEditing=false;
+}
+function saveTask() {
+  if(!currentTaskId) return;
+  const btn=document.getElementById('save-btn');
+  btn.disabled=true; btn.textContent='Saving…';
+  vscode.postMessage({command:'updateTaskFull',taskId:currentTaskId,data:{
+    title:document.getElementById('e-title').value,
+    description:document.getElementById('e-desc').value,
+    status:document.getElementById('e-status').value,
+    priority:document.getElementById('e-priority').value,
+    type:document.getElementById('e-type').value,
+    module:document.getElementById('e-module').value,
+    progress:parseInt(document.getElementById('e-progress').value)||0,
+  }});
+}
+
+// ── Delete Task ───────────────────────────────────────────
+function confirmDelete() {
+  const t=state.tasks.find(x=>x.id===currentTaskId);
+  if(!t) return;
+  document.getElementById('delete-task-name').textContent=t.title;
+  document.getElementById('delete-modal').classList.remove('hidden');
+}
+function closeDeleteModal() { document.getElementById('delete-modal').classList.add('hidden'); }
+function doDelete() {
+  if(!currentTaskId) return;
+  closeDeleteModal();
+  vscode.postMessage({command:'deleteTask',taskId:currentTaskId});
+}
+
+// ── Comments ──────────────────────────────────────────────
+function renderComments(comments) {
+  document.getElementById('comment-count').textContent=comments.length;
+  const el=document.getElementById('comments-list');
+  if(!comments.length){el.innerHTML='<div style="color:var(--text-3);font-size:13px;padding:8px 0">No comments yet. Be the first!</div>';return;}
+  el.innerHTML=comments.map(c=>{
+    const init=(c.authorName||'?')[0].toUpperCase();
+    const time=c.createdAt?timeAgo(new Date(c.createdAt)):'';
+    return `<div class="comment-item">
+      <div class="comment-avatar">${c.authorPhoto?`<img src="${c.authorPhoto}" style="width:100%;height:100%;object-fit:cover">`:init}</div>
+      <div class="comment-body">
+        <div><span class="comment-author">${esc(c.authorName)}</span><span class="comment-time">${time}</span></div>
+        <div class="comment-text">${esc(c.text)}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+function submitComment() {
+  const input=document.getElementById('comment-input');
+  const text=input.value.trim();
+  if(!text||!currentTaskId) return;
+  input.value='';
+  vscode.postMessage({command:'addComment',taskId:currentTaskId,text});
+}
+
+// ── HELPERS ───────────────────────────────────────────────
+function esc(s) { if(!s) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function timeAgo(d) {
+  const diff=Date.now()-d.getTime();const mins=Math.floor(diff/60000);
+  if(mins<1) return 'just now'; if(mins<60) return mins+'m ago';
+  const hrs=Math.floor(mins/60); if(hrs<24) return hrs+'h ago';
+  return Math.floor(hrs/24)+'d ago';
+}
+
+// ── COPY DESCRIPTION ─────────────────────────
+function sendToChat() {
+  if(!currentTaskId) return;
+  const btn = document.getElementById('send-chat-btn');
+  btn.innerHTML = '📋 Copied!';
+  btn.disabled = true;
+  vscode.postMessage({ command: 'sendToChat', taskId: currentTaskId });
+  setTimeout(() => {
+    btn.disabled = false;
+    btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>`;
+  }, 1500);
+}
+</script>
+</body>
+</html>

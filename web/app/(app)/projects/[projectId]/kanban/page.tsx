@@ -10,6 +10,7 @@ import TaskDetailModal from '@/components/tasks/TaskDetailModal';
 import toast from 'react-hot-toast';
 
 export default function KanbanPage() {
+  console.log('KanbanPage rendering...');
   const { projectId } = useParams<{ projectId: string }>();
   const searchParams = useSearchParams();
   const router = useRouter();

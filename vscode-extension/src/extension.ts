@@ -1,25 +1,22 @@
 import * as vscode from 'vscode';
 import { AuthManager } from './auth/AuthManager';
-import { TaskTreeProvider } from './providers/TaskTreeProvider';
-import { TaskDetailPanel } from './panels/TaskDetailPanel';
+import { SidebarWebviewProvider } from './providers/SidebarWebviewProvider';
+import { ProjectDashboardPanel } from './panels/ProjectDashboardPanel';
 import {
-  subscribeToMyTasks,
+  subscribeToAllTasks,
   subscribeToNotifications,
   getUserProjectIds,
   getProjects,
-  updateTaskStatus,
-  addComment,
   Task,
   MSDEVNotification,
   Project,
 } from './firebase/taskService';
 import { Unsubscribe } from '@firebase/firestore';
 
-let taskUnsubscribe: Unsubscribe | null = null;
+let allTasksUnsubscribe: Unsubscribe | null = null;
 let notifUnsubscribe: Unsubscribe | null = null;
 let statusBarItem: vscode.StatusBarItem;
 let seenNotifIds = new Set<string>();
-let projectMap = new Map<string, string>(); // projectId -> name
 
 export async function activate(context: vscode.ExtensionContext) {
   console.log('[MSDEV] Extension activated.');
@@ -27,12 +24,13 @@ export async function activate(context: vscode.ExtensionContext) {
   // ─── Auth Manager ────────────────────────────────────────────────────────
   const authManager = new AuthManager(context);
 
-  // ─── Tree Provider ───────────────────────────────────────────────────────
-  const treeProvider = new TaskTreeProvider();
-  const treeView = vscode.window.createTreeView('msdevTasks', {
-    treeDataProvider: treeProvider,
-    showCollapseAll: true,
-  });
+  // ─── Sidebar Webview Provider ─────────────────────────────────────────────
+  const sidebarProvider = new SidebarWebviewProvider(vscode.Uri.file(context.extensionPath));
+  context.subscriptions.push(
+    vscode.window.registerWebviewViewProvider(SidebarWebviewProvider.viewId, sidebarProvider, {
+      webviewOptions: { retainContextWhenHidden: true },
+    })
+  );
 
   // ─── Status Bar ──────────────────────────────────────────────────────────
   statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
@@ -42,20 +40,24 @@ export async function activate(context: vscode.ExtensionContext) {
   // ─── Auth State Handler ──────────────────────────────────────────────────
   authManager.onAuthStateChange(async (user) => {
     if (user) {
-      treeProvider.setLoggedIn(true);
-      treeView.title = `MSDEV · ${user.displayName || user.email}`;
-      statusBarItem.text = '$(tasklist) MSDEV';
-      statusBarItem.tooltip = `MSDEV Tasks — ${user.displayName || user.email}`;
+      sidebarProvider.setLoggedIn(true);
+      sidebarProvider.setUser(user);
+      statusBarItem.text = '$(project) MSDEV';
+      statusBarItem.tooltip = `MSDEV Projects — ${user.displayName || user.email}`;
       statusBarItem.show();
-      await startListeners(user.uid, treeProvider, user, context);
+      await startListeners(user.uid, sidebarProvider, user, context);
     } else {
       stopListeners();
-      treeProvider.setLoggedIn(false);
-      treeProvider.updateTasks([]);
-      treeView.title = 'MSDEV Tasks';
+      sidebarProvider.setLoggedIn(false);
+      sidebarProvider.setUser(null);
+      sidebarProvider.updateData([], new Map());
       statusBarItem.hide();
       seenNotifIds.clear();
-      projectMap.clear();
+
+      // Close any open dashboards
+      for (const panel of ProjectDashboardPanel.currentPanels.values()) {
+        panel.dispose();
+      }
     }
   });
 
@@ -68,126 +70,72 @@ export async function activate(context: vscode.ExtensionContext) {
 
   // ─── Register Commands ───────────────────────────────────────────────────
 
-  // LOGIN
   context.subscriptions.push(
     vscode.commands.registerCommand('msdev.login', async () => {
-      const pick = await vscode.window.showQuickPick(
-        [
-          { label: '$(link) Custom Token (from MSDEV web app)', value: 'token' },
-          { label: '$(mail) Email & Password', value: 'email' },
-        ],
-        { title: 'MSDEV: Choose Sign-in Method', ignoreFocusOut: true }
-      );
-      if (!pick) return;
-
-      if (pick.value === 'token') {
-        await authManager.loginWithCustomToken();
-      } else {
-        await authManager.loginWithEmail();
-      }
+      await authManager.loginWithEmail();
     })
   );
 
-  // LOGOUT
   context.subscriptions.push(
     vscode.commands.registerCommand('msdev.logout', async () => {
       const confirm = await vscode.window.showWarningMessage(
         'Sign out of MSDEV?', { modal: true }, 'Sign Out'
       );
-      if (confirm === 'Sign Out') await authManager.logout();
+      if (confirm === 'Sign Out') { await authManager.logout(); }
     })
   );
 
-  // REFRESH
   context.subscriptions.push(
-    vscode.commands.registerCommand('msdev.refreshTasks', () => {
-      treeProvider.refresh();
-      vscode.window.showInformationMessage('MSDEV: Task list refreshed.');
+    vscode.commands.registerCommand('msdev.refreshProjects', () => {
+      vscode.window.showInformationMessage('MSDEV: Project list refreshed.');
     })
   );
 
-  // OPEN TASK DETAIL
   context.subscriptions.push(
-    vscode.commands.registerCommand('msdev.openTask', (task: Task) => {
+    vscode.commands.registerCommand('msdev.openProjectDashboard', (project: Project) => {
       const user = authManager.currentUser;
-      if (!user || !task) return;
-      const projectName = projectMap.get(task.projectId) || '';
-      TaskDetailPanel.createOrShow(context.extensionPath, task, user, projectName);
+      if (!user || !project) { return; }
+      ProjectDashboardPanel.createOrShow(context.extensionPath, project, user);
     })
   );
 
-  // UPDATE STATUS (Quick Pick)
   context.subscriptions.push(
-    vscode.commands.registerCommand('msdev.updateStatus', async (task: Task) => {
-      if (!task) return;
-      const statuses = [
-        { label: '📋 Pending',      value: 'pending' },
-        { label: '🔥 In Progress',  value: 'in_progress' },
-        { label: '🧪 Testing',      value: 'testing' },
-        { label: '🚀 GitHub Pushed', value: 'github_pushed' },
-        { label: '🌐 Deployed',     value: 'deployed' },
-        { label: '✅ Completed',    value: 'completed' },
-      ];
-      const pick = await vscode.window.showQuickPick(statuses, {
-        title: `Update Status: ${task.title}`,
-        placeHolder: `Current: ${task.status.replace(/_/g, ' ')}`,
-      });
-      if (!pick) return;
-      try {
-        await updateTaskStatus(task.projectId, task.id, pick.value as any);
-        vscode.window.showInformationMessage(`✅ Status updated to "${pick.label}"`);
-        treeProvider.refresh();
-      } catch (err: any) {
-        vscode.window.showErrorMessage(`Failed to update: ${err.message}`);
-      }
-    })
-  );
+    vscode.commands.registerCommand('msdev.openLocalFolder', async (project: Project) => {
+      if (!project || !project.id) { return; }
+      const configKey = `msdev.localProject.${project.id}`;
+      const savedPath = context.globalState.get<string>(configKey);
 
-  // CREATE GIT BRANCH
-  context.subscriptions.push(
-    vscode.commands.registerCommand('msdev.createBranch', async (task: Task) => {
-      if (!task) return;
-      const user = authManager.currentUser;
-      if (!user) return;
-      // Reuse panel's branch logic
-      const projectName = projectMap.get(task.projectId) || '';
-      TaskDetailPanel.createOrShow(context.extensionPath, task, user, projectName);
-      // Small delay to let the panel open, then trigger branch creation
-      setTimeout(() => {
-        TaskDetailPanel.currentPanel?.runCreateBranch();
-      }, 800);
-    })
-  );
-
-  // ADD COMMENT (Quick Input)
-  context.subscriptions.push(
-    vscode.commands.registerCommand('msdev.addComment', async (task: Task) => {
-      if (!task) return;
-      const user = authManager.currentUser;
-      if (!user) return;
-
-      const text = await vscode.window.showInputBox({
-        title: `Add comment: ${task.title}`,
-        prompt: 'Write your comment',
-        placeHolder: 'Type your comment here...',
-        ignoreFocusOut: true,
-      });
-      if (!text?.trim()) return;
-
-      try {
-        await addComment(task.projectId, task.id, text.trim(), {
-          uid: user.uid,
-          displayName: user.displayName || 'Unknown',
-          photoURL: user.photoURL || '',
+      if (savedPath) {
+        vscode.commands.executeCommand('vscode.openFolder', vscode.Uri.file(savedPath), true);
+      } else {
+        const result = await vscode.window.showOpenDialog({
+          canSelectFiles: false,
+          canSelectFolders: true,
+          canSelectMany: false,
+          openLabel: `Link to ${project.name}`,
+          title: `Select Local Folder for ${project.name}`
         });
-        vscode.window.showInformationMessage('💬 Comment added!');
-      } catch (err: any) {
-        vscode.window.showErrorMessage(`Failed to add comment: ${err.message}`);
+
+        if (result && result[0]) {
+          const localPath = result[0].fsPath;
+          await context.globalState.update(configKey, localPath);
+          vscode.commands.executeCommand('vscode.openFolder', vscode.Uri.file(localPath), true);
+        }
       }
     })
   );
 
-  context.subscriptions.push(treeView);
+  // ── Send task description to Antigravity chat ─────────────────────────────
+  context.subscriptions.push(
+    vscode.commands.registerCommand('msdev.sendTaskToChat', async (taskContent: string) => {
+      try {
+        await vscode.commands.executeCommand('workbench.action.chat.open', { query: taskContent });
+      } catch {
+        await vscode.env.clipboard.writeText(taskContent);
+        vscode.window.showInformationMessage('📋 Description copied to clipboard!');
+      }
+    })
+  );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -196,40 +144,37 @@ export async function activate(context: vscode.ExtensionContext) {
 
 async function startListeners(
   uid: string,
-  treeProvider: TaskTreeProvider,
+  sidebarProvider: SidebarWebviewProvider,
   user: any,
   context: vscode.ExtensionContext
 ) {
   stopListeners();
 
-  // Load project IDs & names
   let projectIds: string[] = [];
+  let projects: Project[] = [];
+
   try {
     projectIds = await getUserProjectIds(uid);
-    const projects = await getProjects(projectIds);
-    projectMap.clear();
-    projects.forEach(p => projectMap.set(p.id, p.name));
-    treeProvider.setProjectNames(projectMap);
+    projects = await getProjects(projectIds);
   } catch (err) {
     console.error('[MSDEV] Failed to load project IDs:', err);
   }
 
   if (projectIds.length === 0) {
-    treeProvider.updateTasks([]);
+    sidebarProvider.updateData([], new Map());
     return;
   }
 
-  // ── Task listener ──────────────────────────────────────────────────────────
-  taskUnsubscribe = subscribeToMyTasks(uid, projectIds, (tasks) => {
-    treeProvider.updateTasks(tasks);
-    // Update status bar badge
-    const inProgress = tasks.filter(t => t.status === 'in_progress').length;
-    const urgent = tasks.filter(t => t.priority === 'urgent' && t.status !== 'completed').length;
-    if (inProgress > 0) {
-      statusBarItem.text = `$(tasklist) ${inProgress} in progress${urgent ? ` · $(warning) ${urgent} urgent` : ''}`;
-    } else {
-      statusBarItem.text = `$(tasklist) MSDEV · ${tasks.length} tasks`;
+  // Subscribe to all tasks to drive sidebar task counts
+  allTasksUnsubscribe = subscribeToAllTasks(projectIds, (tasks) => {
+    const tasksByProject = new Map<string, Task[]>();
+    for (const p of projects) { tasksByProject.set(p.id, []); }
+    for (const t of tasks) {
+      if (!tasksByProject.has(t.projectId)) { tasksByProject.set(t.projectId, []); }
+      tasksByProject.get(t.projectId)!.push(t);
     }
+    sidebarProvider.updateData(projects, tasksByProject);
+    statusBarItem.text = `$(project) MSDEV · ${projects.length} Projects`;
   });
 
   // ── Notification listener ──────────────────────────────────────────────────
@@ -238,25 +183,26 @@ async function startListeners(
     for (const notif of newOnes) {
       seenNotifIds.add(notif.id);
       vscode.window
-        .showInformationMessage(`🔔 ${notif.title}: ${notif.body}`, 'View Tasks')
+        .showInformationMessage(`🔔 ${notif.title}: ${notif.body}`, 'View Projects')
         .then(action => {
-          if (action === 'View Tasks') {
+          if (action === 'View Projects') {
             vscode.commands.executeCommand('workbench.view.extension.msdev-sidebar');
           }
         });
     }
 
     const unread = notifs.length;
+    sidebarProvider.setUnreadCount(unread);
     if (unread > 0) {
-      statusBarItem.text = `$(bell) ${unread} · $(tasklist) MSDEV`;
+      statusBarItem.text = `$(bell) ${unread} · $(project) MSDEV`;
     }
   });
 }
 
 function stopListeners() {
-  taskUnsubscribe?.();
+  allTasksUnsubscribe?.();
   notifUnsubscribe?.();
-  taskUnsubscribe = null;
+  allTasksUnsubscribe = null;
   notifUnsubscribe = null;
 }
 

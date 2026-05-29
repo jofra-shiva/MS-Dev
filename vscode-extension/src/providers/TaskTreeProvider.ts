@@ -101,6 +101,8 @@ export class TaskTreeProvider implements vscode.TreeDataProvider<vscode.TreeItem
   private _isLoggedIn = false;
   private _projectNames = new Map<string, string>();
 
+  constructor(private emptyMessage: string = 'No tasks assigned to you 🎉') {}
+
   setLoggedIn(val: boolean) {
     this._isLoggedIn = val;
     this.refresh();
@@ -169,7 +171,7 @@ export class TaskTreeProvider implements vscode.TreeDataProvider<vscode.TreeItem
     }
 
     if (items.length === 0) {
-      const item = new vscode.TreeItem('No tasks assigned to you 🎉');
+      const item = new vscode.TreeItem(this.emptyMessage);
       item.iconPath = new vscode.ThemeIcon('check');
       return [item];
     }

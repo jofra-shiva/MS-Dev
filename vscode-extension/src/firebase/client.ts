@@ -8,20 +8,13 @@ let _app: FirebaseApp | null = null;
 export function getFirebaseApp(): FirebaseApp {
   if (_app) return _app;
 
-  const cfg = vscode.workspace.getConfiguration('msdev');
   const firebaseConfig = {
-    apiKey:            cfg.get<string>('firebaseApiKey', ''),
-    authDomain:        cfg.get<string>('firebaseAuthDomain', ''),
-    projectId:         cfg.get<string>('firebaseProjectId', ''),
-    appId:             cfg.get<string>('firebaseAppId', ''),
-    messagingSenderId: cfg.get<string>('firebaseMessagingSenderId', ''),
+    apiKey:            'AIzaSyBEImX1yeZ_QC0BH034SJIEoOB_GNPrt_4',
+    authDomain:        'msdev-msdev.firebaseapp.com',
+    projectId:         'msdev-msdev',
+    appId:             '1:332300816650:web:8fa0340c901b6a00feaaf3',
+    messagingSenderId: '332300816650',
   };
-
-  if (!firebaseConfig.apiKey || !firebaseConfig.projectId) {
-    throw new Error(
-      'MSDEV Firebase config is missing. Please set msdev.firebaseApiKey and msdev.firebaseProjectId in VS Code Settings.'
-    );
-  }
 
   _app = getApps().length === 0
     ? initializeApp(firebaseConfig, 'msdev-vscode')

@@ -101,9 +101,18 @@ export async function createTask(projectId: string, data: Omit<Task, 'id' | 'pro
   const projectSnap = await getDoc(projectRef);
   const projectData = projectSnap.data();
   
-  const typeKey = data.type === 'feature' ? 'feat' : data.type === 'bug' ? 'bug' : 'imp';
-  const currentCount = (projectData?.stats?.taskCounters?.[typeKey] || 0) + 1;
-  const ticketId = `${typeKey.toUpperCase()}-${currentCount}`;
+  const reusableTokens: number[] = projectData?.stats?.reusableTokens || [];
+  let tokenToReuse: number | null = null;
+  let currentCount: number;
+
+  if (reusableTokens.length > 0) {
+    tokenToReuse = Math.min(...reusableTokens);
+    currentCount = tokenToReuse;
+  } else {
+    currentCount = (projectData?.stats?.taskCounters?.token || 0) + 1;
+  }
+  
+  const ticketId = `TOKEN-${currentCount}`;
   
   // Use a generic UUID or timestamp-based ID for the actual document ID to avoid conflicts 
   // if multiple users create tasks at the exact same millisecond. But for simplicity, we can use ticketId if conflicts are rare.
@@ -123,15 +132,22 @@ export async function createTask(projectId: string, data: Omit<Task, 'id' | 'pro
   });
   
   // Also increment project task count and the specific counter
-  await updateDoc(projectRef, {
+  const updates: any = {
     'stats.totalTasks': increment(1),
     'stats.pendingTasks': increment(data.status === 'pending' ? 1 : 0),
     'stats.inProgressTasks': increment(data.status === 'in_progress' ? 1 : 0),
     'stats.testingTasks': increment(data.status === 'testing' ? 1 : 0),
     'stats.completedTasks': increment(data.status === 'completed' ? 1 : 0),
-    [`stats.taskCounters.${typeKey}`]: increment(1),
     updatedAt: serverTimestamp()
-  });
+  };
+
+  if (tokenToReuse !== null) {
+    updates['stats.reusableTokens'] = arrayRemove(tokenToReuse);
+  } else {
+    updates['stats.taskCounters.token'] = increment(1);
+  }
+
+  await updateDoc(projectRef, updates);
   
   if (data.assigneeId) {
     await sendProjectSystemMessage(
@@ -195,6 +211,14 @@ export const updateTask = async (
 };
 
 export const deleteTask = async (projectId: string, taskId: string) => {
+  if (taskId.startsWith('TOKEN-')) {
+    const tokenNum = parseInt(taskId.replace('TOKEN-', ''), 10);
+    if (!isNaN(tokenNum)) {
+      await updateDoc(doc(db, 'projects', projectId), {
+        'stats.reusableTokens': arrayUnion(tokenNum)
+      });
+    }
+  }
   await deleteDoc(doc(db, `projects/${projectId}/tasks/${taskId}`));
 };
 

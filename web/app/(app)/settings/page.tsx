@@ -3,7 +3,9 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
+import { updatePassword } from 'firebase/auth';
 import { motion } from 'framer-motion';
+import toast from 'react-hot-toast';
 
 export default function SettingsPage() {
   const { user } = useAuth();
@@ -12,8 +14,10 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
   const [isEditing, setIsEditing] = useState(false);
-  const [isHoveringAvatar, setIsHoveringAvatar] = useState(false);
-  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+
+  // Security / password state
+  const [newPassword, setNewPassword] = useState('');
+  const [changingPassword, setChangingPassword] = useState(false);
 
   const [formData, setFormData] = useState({
     displayName: '',
@@ -85,6 +89,28 @@ export default function SettingsPage() {
     }
   };
 
+  const handlePasswordChange = async () => {
+    if (!newPassword || newPassword.length < 6) {
+      toast.error('Password must be at least 6 characters long');
+      return;
+    }
+    if (!user) return;
+    setChangingPassword(true);
+    try {
+      await updatePassword(user, newPassword);
+      toast.success('Password updated! You can now log in with Email & Password.');
+      setNewPassword('');
+    } catch (err: any) {
+      if (err.code === 'auth/requires-recent-login') {
+        toast.error('Please sign out and sign back in before changing your password.');
+      } else {
+        toast.error(`Failed: ${err.message}`);
+      }
+    } finally {
+      setChangingPassword(false);
+    }
+  };
+
   const tabs = [
     { id: 'profile', label: 'Profile', icon: '👤' },
     { id: 'connections', label: 'Connections', icon: '🔗' },
@@ -137,32 +163,6 @@ export default function SettingsPage() {
               </div>
 
               <div style={{ display: 'flex', alignItems: 'center', gap: 32, padding: '12px 0' }}>
-                
-                {/* Avatar */}
-                <div 
-                  style={{ position: 'relative', width: 80, height: 80, borderRadius: '50%', background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28, fontWeight: 700, color: '#fff', boxShadow: '0 4px 12px rgba(0,0,0,0.2)', overflow: 'hidden' }}
-                  onMouseEnter={() => setIsHoveringAvatar(true)}
-                  onMouseLeave={() => setIsHoveringAvatar(false)}
-                >
-                  {avatarPreview || user?.photoURL ? <img src={avatarPreview || user?.photoURL || undefined} alt="Avatar" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} referrerPolicy="no-referrer" /> : formData.displayName.charAt(0).toUpperCase()}
-                  
-                  {isEditing && (
-                    <label style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: isHoveringAvatar ? 1 : 0, cursor: 'pointer', transition: 'opacity 0.2s', fontSize: 12, fontWeight: 600, color: '#fff', margin: 0, zIndex: 10 }}>
-                      Change
-                      <input 
-                        type="file" 
-                        accept="image/*" 
-                        style={{ display: 'none' }} 
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) {
-                             setAvatarPreview(URL.createObjectURL(file));
-                          }
-                        }} 
-                      />
-                    </label>
-                  )}
-                </div>
 
                 {/* Inputs */}
                 <div style={{ display: 'flex', flex: 1, gap: 24 }}>
@@ -287,6 +287,38 @@ export default function SettingsPage() {
                 >
                   {saving ? 'Saving...' : 'Save Changes'}
                 </button>
+              </div>
+            </motion.div>
+
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+              <div>
+                <h3 style={{ fontSize: 18, fontWeight: 700, margin: '0 0 4px 0', color: 'var(--text-1)' }}>Security</h3>
+                <p style={{ fontSize: 13, color: 'var(--text-3)', margin: 0 }}>Set or change your account password for VS Code extension sign-in.</p>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 20, background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: 12 }}>
+                <div style={{ flex: 1, marginRight: 24 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-1)', marginBottom: 6 }}>Set / Change Password</div>
+                  <div style={{ fontSize: 12, color: 'var(--text-3)' }}>Set a password so you can log in with Email &amp; Password in the VS Code extension.</div>
+                </div>
+                <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexShrink: 0 }}>
+                  <input
+                    type="password"
+                    placeholder="New password (min 6 chars)"
+                    value={newPassword}
+                    onChange={e => setNewPassword(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') handlePasswordChange(); }}
+                    style={{ padding: '10px 14px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-elevated)', color: 'var(--text-1)', fontSize: 13, outline: 'none', width: 220 }}
+                  />
+                  <button
+                    className="btn btn-primary"
+                    onClick={handlePasswordChange}
+                    disabled={changingPassword}
+                    style={{ padding: '10px 20px', fontSize: 13, borderRadius: 8, fontWeight: 600, whiteSpace: 'nowrap' }}
+                  >
+                    {changingPassword ? 'Saving…' : 'Set Password'}
+                  </button>
+                </div>
               </div>
             </motion.div>
 
