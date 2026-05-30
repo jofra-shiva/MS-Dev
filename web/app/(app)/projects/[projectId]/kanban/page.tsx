@@ -154,7 +154,7 @@ export default function KanbanPage() {
             tasks={filteredTasks}
             projectId={projectId}
             project={project}
-            currentUser={user ? { uid: user.uid, displayName: user.displayName || '' } : undefined}
+            currentUser={user ? { uid: user.uid, displayName: user.displayName || '', email: user.email || '' } : undefined}
             onStatusChange={handleStatusChange}
             onDeleteTask={handleDeleteTask}
           />

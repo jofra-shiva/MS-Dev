@@ -11,6 +11,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../home/home_screen.dart';
+import 'package:shimmer/shimmer.dart';
 
 Color parseColor(String hex) {
   try { return Color(int.parse('FF${hex.replaceAll('#', '')}', radix: 16)); }
@@ -38,8 +39,8 @@ class DashboardScreen extends ConsumerStatefulWidget {
 }
 
 class _DashboardScreenState extends ConsumerState<DashboardScreen> {
-  final _uid = FirebaseAuth.instance.currentUser!.uid;
-  final _user = FirebaseAuth.instance.currentUser!;
+  String get _uid => FirebaseAuth.instance.currentUser?.uid ?? '';
+  User? get _user => FirebaseAuth.instance.currentUser;
   final _db   = FirebaseFirestore.instance;
 
   String? _githubUsername;
@@ -51,34 +52,52 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   @override
   void initState() {
     super.initState();
-    _loadGithub();
-    _listenProjects();
+    FirebaseAuth.instance.authStateChanges().listen((user) {
+      if (user != null && mounted) {
+        if (_loading) {
+          _loadGithub(user.uid);
+          _listenProjects(user.email ?? '', user.uid);
+        }
+      }
+    });
   }
 
-  void _loadGithub() {
-    _githubSub = _db.doc('users/$_uid').snapshots().listen((doc) {
+  void _loadGithub(String uid) {
+    _githubSub = _db.doc('users/$uid').snapshots().listen((doc) {
       if (doc.exists && doc.data() != null) {
         if (mounted) setState(() => _githubUsername = doc.data()?['githubUsername']);
       }
     });
   }
 
-  void _listenProjects() {
-    _db.collection('projects')
-        .where('members.$_uid.role', whereIn: ['admin', 'member', 'viewer'])
-        .snapshots()
-        .listen((snap) {
+  void _listenProjects(String email, String uid) {
+    final isSuperAdmin = email == 'shivaprakash3115@gmail.com';
+
+    final query = isSuperAdmin
+        ? _db.collection('projects').snapshots()
+        : _db.collection('projects')
+              .where('members.$uid.role', whereIn: ['admin', 'member', 'viewer'])
+              .snapshots();
+
+    query.listen((snap) {
+      if (!mounted) return;
       final projects = snap.docs.map((d) => {'id': d.id, ...d.data()}).toList();
       setState(() { _projects = projects; _loading = false; });
       _listenTasks(projects);
+    }, onError: (error) {
+      print('Firebase Projects Listen Error: $error');
+      if (mounted) setState(() => _loading = false);
     });
   }
 
   void _listenTasks(List<Map<String, dynamic>> projects) {
     for (final p in projects) {
       _db.collection('projects/${p['id']}/tasks').snapshots().listen((snap) {
+        if (!mounted) return;
         final tasks = snap.docs.map((d) => {'id': d.id, ...d.data()}).toList();
-        if (mounted) setState(() => _taskMap[p['id']] = tasks);
+        setState(() => _taskMap[p['id']] = tasks);
+      }, onError: (error) {
+        print('Firebase Tasks Listen Error for project ${p['id']}: $error');
       });
     }
   }
@@ -101,13 +120,17 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final name = _user.displayName?.split(' ').first ?? 'Developer';
+    final name = _user?.displayName?.split(' ').first ?? 'Developer';
     final allTasks = _allTasks;
     final activeProjects = _projects.where((p) => p['status'] == 'active').toList()
       ..sort((a, b) {
-        final dtA = a['updatedAt'] != null ? (a['updatedAt'] as dynamic).toDate() as DateTime : DateTime(0);
-        final dtB = b['updatedAt'] != null ? (b['updatedAt'] as dynamic).toDate() as DateTime : DateTime(0);
-        return dtB.compareTo(dtA);
+        DateTime parseDate(dynamic d) {
+          if (d == null) return DateTime(0);
+          if (d is Timestamp) return d.toDate();
+          if (d is String) return DateTime.tryParse(d) ?? DateTime(0);
+          try { return (d as dynamic).toDate() as DateTime; } catch (_) { return DateTime(0); }
+        }
+        return parseDate(b['updatedAt']).compareTo(parseDate(a['updatedAt']));
       });
     final completedTasks = allTasks.where((t) => ['completed', 'deployed'].contains(t['status'])).toList();
     final githubPushed = allTasks.where((t) => t['status'] == 'github_pushed').toList();
@@ -116,11 +139,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFF070B14),
       body: _loading
-          ? const Center(child: MsDevLoader(color: _kCyan))
+          ? _buildDashboardShimmer()
           : RefreshIndicator(
               color: _kCyan,
               backgroundColor: _kBgCard,
-              onRefresh: () async { _listenProjects(); await Future.delayed(const Duration(seconds: 1)); },
+              onRefresh: () async { _listenProjects(_user?.email ?? '', _uid); await Future.delayed(const Duration(seconds: 1)); },
               child: SingleChildScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
@@ -178,7 +201,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   // ═══════════════════════════════════════════════════════════
 
   Widget _buildHeroBanner(String name, int activeCount, int pendingCount) {
-    final photoURL = _user.photoURL;
+    final photoURL = _user?.photoURL;
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -698,13 +721,18 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       return _buildEmptyCard('No recent activity');
     }
     final recent = tasks.take(4).toList();
-    final name = _user.displayName?.split(' ').first ?? 'You';
+    final name = _user?.displayName?.split(' ').first ?? 'You';
     return Column(
       children: recent.asMap().entries.map((e) {
         final i = e.key;
         final t = e.value;
         final rawAt = t['updatedAt'];
-        final updatedAt = rawAt != null ? (rawAt as dynamic).toDate() as DateTime? : null;
+        DateTime? updatedAt;
+        if (rawAt is Timestamp) updatedAt = rawAt.toDate();
+        else if (rawAt is String) updatedAt = DateTime.tryParse(rawAt);
+        else if (rawAt != null) {
+          try { updatedAt = (rawAt as dynamic).toDate() as DateTime?; } catch (_) {}
+        }
         final timeStr = updatedAt != null ? _timeAgo(updatedAt) : 'Just now';
         final status = t['status'] as String? ?? 'updated';
         String action = 'updated';
@@ -775,5 +803,77 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     if (diff.inHours < 24) return '${diff.inHours}h ago';
     if (diff.inDays < 7) return '${diff.inDays}d ago';
     return DateFormat('MMM d').format(dt);
+  }
+
+  Widget _buildDashboardShimmer() {
+    return SingleChildScrollView(
+      physics: const NeverScrollableScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(16, 48, 16, 100),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Hero Banner Shimmer
+          Shimmer.fromColors(
+            baseColor: const Color(0xFF161B2E),
+            highlightColor: const Color(0xFF1E2740),
+            child: Container(
+              height: 100,
+              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
+            ),
+          ),
+          const SizedBox(height: 20),
+          
+          // Stats Grid Shimmer
+          GridView.count(
+            crossAxisCount: 2,
+            crossAxisSpacing: 12,
+            mainAxisSpacing: 12,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            childAspectRatio: 1.55,
+            children: List.generate(4, (index) => Shimmer.fromColors(
+              baseColor: const Color(0xFF161B2E),
+              highlightColor: const Color(0xFF1E2740),
+              child: Container(
+                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14)),
+              ),
+            )),
+          ),
+          const SizedBox(height: 20),
+
+          // GitHub Card Shimmer
+          Shimmer.fromColors(
+            baseColor: const Color(0xFF161B2E),
+            highlightColor: const Color(0xFF1E2740),
+            child: Container(
+              height: 120,
+              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
+            ),
+          ),
+          const SizedBox(height: 30),
+
+          // Section Title Shimmer
+          Shimmer.fromColors(
+            baseColor: const Color(0xFF161B2E),
+            highlightColor: const Color(0xFF1E2740),
+            child: Container(width: 140, height: 20, color: Colors.white),
+          ),
+          const SizedBox(height: 16),
+
+          // List Items Shimmer
+          ...List.generate(3, (index) => Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Shimmer.fromColors(
+              baseColor: const Color(0xFF161B2E),
+              highlightColor: const Color(0xFF1E2740),
+              child: Container(
+                height: 80,
+                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14)),
+              ),
+            ),
+          )),
+        ],
+      ),
+    );
   }
 }

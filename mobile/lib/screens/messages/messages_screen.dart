@@ -37,10 +37,16 @@ class _MessagesScreenState extends State<MessagesScreen> with SingleTickerProvid
 
   Future<void> _syncGroupChats() async {
     try {
-      final snap = await FirebaseFirestore.instance
-          .collection('projects')
-          .where('members.$_uid.role', whereIn: ['admin', 'member', 'viewer'])
-          .get();
+      final email = FirebaseAuth.instance.currentUser?.email ?? '';
+      final isSuperAdmin = email == 'shivaprakash3115@gmail.com';
+
+      final query = isSuperAdmin
+          ? FirebaseFirestore.instance.collection('projects')
+          : FirebaseFirestore.instance
+                .collection('projects')
+                .where('members.$_uid.role', whereIn: ['admin', 'member', 'viewer']);
+
+      final snap = await query.get();
       final projects = snap.docs.map((d) => {'id': d.id, ...d.data()}).toList();
       await ChatService.syncProjectGroupChats(projects);
     } catch (_) {}

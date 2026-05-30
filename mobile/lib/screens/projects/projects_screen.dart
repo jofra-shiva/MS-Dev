@@ -18,15 +18,19 @@ class ProjectsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     final db = FirebaseFirestore.instance;
-
     final user = FirebaseAuth.instance.currentUser;
+    final email = user?.email ?? '';
+    final isSuperAdmin = email == 'shivaprakash3115@gmail.com';
     final initials = (user?.displayName ?? 'U').isNotEmpty ? (user?.displayName ?? 'U')[0].toUpperCase() : 'U';
+
+    // Super admin sees ALL projects; others see only their own
+    final projectsStream = isSuperAdmin
+        ? db.collection('projects').snapshots()
+        : db.collection('projects').where('members.$uid.role', whereIn: ['admin', 'member', 'viewer']).snapshots();
 
     return Scaffold(
       body: StreamBuilder<QuerySnapshot>(
-        stream: db.collection('projects')
-          .where('members.$uid.role', whereIn: ['admin', 'member', 'viewer'])
-          .snapshots(),
+        stream: projectsStream,
         builder: (context, snap) {
           if (snap.connectionState == ConnectionState.waiting) {
             return _buildShimmer();

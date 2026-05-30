@@ -27,7 +27,7 @@ interface Props {
   project: Project | null;
   onStatusChange: (taskId: string, status: TaskStatus) => void;
   onDeleteTask?: (taskId: string) => void;
-  currentUser?: { uid: string; displayName: string };
+  currentUser?: { uid: string; displayName: string; email?: string };
 }
 
 
