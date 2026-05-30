@@ -12,7 +12,8 @@ export default function VSCodePopup() {
     if (!user) return;
 
     // Check if user is relatively new (created within the last 24 hours)
-    const isNewUser = user.createdAt && (Date.now() - user.createdAt.getTime()) < 1000 * 60 * 60 * 24;
+    const creationTime = user.metadata?.creationTime;
+    const isNewUser = creationTime && (Date.now() - new Date(creationTime).getTime()) < 1000 * 60 * 60 * 24;
     const hasSeenPopup = localStorage.getItem('vscodePopupSeen');
 
     if (isNewUser && !hasSeenPopup) {
