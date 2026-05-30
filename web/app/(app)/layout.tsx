@@ -6,6 +6,7 @@ import { useAuth } from '@/lib/hooks/useAuth';
 import Sidebar from '@/components/ui/Sidebar';
 import Topbar from '@/components/ui/Topbar';
 import { motion } from 'framer-motion';
+import VSCodePopup from '@/components/ui/VSCodePopup';
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -80,6 +81,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         <Topbar onMenuClick={() => setSidebarOpen(v => !v)} />
         <main className="page-content">{children}</main>
       </div>
+      <VSCodePopup />
     </div>
   );
 }

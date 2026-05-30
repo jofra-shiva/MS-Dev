@@ -186,7 +186,7 @@ export default function MessagesPage() {
     return subscribeToUserProjects(user.uid, (projs) => {
       setProjects(projs);
       syncProjectGroupChats(projs).catch(console.error);
-    });
+    }, user.email);
   }, [user]);
 
   // Load user chats

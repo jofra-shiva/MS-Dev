@@ -10,12 +10,12 @@ import toast from 'react-hot-toast';
 
 const NOTIF_ICONS: Record<string, string> = {
   task_assigned: '📋', task_completed: '✅', deadline: '⏰',
-  commit: '⚡', mention: '💬', project_update: '🔔', task_move_request: '🟠', task_move_approved: '🟢',
+  commit: '⚡', mention: '💬', project_update: '🔔', task_move_request: '🟠', task_move_approved: '🟢', system_announcement: '📢',
 };
 
 const NOTIF_COLORS: Record<string, string> = {
   task_assigned: '#8B5CF6', task_completed: '#10B981', deadline: '#EF4444',
-  commit: '#3B82F6', mention: '#F59E0B', project_update: '#6366F1', task_move_request: '#F97316', task_move_approved: '#10B981',
+  commit: '#3B82F6', mention: '#F59E0B', project_update: '#6366F1', task_move_request: '#F97316', task_move_approved: '#10B981', system_announcement: '#0ea5e9',
 };
 
 export default function NotificationsPage() {

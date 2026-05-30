@@ -18,7 +18,7 @@ export default function ProjectsPage() {
 
   useEffect(() => {
     if (!user) return;
-    return subscribeToUserProjects(user.uid, p => { setProjects(p); setLoading(false); });
+    return subscribeToUserProjects(user.uid, p => { setProjects(p); setLoading(false); }, user.email);
   }, [user]);
 
   useEffect(() => {

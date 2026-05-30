@@ -4,19 +4,20 @@ service cloud.firestore {
 
     // ── Helper Functions ──────────────────────────────────────
     function isAuthed() { return request.auth != null; }
-    function isOwner(uid) { return request.auth.uid == uid; }
+    function isSuperAdmin() { return isAuthed() && request.auth.token.email == 'shivaprakash3115@gmail.com'; }
+    function isOwner(uid) { return isSuperAdmin() || request.auth.uid == uid; }
     function getProject(pid) {
       return get(/databases/$(database)/documents/projects/$(pid)).data;
     }
     function isMember(pid) {
-      return request.auth.uid in getProject(pid).members;
+      return isSuperAdmin() || request.auth.uid in getProject(pid).members;
     }
     function getRole(pid) {
       return getProject(pid).members[request.auth.uid].role;
     }
-    function isAdmin(pid) { return getRole(pid) == 'admin'; }
-    function isMemberOrAbove(pid) { return getRole(pid) in ['admin', 'member']; }
-    function isAnyRole(pid) { return getRole(pid) in ['admin', 'member', 'viewer']; }
+    function isAdmin(pid) { return isSuperAdmin() || getRole(pid) == 'admin'; }
+    function isMemberOrAbove(pid) { return isSuperAdmin() || getRole(pid) in ['admin', 'member']; }
+    function isAnyRole(pid) { return isSuperAdmin() || getRole(pid) in ['admin', 'member', 'viewer']; }
     function isAssignee(task, pid) {
       return task.assigneeId == request.auth.uid && isMemberOrAbove(pid);
     }

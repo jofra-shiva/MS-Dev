@@ -68,7 +68,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
 
   useEffect(() => {
     if (!user) return;
-    const unsub = subscribeToUserProjects(user.uid, setProjects);
+    const unsub = subscribeToUserProjects(user.uid, setProjects, user.email);
     return unsub;
   }, [user]);
 

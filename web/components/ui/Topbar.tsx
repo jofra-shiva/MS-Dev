@@ -169,7 +169,7 @@ export default function Topbar({ onMenuClick }: TopbarProps) {
   useEffect(() => {
     if (!user) return;
     const unsubNotifs = subscribeToNotifications(user.uid, setNotifs as any);
-    const unsubProjects = subscribeToUserProjects(user.uid, setProjects);
+    const unsubProjects = subscribeToUserProjects(user.uid, setProjects, user.email);
     let unsubInvites: any = () => {};
     if (user.email) {
       unsubInvites = subscribeToMyInvitations(user.email.toLowerCase(), setInvitations);

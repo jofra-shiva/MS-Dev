@@ -73,7 +73,8 @@ export default function KanbanBoard({ tasks, projectId, project, onStatusChange,
     if (!newStatus) return;
 
     // Check Authorization
-    const isAdmin = project?.members?.[currentUser?.uid || '']?.role === 'admin';
+    const isSuperAdmin = currentUser?.email === 'shivaprakash3115@gmail.com';
+    const isAdmin = isSuperAdmin || project?.members?.[currentUser?.uid || '']?.role === 'admin';
     const isAssignee = task.assigneeId === currentUser?.uid;
     const isApproved = task.approvedMovers?.includes(currentUser?.uid || '');
     

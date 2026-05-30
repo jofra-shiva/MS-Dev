@@ -30,7 +30,8 @@ export type NotificationType =
   | 'project_request'
   | 'meeting_started'
   | 'task_move_request'
-  | 'task_move_approved';
+  | 'task_move_approved'
+  | 'system_announcement';
 
 // ─────────────────────────────────────────────
 // User
