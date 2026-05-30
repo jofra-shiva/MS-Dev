@@ -11,6 +11,7 @@ export class SidebarWebviewProvider implements vscode.WebviewViewProvider {
   private _isLoggedIn = false;
   private _user: any = null;
   private _unreadCount = 0;
+  private _isReady = false;
 
   constructor(private readonly _extensionUri: vscode.Uri) {}
 
@@ -24,7 +25,7 @@ export class SidebarWebviewProvider implements vscode.WebviewViewProvider {
     webviewView.webview.options = {
       enableScripts: true,
       localResourceRoots: [
-        vscode.Uri.file(path.join(this._extensionUri.fsPath, 'media')),
+        vscode.Uri.joinPath(this._extensionUri, 'media'),
       ],
     };
 
@@ -32,6 +33,12 @@ export class SidebarWebviewProvider implements vscode.WebviewViewProvider {
 
     webviewView.webview.onDidReceiveMessage(async (msg) => {
       switch (msg.command) {
+        
+        case 'ready': {
+          this._isReady = true;
+          this._refresh();
+          break;
+        }
 
         case 'openGlobalDashboard': {
           vscode.commands.executeCommand('msdev.openGlobalDashboard');
@@ -135,7 +142,7 @@ export class SidebarWebviewProvider implements vscode.WebviewViewProvider {
   }
 
   private _refresh() {
-    if (!this._view) { return; }
+    if (!this._view || !this._isReady) { return; }
     this._view.webview.postMessage({
       command: 'update',
       isLoggedIn: this._isLoggedIn,
@@ -157,7 +164,7 @@ export class SidebarWebviewProvider implements vscode.WebviewViewProvider {
   private _getHtml(webview: vscode.Webview): string {
     const nonce = getNonce();
     const logoUri = webview.asWebviewUri(
-      vscode.Uri.file(path.join(this._extensionUri.fsPath, 'media', 'logo.png'))
+      vscode.Uri.joinPath(this._extensionUri, 'media', 'logo.png')
     );
 
     return /* html */`<!DOCTYPE html>
@@ -382,6 +389,7 @@ window.addEventListener('message', function(e) {
 });
 
 render();
+vscode.postMessage({ command: 'ready' });
 </script>
 </body>
 </html>`;

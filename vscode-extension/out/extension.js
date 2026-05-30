@@ -56,7 +56,7 @@ async function activate(context) {
     // ─── Auth Manager ────────────────────────────────────────────────────────
     const authManager = new AuthManager_1.AuthManager(context);
     // ─── Sidebar Webview Provider ─────────────────────────────────────────────
-    const sidebarProvider = new SidebarWebviewProvider_1.SidebarWebviewProvider(vscode.Uri.file(context.extensionPath));
+    const sidebarProvider = new SidebarWebviewProvider_1.SidebarWebviewProvider(context.extensionUri);
     context.subscriptions.push(vscode.window.registerWebviewViewProvider(SidebarWebviewProvider_1.SidebarWebviewProvider.viewId, sidebarProvider, {
         webviewOptions: { retainContextWhenHidden: true },
     }));
@@ -96,12 +96,9 @@ async function activate(context) {
         }
     });
     // ─── Restore session silently ─────────────────────────────────────────────
-    try {
-        await authManager.restoreSession();
-    }
-    catch {
-        // Firebase config not set yet — that's OK
-    }
+    authManager.restoreSession().catch(err => {
+        console.warn('[MSDEV] Failed to restore session:', err);
+    });
     // ─── Register Commands ───────────────────────────────────────────────────
     context.subscriptions.push(vscode.commands.registerCommand('msdev.login', async () => {
         await authManager.loginWithEmail();

@@ -1,7 +1,7 @@
-src/**
+src/**/*.ts
+src/**/*.tsx
 .vscode/**
 *.vsix
 *.map
 .gitignore
 tsconfig.json
-node_modules/**

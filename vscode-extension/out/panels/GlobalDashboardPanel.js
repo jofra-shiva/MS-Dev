@@ -59,6 +59,7 @@ class GlobalDashboardPanel {
         this._disposables = [];
         this._projects = [];
         this._tasks = [];
+        this._isReady = false;
         this._panel = panel;
         this._extensionPath = extensionPath;
         this._user = user;
@@ -84,6 +85,8 @@ class GlobalDashboardPanel {
         }
     }
     _pushAll() {
+        if (!this._isReady)
+            return;
         this._panel.webview.postMessage({
             command: 'updateAll',
             projects: this._projects,
@@ -98,6 +101,11 @@ class GlobalDashboardPanel {
     }
     async _handleMessage(msg) {
         switch (msg.command) {
+            case 'ready': {
+                this._isReady = true;
+                this._pushAll();
+                break;
+            }
             case 'openProject': {
                 const p = this._projects.find(p => p.id === msg.projectId);
                 if (p) {

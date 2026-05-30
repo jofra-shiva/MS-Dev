@@ -110,6 +110,30 @@ export default function DashboardPage() {
         </button>
       </motion.div>
 
+      {/* Promotional Banner for VS Code Extension */}
+      <motion.div
+        initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.1 }}
+        style={{
+          padding: '16px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(6, 182, 212, 0.1) 100%)',
+          border: '1px solid rgba(16, 185, 129, 0.2)',
+          borderRadius: 16, boxShadow: '0 4px 20px rgba(0,0,0,0.02)'
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+          <div style={{ fontSize: 28, filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.1))' }}>🚀</div>
+          <div>
+            <h3 style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-1)', margin: '0 0 4px 0' }}>New to coding? Supercharge your workflow!</h3>
+            <p style={{ fontSize: 14, color: 'var(--text-2)', margin: 0, lineHeight: 1.5 }}>
+              Naanga pudhusa code pandravangalukkagave oru VS Code Extension create pannirukom. Try it out now!
+            </p>
+          </div>
+        </div>
+        <a href="vscode:extension/jofra-shiva.ms-dev" className="btn btn-primary shadow-lg" style={{ padding: '10px 20px', borderRadius: 10, fontSize: 14, fontWeight: 700, textDecoration: 'none', background: 'var(--accent)', color: '#fff', border: 'none' }}>
+          Get Extension
+        </a>
+      </motion.div>
+
       {/* Main Grid Layout (Row-based for equal heights) */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
 

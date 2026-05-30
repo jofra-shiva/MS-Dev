@@ -20,6 +20,7 @@ export class GlobalDashboardPanel {
   private _projects: Project[] = [];
   private _tasks: Task[] = [];
   private _unsubTasks?: Unsubscribe;
+  private _isReady: boolean = false;
 
   public static createOrShow(extensionPath: string, user: User) {
     const column = vscode.window.activeTextEditor
@@ -76,6 +77,7 @@ export class GlobalDashboardPanel {
   }
 
   private _pushAll() {
+    if (!this._isReady) return;
     this._panel.webview.postMessage({
       command: 'updateAll',
       projects: this._projects,
@@ -91,6 +93,11 @@ export class GlobalDashboardPanel {
 
   private async _handleMessage(msg: any) {
     switch (msg.command) {
+      case 'ready': {
+        this._isReady = true;
+        this._pushAll();
+        break;
+      }
       case 'openProject': {
         const p = this._projects.find(p => p.id === msg.projectId);
         if (p) {

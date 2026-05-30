@@ -434,6 +434,8 @@ function submitCreateProject() {
   btn.disabled = true;
   btn.textContent = 'Creating...';
 }
+
+vscode.postMessage({ command: 'ready' });
 </script>
 </body>
 </html>

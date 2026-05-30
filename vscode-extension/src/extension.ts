@@ -32,7 +32,7 @@ export async function activate(context: vscode.ExtensionContext) {
   const authManager = new AuthManager(context);
 
   // ─── Sidebar Webview Provider ─────────────────────────────────────────────
-  const sidebarProvider = new SidebarWebviewProvider(vscode.Uri.file(context.extensionPath));
+  const sidebarProvider = new SidebarWebviewProvider(context.extensionUri);
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider(SidebarWebviewProvider.viewId, sidebarProvider, {
       webviewOptions: { retainContextWhenHidden: true },
@@ -77,11 +77,9 @@ export async function activate(context: vscode.ExtensionContext) {
   });
 
   // ─── Restore session silently ─────────────────────────────────────────────
-  try {
-    await authManager.restoreSession();
-  } catch {
-    // Firebase config not set yet — that's OK
-  }
+  authManager.restoreSession().catch(err => {
+    console.warn('[MSDEV] Failed to restore session:', err);
+  });
 
   // ─── Register Commands ───────────────────────────────────────────────────
 

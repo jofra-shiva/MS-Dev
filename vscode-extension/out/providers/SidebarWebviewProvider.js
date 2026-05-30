@@ -35,7 +35,6 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.SidebarWebviewProvider = void 0;
 const vscode = __importStar(require("vscode"));
-const path = __importStar(require("path"));
 class SidebarWebviewProvider {
     constructor(_extensionUri) {
         this._extensionUri = _extensionUri;
@@ -44,18 +43,24 @@ class SidebarWebviewProvider {
         this._isLoggedIn = false;
         this._user = null;
         this._unreadCount = 0;
+        this._isReady = false;
     }
     resolveWebviewView(webviewView, _context, _token) {
         this._view = webviewView;
         webviewView.webview.options = {
             enableScripts: true,
             localResourceRoots: [
-                vscode.Uri.file(path.join(this._extensionUri.fsPath, 'media')),
+                vscode.Uri.joinPath(this._extensionUri, 'media'),
             ],
         };
         webviewView.webview.html = this._getHtml(webviewView.webview);
         webviewView.webview.onDidReceiveMessage(async (msg) => {
             switch (msg.command) {
+                case 'ready': {
+                    this._isReady = true;
+                    this._refresh();
+                    break;
+                }
                 case 'openGlobalDashboard': {
                     vscode.commands.executeCommand('msdev.openGlobalDashboard');
                     break;
@@ -147,7 +152,7 @@ class SidebarWebviewProvider {
         return 'https://msdev-eight.vercel.app';
     }
     _refresh() {
-        if (!this._view) {
+        if (!this._view || !this._isReady) {
             return;
         }
         this._view.webview.postMessage({
@@ -169,7 +174,7 @@ class SidebarWebviewProvider {
     }
     _getHtml(webview) {
         const nonce = getNonce();
-        const logoUri = webview.asWebviewUri(vscode.Uri.file(path.join(this._extensionUri.fsPath, 'media', 'logo.png')));
+        const logoUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'media', 'logo.png'));
         return /* html */ `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -392,6 +397,7 @@ window.addEventListener('message', function(e) {
 });
 
 render();
+vscode.postMessage({ command: 'ready' });
 </script>
 </body>
 </html>`;

@@ -63,6 +63,7 @@ class ProjectDashboardPanel {
         this._tasks = [];
         this._activity = [];
         this._meetings = [];
+        this._isReady = false;
         this._panel = panel;
         this._extensionPath = extensionPath;
         this._project = project;
@@ -75,9 +76,10 @@ class ProjectDashboardPanel {
     async _render() {
         this._panel.title = `📊 ${this._project.name}`;
         this._panel.webview.html = this._getHtmlContent();
-        setTimeout(() => this._pushAll(), 400);
     }
     _pushAll() {
+        if (!this._isReady)
+            return;
         this._panel.webview.postMessage({
             command: 'updateAll',
             project: this._serializeProject(this._project),
@@ -114,6 +116,11 @@ class ProjectDashboardPanel {
     }
     async _handleMessage(msg) {
         switch (msg.command) {
+            case 'ready': {
+                this._isReady = true;
+                this._pushAll();
+                break;
+            }
             // ── Update task status (drag-and-drop or status select) ──────────────────
             case 'updateStatus': {
                 if (!msg.taskId || !msg.status)

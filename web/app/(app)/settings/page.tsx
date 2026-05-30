@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
+import Select from '@/components/ui/Select';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
@@ -13,7 +14,8 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
-  const [isEditing, setIsEditing] = useState(false);
+  const [isProfileEditing, setIsProfileEditing] = useState(false);
+  const [isGithubEditing, setIsGithubEditing] = useState(false);
 
   // Security / password state
   const [newPassword, setNewPassword] = useState('');
@@ -29,6 +31,7 @@ export default function SettingsPage() {
     pushNotifications: false,
     theme: 'dark'
   });
+  const [initialData, setInitialData] = useState(formData);
 
   useEffect(() => {
     async function loadProfile() {
@@ -36,36 +39,48 @@ export default function SettingsPage() {
       try {
         const docRef = doc(db, 'users', user.uid);
         const snap = await getDoc(docRef);
+        
+        let fetchedData: any = {};
         if (snap.exists()) {
-          const data = snap.data();
-          setFormData(prev => ({
-            ...prev,
-            displayName: user.displayName || data.displayName || '',
-            email: user.email || data.email || '',
-            githubUsername: data.githubUsername || '',
-            role: data.role || 'developer',
-            bio: data.bio || '',
-            emailNotifications: data.emailNotifications ?? true,
-            pushNotifications: data.pushNotifications ?? false,
-            theme: data.theme || 'system',
-          }));
-          
-          if (data.theme && (data.theme === 'dark' || data.theme === 'light')) {
-            document.documentElement.setAttribute('data-theme', data.theme);
-            localStorage.setItem('theme', data.theme);
+          fetchedData = snap.data();
+          if (fetchedData.theme && (fetchedData.theme === 'dark' || fetchedData.theme === 'light')) {
+            document.documentElement.setAttribute('data-theme', fetchedData.theme);
+            localStorage.setItem('theme', fetchedData.theme);
           } else {
             document.documentElement.removeAttribute('data-theme');
             localStorage.setItem('theme', 'system');
           }
-        } else {
-          setFormData(prev => ({
-            ...prev,
-            displayName: user.displayName || '',
-            email: user.email || ''
-          }));
         }
+        
+        setFormData(prev => {
+          const defaultName = user.displayName || fetchedData.displayName || (user.email ? user.email.split('@')[0] : '') || '';
+          const newData = {
+            ...prev,
+            displayName: defaultName,
+            email: user.email || fetchedData.email || '',
+            githubUsername: fetchedData.githubUsername || '',
+            role: fetchedData.role || 'developer',
+            bio: fetchedData.bio || '',
+            emailNotifications: fetchedData.emailNotifications ?? true,
+            pushNotifications: fetchedData.pushNotifications ?? false,
+            theme: fetchedData.theme || 'system',
+          };
+          setInitialData(newData);
+          return newData;
+        });
+
       } catch (err) {
         console.error("Error loading profile", err);
+        setFormData(prev => {
+          const defaultName = user.displayName || (user.email ? user.email.split('@')[0] : '') || '';
+          const newData = {
+            ...prev,
+            displayName: defaultName,
+            email: user.email || ''
+          };
+          setInitialData(newData);
+          return newData;
+        });
       } finally {
         setLoading(false);
       }
@@ -80,6 +95,7 @@ export default function SettingsPage() {
     try {
       const docRef = doc(db, 'users', user.uid);
       await updateDoc(docRef, {
+        displayName: formData.displayName,
         githubUsername: formData.githubUsername,
         role: formData.role,
         bio: formData.bio,
@@ -88,9 +104,11 @@ export default function SettingsPage() {
         theme: formData.theme,
         updatedAt: new Date()
       });
-      setMessage('Settings saved successfully!');
+      setMessage('Changes saved successfully!');
+      setInitialData(formData);
+      setIsProfileEditing(false);
+      setIsGithubEditing(false);
       setTimeout(() => setMessage(''), 3000);
-      setIsEditing(false);
     } catch (err) {
       console.error(err);
       setMessage('Failed to save settings.');
@@ -121,15 +139,14 @@ export default function SettingsPage() {
     }
   };
 
-  const tabs = [
-    { id: 'profile', label: 'Profile', icon: '👤' },
-    { id: 'connections', label: 'Connections', icon: '🔗' },
-    { id: 'notifications', label: 'Notifications', icon: '🔔' }
-  ];
-
   if (loading) {
     return <div style={{ padding: 40, display: 'flex', justifyContent: 'center' }}><div className="skeleton" style={{ width: 40, height: 40, borderRadius: '50%' }} /></div>;
   }
+
+  const isProfileDirty = formData.displayName !== initialData.displayName;
+  const isGithubDirty = formData.githubUsername !== initialData.githubUsername;
+  const isNotificationsDirty = formData.emailNotifications !== initialData.emailNotifications || formData.pushNotifications !== initialData.pushNotifications;
+  const isThemeDirty = formData.theme !== initialData.theme;
 
   const inputStyle = {
     width: '100%',
@@ -137,8 +154,8 @@ export default function SettingsPage() {
     paddingBottom: 12,
     paddingLeft: 16,
     paddingRight: 16,
-    background: 'rgba(255,255,255,0.03)',
-    border: '1px solid rgba(255,255,255,0.1)',
+    background: 'var(--bg-primary)',
+    border: '1px solid var(--border)',
     borderRadius: 8,
     color: 'var(--text-1)',
     fontSize: 14,
@@ -157,8 +174,7 @@ export default function SettingsPage() {
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
         
-        {/* Content Area */}
-        <div style={{ background: 'var(--bg-elevated)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: 16, padding: 32, display: 'flex', flexDirection: 'column', gap: 48 }}>
+        <div style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 16, padding: 32, display: 'flex', flexDirection: 'column', gap: 48 }}>
           
           {message && (
             <div style={{ padding: '12px 16px', background: message.includes('Failed') ? 'rgba(239, 68, 68, 0.1)' : 'rgba(16, 185, 129, 0.1)', color: message.includes('Failed') ? '#ef4444' : '#10b981', borderRadius: 8, fontSize: 13, fontWeight: 600, border: `1px solid ${message.includes('Failed') ? 'rgba(239, 68, 68, 0.2)' : 'rgba(16, 185, 129, 0.2)'}` }}>
@@ -174,7 +190,6 @@ export default function SettingsPage() {
 
               <div style={{ display: 'flex', alignItems: 'center', gap: 32, padding: '12px 0' }}>
 
-                {/* Inputs */}
                 <div style={{ display: 'flex', flex: 1, gap: 24 }}>
                   <div style={{ flex: 1 }}>
                     <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: 'var(--text-2)', marginBottom: 8 }}>Full Name</label>
@@ -182,8 +197,9 @@ export default function SettingsPage() {
                       type="text" 
                       value={formData.displayName} 
                       onChange={e => setFormData({...formData, displayName: e.target.value})}
-                      disabled={!isEditing} 
-                      style={{ ...inputStyle, opacity: isEditing ? 1 : 0.5, cursor: isEditing ? 'text' : 'not-allowed' }} 
+                      disabled={!isProfileEditing}
+                      placeholder="Enter your full name" 
+                      style={{ ...inputStyle, opacity: isProfileEditing ? 1 : 0.5, cursor: isProfileEditing ? 'text' : 'not-allowed' }} 
                     />
                   </div>
                   
@@ -192,24 +208,24 @@ export default function SettingsPage() {
                     <input 
                       type="email" 
                       value={formData.email} 
-                      disabled={true} 
+                      disabled={true}
+                      placeholder="No email provided" 
                       style={{ ...inputStyle, opacity: 0.5, cursor: 'not-allowed' }} 
                     />
                   </div>
                 </div>
 
-                {/* Actions */}
                 <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end', height: 72, paddingBottom: 2 }}>
-                  {!isEditing ? (
-                    <button className="btn btn-secondary" onClick={() => setIsEditing(true)} style={{ padding: '10px 24px', fontSize: 14, borderRadius: 10, fontWeight: 600 }}>
+                  {!isProfileEditing ? (
+                    <button className="btn btn-secondary" onClick={() => setIsProfileEditing(true)} style={{ padding: '10px 24px', fontSize: 14, borderRadius: 10, fontWeight: 600 }}>
                       Edit Profile
                     </button>
                   ) : (
                     <>
-                      <button className="btn btn-secondary" onClick={() => setIsEditing(false)} style={{ padding: '10px 24px', fontSize: 14, borderRadius: 10, fontWeight: 600 }}>
+                      <button className="btn btn-secondary" onClick={() => { setIsProfileEditing(false); setFormData(prev => ({ ...prev, displayName: initialData.displayName })) }} style={{ padding: '10px 24px', fontSize: 14, borderRadius: 10, fontWeight: 600 }}>
                         Cancel
                       </button>
-                      <button className="btn btn-primary shadow-lg" onClick={handleSave} disabled={saving} style={{ padding: '10px 24px', fontSize: 14, borderRadius: 10, fontWeight: 600 }}>
+                      <button className="btn btn-primary shadow-lg" onClick={handleSave} disabled={saving || !isProfileDirty} style={{ padding: '10px 24px', fontSize: 14, borderRadius: 10, fontWeight: 600, opacity: (saving || !isProfileDirty) ? 0.5 : 1 }}>
                         {saving ? 'Saving...' : 'Save Changes'}
                       </button>
                     </>
@@ -224,7 +240,7 @@ export default function SettingsPage() {
                 <h3 style={{ fontSize: 18, fontWeight: 700, margin: '0 0 4px 0', color: 'var(--text-1)' }}>GitHub Integration</h3>
                 <p style={{ fontSize: 13, color: 'var(--text-3)', marginBottom: 24 }}>Link your GitHub account to enable activity tracking and commit history.</p>
                 
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 16, background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: 12 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 16, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
                     <div style={{ width: 40, height: 40, borderRadius: '50%', background: '#24292e', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}>
                       <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path></svg>
@@ -236,29 +252,28 @@ export default function SettingsPage() {
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
                     <div style={{ width: 260, position: 'relative', display: 'flex', alignItems: 'center' }}>
-                      <span style={{ position: 'absolute', left: 16, color: 'var(--text-3)', fontSize: 14, opacity: isEditing ? 1 : 0.5 }}>github.com/</span>
+                      <span style={{ position: 'absolute', left: 16, color: 'var(--text-3)', fontSize: 14, opacity: isGithubEditing ? 1 : 0.5 }}>github.com/</span>
                       <input 
                         type="text" 
                         value={formData.githubUsername}
                         onChange={e => setFormData({...formData, githubUsername: e.target.value})}
-                        disabled={!isEditing}
-                        style={{ ...inputStyle, paddingLeft: 96, opacity: isEditing ? 1 : 0.5, cursor: isEditing ? 'text' : 'not-allowed' }}
+                        disabled={!isGithubEditing}
                         placeholder="username"
+                        style={{ ...inputStyle, paddingLeft: 96, opacity: isGithubEditing ? 1 : 0.5, cursor: isGithubEditing ? 'text' : 'not-allowed' }}
                       />
                     </div>
                     
-                    {/* Actions */}
                     <div style={{ display: 'flex', gap: 8 }}>
-                      {!isEditing ? (
-                        <button className="btn btn-secondary" onClick={() => setIsEditing(true)} style={{ padding: '10px 16px', fontSize: 13, borderRadius: 8, fontWeight: 600 }}>
+                      {!isGithubEditing ? (
+                        <button className="btn btn-secondary" onClick={() => setIsGithubEditing(true)} style={{ padding: '10px 16px', fontSize: 13, borderRadius: 8, fontWeight: 600 }}>
                           Edit
                         </button>
                       ) : (
                         <>
-                          <button className="btn btn-secondary" onClick={() => setIsEditing(false)} style={{ padding: '10px 16px', fontSize: 13, borderRadius: 8, fontWeight: 600 }}>
+                          <button className="btn btn-secondary" onClick={() => { setIsGithubEditing(false); setFormData(prev => ({ ...prev, githubUsername: initialData.githubUsername })) }} style={{ padding: '10px 16px', fontSize: 13, borderRadius: 8, fontWeight: 600 }}>
                             Cancel
                           </button>
-                          <button className="btn btn-primary shadow-lg" onClick={handleSave} disabled={saving} style={{ padding: '10px 16px', fontSize: 13, borderRadius: 8, fontWeight: 600 }}>
+                          <button className="btn btn-primary shadow-lg" onClick={handleSave} disabled={saving || !isGithubDirty} style={{ padding: '10px 16px', fontSize: 13, borderRadius: 8, fontWeight: 600, opacity: (saving || !isGithubDirty) ? 0.5 : 1 }}>
                             {saving ? '...' : 'Save'}
                           </button>
                         </>
@@ -275,7 +290,7 @@ export default function SettingsPage() {
                 <p style={{ fontSize: 13, color: 'var(--text-3)', margin: 0 }}>Control how you want to be notified about updates.</p>
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 16, background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 16, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 32 }}>
                   <label style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }}>
                     <input type="checkbox" checked={formData.emailNotifications} onChange={e => setFormData({...formData, emailNotifications: e.target.checked})} style={{ width: 18, height: 18, accentColor: 'var(--accent)' }} />
@@ -291,8 +306,8 @@ export default function SettingsPage() {
                 <button 
                   className="btn btn-primary shadow-lg" 
                   onClick={handleSave}
-                  disabled={saving}
-                  style={{ padding: '10px 24px', fontSize: 14, borderRadius: 10, fontWeight: 600, minWidth: 120 }}
+                  disabled={saving || !isNotificationsDirty}
+                  style={{ padding: '10px 24px', fontSize: 14, borderRadius: 10, fontWeight: 600, minWidth: 120, opacity: (saving || !isNotificationsDirty) ? 0.5 : 1 }}
                 >
                   {saving ? 'Saving...' : 'Save Changes'}
                 </button>
@@ -305,16 +320,20 @@ export default function SettingsPage() {
                 <p style={{ fontSize: 13, color: 'var(--text-3)', margin: 0 }}>Customize the look and feel of the application.</p>
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 16, background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 16, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
                   <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-1)' }}>Theme Preference</div>
                 </div>
                 
                 <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-                  <select
+                  <Select
+                    options={[
+                      { value: 'system', label: 'System Preference' },
+                      { value: 'dark', label: 'Dark Mode' },
+                      { value: 'light', label: 'Light Mode' }
+                    ]}
                     value={formData.theme}
-                    onChange={(e) => {
-                      const t = e.target.value;
+                    onChange={(t) => {
                       setFormData({...formData, theme: t});
                       localStorage.setItem('theme', t);
                       if (t === 'dark' || t === 'light') {
@@ -323,18 +342,13 @@ export default function SettingsPage() {
                         document.documentElement.removeAttribute('data-theme');
                       }
                     }}
-                    style={{ padding: '10px 14px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-elevated)', color: 'var(--text-1)', fontSize: 13, outline: 'none', width: 200, cursor: 'pointer' }}
-                  >
-                    <option value="system">System Preference</option>
-                    <option value="dark">Dark Mode</option>
-                    <option value="light">Light Mode</option>
-                  </select>
+                  />
                   
                   <button 
                     className="btn btn-primary shadow-lg" 
                     onClick={handleSave}
-                    disabled={saving}
-                    style={{ padding: '10px 24px', fontSize: 14, borderRadius: 10, fontWeight: 600 }}
+                    disabled={saving || !isThemeDirty}
+                    style={{ padding: '10px 24px', fontSize: 14, borderRadius: 10, fontWeight: 600, opacity: (saving || !isThemeDirty) ? 0.5 : 1 }}
                   >
                     {saving ? 'Saving...' : 'Save Changes'}
                   </button>
@@ -348,7 +362,7 @@ export default function SettingsPage() {
                 <p style={{ fontSize: 13, color: 'var(--text-3)', margin: 0 }}>Set or change your account password for VS Code extension sign-in.</p>
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 20, background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 20, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12 }}>
                 <div style={{ flex: 1, marginRight: 24 }}>
                   <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-1)', marginBottom: 6 }}>Set / Change Password</div>
                   <div style={{ fontSize: 12, color: 'var(--text-3)' }}>Set a password so you can log in with Email &amp; Password in the VS Code extension.</div>
@@ -365,8 +379,8 @@ export default function SettingsPage() {
                   <button
                     className="btn btn-primary"
                     onClick={handlePasswordChange}
-                    disabled={changingPassword}
-                    style={{ padding: '10px 20px', fontSize: 13, borderRadius: 8, fontWeight: 600, whiteSpace: 'nowrap' }}
+                    disabled={changingPassword || newPassword.length < 6}
+                    style={{ padding: '10px 20px', fontSize: 13, borderRadius: 8, fontWeight: 600, whiteSpace: 'nowrap', opacity: (changingPassword || newPassword.length < 6) ? 0.5 : 1 }}
                   >
                     {changingPassword ? 'Saving…' : 'Set Password'}
                   </button>

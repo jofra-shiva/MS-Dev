@@ -28,6 +28,7 @@ export class ProjectDashboardPanel {
   private _unsubTasks?: Unsubscribe;
   private _unsubActivity?: Unsubscribe;
   private _unsubMeetings?: Unsubscribe;
+  private _isReady: boolean = false;
 
   public static createOrShow(extensionPath: string, project: Project, user: User) {
     const column = vscode.window.activeTextEditor
@@ -70,10 +71,10 @@ export class ProjectDashboardPanel {
   private async _render() {
     this._panel.title = `📊 ${this._project.name}`;
     this._panel.webview.html = this._getHtmlContent();
-    setTimeout(() => this._pushAll(), 400);
   }
 
   private _pushAll() {
+    if (!this._isReady) return;
     this._panel.webview.postMessage({
       command: 'updateAll',
       project: this._serializeProject(this._project),
@@ -116,6 +117,12 @@ export class ProjectDashboardPanel {
 
   private async _handleMessage(msg: any) {
     switch (msg.command) {
+      
+      case 'ready': {
+        this._isReady = true;
+        this._pushAll();
+        break;
+      }
 
       // ── Update task status (drag-and-drop or status select) ──────────────────
       case 'updateStatus': {
